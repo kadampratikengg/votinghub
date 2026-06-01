@@ -8,8 +8,11 @@ const User = require('../models/User');
 const SubUser = require('../models/SubUser');
 const {
   activatePendingFreeCredits,
+  createSubscriptionHistoryRecord,
   FREE_CREDIT_AMOUNT,
   FREE_CREDIT_DELAY_HOURS,
+  getActiveRemainingCredits,
+  normalizeUserSubscriptionForExpiry,
 } = require('../utils/subscription');
 const { transporter } = require('../utils/nodemailer');
 const { authenticateToken } = require('../middleware/auth');
@@ -78,6 +81,7 @@ router.post('/login', async (req, res) => {
       );
 
       await activatePendingFreeCredits(user);
+      await normalizeUserSubscriptionForExpiry(user);
 
       const availableVotingCredits = user.subscription?.votingCredits || 0;
       const isValidSubscription =
@@ -123,6 +127,8 @@ router.post('/login', async (req, res) => {
     if (!parentUser) {
       return res.status(404).json({ message: 'Parent user not found' });
     }
+    await activatePendingFreeCredits(parentUser);
+    await normalizeUserSubscriptionForExpiry(parentUser);
 
     const token = jwt.sign(
       {
@@ -344,41 +350,35 @@ router.post('/verify-payment', express.json(), async (req, res) => {
       votingCredits,
     });
 
-    // Move current subscription to history if it exists and is valid
-    if (user.subscription && user.subscription.isValid) {
+    const today = new Date();
+    const remainingCredits = getActiveRemainingCredits(
+      user.subscription,
+      today,
+    );
+
+    // Move current subscription to history and drop expired remaining credits.
+    if (user.subscription?.orderId || user.subscription?.planDuration) {
       user.subscriptionHistory = user.subscriptionHistory || [];
-      user.subscriptionHistory.push({
-        planDuration: user.subscription.planDuration,
-        startDate: user.subscription.startDate,
-        endDate: user.subscription.endDate,
-        isValid: user.subscription.isValid,
-        amount: user.subscription.amount,
-        paymentId: user.subscription.paymentId,
-        orderId: user.subscription.orderId,
-        votingCredits: user.subscription.votingCredits || 0,
-        usedVotingCredits: user.subscription.usedVotingCredits || 0,
-        mrp: user.subscription.mrp,
-        discount: user.subscription.discount,
-        gst: user.subscription.gst,
-      });
+      user.subscriptionHistory.push(
+        createSubscriptionHistoryRecord(user.subscription, today),
+      );
     }
 
-    const today = new Date();
     const startDate = today;
     const subscriptionEndDate = new Date(startDate);
     subscriptionEndDate.setDate(
       subscriptionEndDate.getDate() + Number(validityDays ?? 0),
     );
 
-    // Update subscription: add purchased credits to existing credits
+    // Update subscription: carry forward only unexpired credits.
     user.subscription = {
       planDuration,
       startDate,
       endDate: subscriptionEndDate,
       isValid: true,
-      votingCredits:
-        (user.subscription?.votingCredits || 0) + parsedVotingCredits,
-      usedVotingCredits: user.subscription?.usedVotingCredits || 0,
+      votingCredits: remainingCredits + parsedVotingCredits,
+      usedVotingCredits:
+        remainingCredits > 0 ? user.subscription?.usedVotingCredits || 0 : 0,
       mrp,
       discount,
       gst,

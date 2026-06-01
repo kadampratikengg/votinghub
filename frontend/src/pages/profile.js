@@ -80,13 +80,22 @@ const Profile = ({ setIsAuthenticated }) => {
     return `${day}-${month}-${year}`;
   };
 
-  const getSubscriptionStatus = (sub, isCurrentSubscription = false) => {
+  const isExpiredByDate = (date) => {
+    if (!date) return false;
+    const endDate = new Date(date);
+    if (Number.isNaN(endDate.getTime())) return false;
+    endDate.setHours(0, 0, 0, 0);
+
     const today = new Date();
-    const endDate = new Date(sub.endDate);
-    if (isCurrentSubscription && endDate >= today) {
+    today.setHours(0, 0, 0, 0);
+    return endDate <= today;
+  };
+
+  const getSubscriptionStatus = (sub, isCurrentSubscription = false) => {
+    if (isCurrentSubscription && !isExpiredByDate(sub.endDate)) {
       return 'Active until';
     }
-    return endDate >= today ? 'Active' : 'Expired';
+    return isExpiredByDate(sub.endDate) ? 'Expired' : 'Active';
   };
 
   const formatAmount = (amount) => {
@@ -331,7 +340,8 @@ const Profile = ({ setIsAuthenticated }) => {
       ? `Free credits will activate on ${formatDate(currentSubscription.activationDate)}`
       : '';
   const allSubscriptions = [
-    ...(userData.subscription && userData.subscription.isValid
+    ...(userData.subscription &&
+    (userData.subscription.orderId || userData.subscription.planDuration)
       ? [userData.subscription]
       : []),
     ...(userData.subscriptionHistory || []),
@@ -680,7 +690,7 @@ const Profile = ({ setIsAuthenticated }) => {
                     <span>{sub.planDuration || 'Subscription'}</span>
                     <strong
                       className={
-                        new Date(sub.endDate) >= new Date()
+                        !isExpiredByDate(sub.endDate)
                           ? 'is-active'
                           : 'is-expired'
                       }

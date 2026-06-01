@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import './Workspace.css';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
@@ -19,6 +19,7 @@ import {
 } from 'react-icons/fi';
 const Dashboard = ({ setIsAuthenticated, name }) => {
   const [fileData, setFileData] = useState([]);
+  const [candidateSearch, setCandidateSearch] = useState('');
   const [checkedRows, setCheckedRows] = useState([]);
   const [fileName, setFileName] = useState('');
   const [showEventForm, setShowEventForm] = useState(false);
@@ -87,11 +88,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     if (!file) return;
     try {
       const token = localStorage.getItem('token');
-      const res = await uploadFileToS3(
-        file,
-        token,
-        'voting-candidate-images',
-      );
+      const res = await uploadFileToS3(file, token, 'voting-candidate-images');
       setCandidateImages((prevImages) => ({
         ...prevImages,
         [index]: {
@@ -304,6 +301,50 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       }
       setSelectedData(updatedCheckedRows.map((rowIndex) => fileData[rowIndex]));
       return updatedCheckedRows;
+    });
+  };
+
+  const filteredFileData = useMemo(() => {
+    if (!candidateSearch || candidateSearch.trim() === '') return fileData;
+    const q = candidateSearch.trim().toLowerCase();
+    return fileData.filter((row) =>
+      Object.values(row)
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(q)),
+    );
+  }, [fileData, candidateSearch]);
+
+  const findFileIndexForRow = (row) => {
+    return fileData.findIndex(
+      (fd) => JSON.stringify(fd) === JSON.stringify(row),
+    );
+  };
+
+  const removeSelectedAt = (selIndex) => {
+    const row = selectedData[selIndex];
+    const fileIndex = findFileIndexForRow(row);
+    setCheckedRows((prev) => prev.filter((i) => i !== fileIndex));
+    setSelectedData((prev) => {
+      const copy = [...prev];
+      copy.splice(selIndex, 1);
+      return copy;
+    });
+  };
+
+  const moveSelected = (selIndex, dir) => {
+    setSelectedData((prev) => {
+      const copy = [...prev];
+      const newIndex = selIndex + dir;
+      if (newIndex < 0 || newIndex >= copy.length) return prev;
+      const [item] = copy.splice(selIndex, 1);
+      copy.splice(newIndex, 0, item);
+
+      // sync checkedRows order to match selectedData order
+      const newChecked = copy
+        .map((r) => findFileIndexForRow(r))
+        .filter((i) => i >= 0);
+      setCheckedRows(newChecked);
+      return copy;
     });
   };
 
@@ -524,13 +565,13 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
               images, and publish secure voting links.
             </p>
           </div>
-          <button
+          {/* <button
             className='work-button work-button--light'
             onClick={handleCreateEvent}
             disabled={availableCredits <= 0}
           >
             <FiPlus /> {availableCredits > 0 ? 'Create Voting' : 'Buy Credits'}
-          </button>
+          </button> */}
         </section>
 
         <section className='work-stats-grid'>
@@ -564,13 +605,13 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                 <span className='work-kicker'>Configured</span>
                 <h2>Voting Events</h2>
               </div>
-              <button
+              {/* <button
                 className='work-button work-button--primary'
                 onClick={handleCreateEvent}
                 disabled={availableCredits <= 0}
               >
                 <FiPlus /> {availableCredits > 0 ? 'New Voting' : 'Buy Credits'}
-              </button>
+              </button> */}
             </div>
 
             <div className='work-card-list'>
@@ -732,77 +773,108 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                       <span className='work-kicker'>Candidates</span>
                       <h2>Selected Candidates</h2>
                     </div>
+                    <div style={{ margin: '8px 0 12px' }}>
+                      <input
+                        type='text'
+                        placeholder='Search by Id Number, Name, etc...'
+                        value={candidateSearch}
+                        onChange={(e) => setCandidateSearch(e.target.value)}
+                        style={{
+                          padding: '6px 8px',
+                          width: '100%',
+                          maxWidth: 420,
+                        }}
+                      />
+                    </div>
                     <table className='work-table'>
                       <thead>
                         <tr>
-                          {Object.keys(fileData[0]).map((key) => (
-                            <th key={key}>{key}</th>
-                          ))}
-                          <th>Image</th>
+                          <th>Sr.No</th>
                           <th>Select</th>
+                          <th>Id Number</th>
+                          <th>Name</th>
+                          <th>Image</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {fileData.map((data, index) => (
-                          <tr key={index}>
-                            {Object.values(data).map((value, i) => (
-                              <td key={i}>{value}</td>
-                            ))}
-                            <td>
-                              <div className='work-image-upload-cell'>
-                                {checkedRows.includes(index) ? (
-                                  <input
-                                    type='file'
-                                    accept='image/*'
-                                    onClick={(e) => {
-                                      e.currentTarget.value = '';
-                                    }}
-                                    onChange={async (e) => {
-                                      const file =
-                                        e.target.files && e.target.files[0];
-                                      if (!file) return;
-                                      await handleImageUpload(index, file);
-                                    }}
-                                  />
-                                ) : (
-                                  <span className='work-image-upload-placeholder'>
-                                    Select candidate first
-                                  </span>
-                                )}
-                                {checkedRows.includes(index) &&
-                                  candidateImages[index] && (
-                                  <div className='work-image-preview'>
-                                    <img
-                                      src={
-                                        candidateImages[index].url
-                                          ? candidateImages[index].url
-                                          : s3BucketUrl &&
-                                              candidateImages[index].uuid
-                                            ? `${s3BucketUrl}/${candidateImages[index].uuid}`
-                                            : candidateImages[index].cdnUrl
-                                      }
-                                      alt={`Candidate ${index}`}
+                        {filteredFileData.map((data, idx) => {
+                          const fileIndex = fileData.findIndex(
+                            (fd) => JSON.stringify(fd) === JSON.stringify(data),
+                          );
+                          const checked =
+                            fileIndex >= 0 && checkedRows.includes(fileIndex);
+                          const idNumber =
+                            data['Id Number'] || data.id || data.ID || '';
+                          const name = data.Name || data.name || '';
+
+                          return (
+                            <tr key={idx}>
+                              <td>{idx + 1}</td>
+                              <td>
+                                <input
+                                  type='checkbox'
+                                  checked={checked}
+                                  onChange={() =>
+                                    handleCheckboxChange(fileIndex)
+                                  }
+                                />
+                              </td>
+                              <td>{idNumber}</td>
+                              <td>{name}</td>
+                              <td>
+                                <div className='work-image-upload-cell'>
+                                  {checked ? (
+                                    <input
+                                      type='file'
+                                      accept='image/*'
+                                      onClick={(e) => {
+                                        e.currentTarget.value = '';
+                                      }}
+                                      onChange={async (e) => {
+                                        const file =
+                                          e.target.files && e.target.files[0];
+                                        if (!file) return;
+                                        await handleImageUpload(
+                                          fileIndex,
+                                          file,
+                                        );
+                                      }}
                                     />
-                                    <button
-                                      type='button'
-                                      className='work-button work-button--danger work-button--small'
-                                      onClick={() => handleClearImage(index)}
-                                    >
-                                      <FiImage /> Clear
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-                            <td>
-                              <input
-                                type='checkbox'
-                                checked={checkedRows.includes(index)}
-                                onChange={() => handleCheckboxChange(index)}
-                              />
-                            </td>
-                          </tr>
-                        ))}
+                                  ) : (
+                                    <span className='work-image-upload-placeholder'>
+                                      Select candidate first
+                                    </span>
+                                  )}
+                                  {checked && candidateImages[fileIndex] && (
+                                    <div className='work-image-preview'>
+                                      <img
+                                        src={
+                                          candidateImages[fileIndex].url
+                                            ? candidateImages[fileIndex].url
+                                            : s3BucketUrl &&
+                                                candidateImages[fileIndex].uuid
+                                              ? `${s3BucketUrl}/${candidateImages[fileIndex].uuid}`
+                                              : candidateImages[fileIndex]
+                                                  .cdnUrl
+                                        }
+                                        alt={`Candidate ${fileIndex}`}
+                                      />
+                                      <button
+                                        type='button'
+                                        className='work-button work-button--danger work-button--small'
+                                        onClick={() =>
+                                          handleClearImage(fileIndex)
+                                        }
+                                      >
+                                        <FiImage /> Clear
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

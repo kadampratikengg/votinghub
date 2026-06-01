@@ -8,6 +8,10 @@ const Vote = require('../models/Vote');
 const User = require('../models/User');
 const SubUser = require('../models/SubUser');
 const { authenticateToken } = require('../middleware/auth');
+const {
+  getActiveRemainingCredits,
+  normalizeSubscriptionForExpiry,
+} = require('../utils/subscription');
 const router = express.Router();
 const upload = multer();
 
@@ -506,7 +510,17 @@ router.post(
       const user = await User.findById(req.user.userId);
       if (!user) return res.status(404).json({ message: 'User not found' });
 
-      const availableVotingCredits = user.subscription?.votingCredits || 0;
+      const subscriptionExpired = normalizeSubscriptionForExpiry(
+        user.subscription,
+        new Date(),
+      );
+      if (subscriptionExpired) {
+        await user.save();
+      }
+
+      const availableVotingCredits = getActiveRemainingCredits(
+        user.subscription,
+      );
       if (!user.subscription?.isValid || availableVotingCredits <= 0) {
         return res.status(402).json({
           message:
@@ -910,15 +924,23 @@ router.delete(
       if (shouldRestoreCredit) {
         const user = await User.findById(req.user.userId);
         if (user && user.subscription) {
-          user.subscription.votingCredits =
-            (user.subscription.votingCredits || 0) + 1;
-          user.subscription.usedVotingCredits = Math.max(
-            0,
-            (user.subscription.usedVotingCredits || 0) - 1,
+          const subscriptionExpired = normalizeSubscriptionForExpiry(
+            user.subscription,
+            new Date(),
           );
-          user.subscription.isValid = user.subscription.votingCredits > 0;
-          await user.save();
-          restoredCredit = true;
+          if (subscriptionExpired) {
+            await user.save();
+          } else {
+            user.subscription.votingCredits =
+              (user.subscription.votingCredits || 0) + 1;
+            user.subscription.usedVotingCredits = Math.max(
+              0,
+              (user.subscription.usedVotingCredits || 0) - 1,
+            );
+            user.subscription.isValid = user.subscription.votingCredits > 0;
+            await user.save();
+            restoredCredit = true;
+          }
         }
       }
 

@@ -5,6 +5,11 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const EventHistory = require('../models/EventHistory');
 const { authenticateToken } = require('../middleware/auth');
+const {
+  createSubscriptionHistoryRecord,
+  getActiveRemainingCredits,
+  normalizeSubscriptionForExpiry,
+} = require('../utils/subscription');
 
 const router = express.Router();
 
@@ -25,6 +30,11 @@ const sanitizeUser = (user) => ({
   subscription: user.subscription || {},
   subscriptionHistory: user.subscriptionHistory || [],
 });
+
+const normalizeUserForResponse = (user) => {
+  normalizeSubscriptionForExpiry(user.subscription, new Date());
+  return sanitizeUser(user);
+};
 
 const requireCompanyAdmin = (req, res, next) => {
   if (req.user?.role !== 'company_admin') {
@@ -76,7 +86,7 @@ router.get(
         .sort({ email: 1 })
         .lean();
 
-      res.status(200).json({ users: users.map(sanitizeUser) });
+      res.status(200).json({ users: users.map(normalizeUserForResponse) });
     } catch (error) {
       console.error('Admin users fetch error:', error);
       res.status(500).json({ message: 'Failed to fetch users' });
@@ -173,25 +183,20 @@ router.post(
         return res.status(404).json({ message: 'User not found' });
       }
 
-      if (user.subscription) {
+      const now = new Date();
+      const remainingCredits = getActiveRemainingCredits(
+        user.subscription,
+        now,
+      );
+
+      if (user.subscription?.orderId || user.subscription?.planDuration) {
         user.subscriptionHistory = user.subscriptionHistory || [];
-        user.subscriptionHistory.push({
-          planDuration: user.subscription.planDuration,
-          startDate: user.subscription.startDate,
-          endDate: user.subscription.endDate,
-          isValid: user.subscription.isValid,
-          votingCredits: user.subscription.votingCredits || 0,
-          usedVotingCredits: user.subscription.usedVotingCredits || 0,
-          mrp: user.subscription.mrp,
-          discount: user.subscription.discount,
-          gst: user.subscription.gst,
-          amount: user.subscription.amount,
-          paymentId: user.subscription.paymentId,
-          orderId: user.subscription.orderId,
-        });
+        user.subscriptionHistory.push(
+          createSubscriptionHistoryRecord(user.subscription, now),
+        );
       }
 
-      const startDate = new Date();
+      const startDate = now;
       const endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + validityDays);
       const orderId = `ADMIN_FREE_${Date.now()}_${String(user._id).slice(-6)}`;
@@ -201,8 +206,9 @@ router.post(
         startDate,
         endDate,
         isValid: true,
-        votingCredits: (user.subscription?.votingCredits || 0) + credits,
-        usedVotingCredits: user.subscription?.usedVotingCredits || 0,
+        votingCredits: remainingCredits + credits,
+        usedVotingCredits:
+          remainingCredits > 0 ? user.subscription?.usedVotingCredits || 0 : 0,
         mrp: 0,
         discount: 0,
         gst: 0,
@@ -254,7 +260,9 @@ router.patch(
       }
 
       user.subscription.endDate = parsedEndDate;
-      user.subscription.isValid = parsedEndDate >= new Date();
+      if (!normalizeSubscriptionForExpiry(user.subscription, new Date())) {
+        user.subscription.isValid = true;
+      }
       if (!user.subscription.startDate) {
         user.subscription.startDate = new Date();
       }
@@ -309,7 +317,9 @@ router.patch(
       }
 
       subscription.endDate = parsedEndDate;
-      subscription.isValid = parsedEndDate >= new Date();
+      if (!normalizeSubscriptionForExpiry(subscription, new Date())) {
+        subscription.isValid = true;
+      }
       if (!subscription.startDate) {
         subscription.startDate = new Date();
       }

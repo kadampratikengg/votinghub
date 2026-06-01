@@ -2,7 +2,10 @@ const express = require('express');
 const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { authenticateToken } = require('../middleware/auth');
 const User = require('../models/User');
-const { activatePendingFreeCredits } = require('../utils/subscription');
+const {
+  activatePendingFreeCredits,
+  normalizeUserSubscriptionForExpiry,
+} = require('../utils/subscription');
 const router = express.Router();
 
 // Helper function to generate a unique username
@@ -48,6 +51,7 @@ router.get('/api/users', authenticateToken, async (req, res) => {
     }
 
     await activatePendingFreeCredits(user);
+    await normalizeUserSubscriptionForExpiry(user);
 
     if (!user.username) {
       console.log(
