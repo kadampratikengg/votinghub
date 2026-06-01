@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import React, { useState, useEffect, useMemo } from 'react';
 import './Workspace.css';
 import { useNavigate } from 'react-router-dom';
