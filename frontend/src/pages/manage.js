@@ -770,9 +770,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                       </thead>
                       <tbody>
                         {filteredFileData.map((data, idx) => {
-                          const fileIndex = fileData.findIndex(
-                            (fd) => JSON.stringify(fd) === JSON.stringify(data),
-                          );
+                          const fileIndex = findFileIndexForRow(data);
                           const checked =
                             fileIndex >= 0 && checkedRows.includes(fileIndex);
                           const idNumber =
