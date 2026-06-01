@@ -3,11 +3,21 @@ import './Workspace.css';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import Sidebar from './Sidebar';
-import { FiCalendar, FiCheckSquare, FiDownload, FiEdit3, FiExternalLink, FiFileText, FiImage, FiPlus, FiTrash2, FiTrendingUp, FiUploadCloud } from 'react-icons/fi';
+import {
+  FiCalendar,
+  FiCheckSquare,
+  FiDownload,
+  FiEdit3,
+  FiExternalLink,
+  FiFileText,
+  FiImage,
+  FiPlus,
+  FiTrash2,
+  FiTrendingUp,
+  FiUploadCloud,
+} from 'react-icons/fi';
 
 const Manage = ({ setIsAuthenticated }) => {
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isSidebarMinimized, setIsSidebarMinimized] = useState(true);
   const [activeEvents, setActiveEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -50,7 +60,7 @@ const Manage = ({ setIsAuthenticated }) => {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
           },
         });
         if (!response.ok) {
@@ -90,11 +100,14 @@ const Manage = ({ setIsAuthenticated }) => {
   const handleEditEvent = async (eventId) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/events/${eventId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/events/${eventId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
-      });
+      );
       const event = await response.json();
       if (!response.ok) {
         throw new Error(event.message || 'Failed to fetch event');
@@ -111,11 +124,9 @@ const Manage = ({ setIsAuthenticated }) => {
         event.candidateImages?.map((img) => ({
           candidateIndex: img.candidateIndex,
           dataUrl: `${process.env.REACT_APP_API_URL}${img.imagePath}`,
-        })) || []
+        })) || [],
       );
-      setCheckedRows(
-        event.selectedData?.map((_, index) => index) || []
-      );
+      setCheckedRows(event.selectedData?.map((_, index) => index) || []);
       setShowEventForm(true);
       setEventCreated(false);
     } catch (err) {
@@ -127,12 +138,15 @@ const Manage = ({ setIsAuthenticated }) => {
     if (!window.confirm('Are you sure you want to delete this event?')) return;
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/events/${eventId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/events/${eventId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
-      });
+      );
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.message || 'Failed to delete event');
@@ -190,9 +204,7 @@ const Manage = ({ setIsAuthenticated }) => {
 
   const handleCheckboxChange = (index) => {
     setCheckedRows((prev) =>
-      prev.includes(index)
-        ? prev.filter((i) => i !== index)
-        : [...prev, index]
+      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index],
     );
   };
 
@@ -206,7 +218,10 @@ const Manage = ({ setIsAuthenticated }) => {
       formData.append('stopTime', stopTime);
       formData.append('name', eventName);
       formData.append('description', eventDescription);
-      formData.append('selectedData', JSON.stringify(fileData.filter((_, i) => checkedRows.includes(i))));
+      formData.append(
+        'selectedData',
+        JSON.stringify(fileData.filter((_, i) => checkedRows.includes(i))),
+      );
       formData.append('fileData', JSON.stringify(fileData));
       formData.append('expiry', 60 * 60 * 24); // 24 hours
       const eventId = editingEventId || Date.now().toString();
@@ -217,8 +232,8 @@ const Manage = ({ setIsAuthenticated }) => {
         JSON.stringify(
           candidateImages
             .filter((img) => img)
-            .map((img, i) => ({ candidateIndex: i }))
-        )
+            .map((img, i) => ({ candidateIndex: i })),
+        ),
       );
       candidateImages
         .filter((img) => img && img.file)
@@ -234,7 +249,7 @@ const Manage = ({ setIsAuthenticated }) => {
       const response = await fetch(url, {
         method,
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: formData,
       });
@@ -250,9 +265,9 @@ const Manage = ({ setIsAuthenticated }) => {
       setActiveEvents((prev) =>
         editingEventId
           ? prev.map((event) =>
-              event.id === editingEventId ? { ...event, ...data } : event
+              event.id === editingEventId ? { ...event, ...data } : event,
             )
-          : [...prev, data]
+          : [...prev, data],
       );
     } catch (err) {
       setError(err.message);
@@ -263,95 +278,116 @@ const Manage = ({ setIsAuthenticated }) => {
     navigate(`/results/${eventId}`);
   };
 
-  const toggleDropdown = () => {
-    setIsDropdownOpen((prevState) => !prevState);
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('isAuthenticated');
-    localStorage.removeItem('token');
-    localStorage.removeItem('userId');
-    setIsAuthenticated(false);
-    navigate('/');
-  };
-
-  const handleProfile = () => {
-    navigate('/profile');
-  };
-
-  const handleSettings = () => {
-    navigate('/settings');
-  };
-
-  const toggleSidebar = () => {
-    setIsSidebarMinimized((prevState) => !prevState);
-  };
-
   return (
-    <div className="work-shell">
+    <div className='work-shell'>
       <Sidebar setIsAuthenticated={setIsAuthenticated} />
-      <main className="work-page">
-        <section className="work-hero work-hero--manage">
+      <main className='work-page'>
+        <section className='work-hero work-hero--manage'>
           <div>
-            <span className="work-kicker"><FiCheckSquare /> Sub-User Voting Management</span>
+            <span className='work-kicker'>
+              <FiCheckSquare /> Sub-User Voting Management
+            </span>
             <h1>Manage assigned voting events.</h1>
-            <p>Review voting sessions, edit allowed events, upload candidate data, and open results from one focused view.</p>
+            <p>
+              Review voting sessions, edit allowed events, upload candidate
+              data, and open results from one focused view.
+            </p>
           </div>
           {role === 'main' && (
-            <button className="work-button work-button--light" onClick={handleCreateEvent}>
+            <button
+              className='work-button work-button--light'
+              onClick={handleCreateEvent}
+            >
               <FiPlus /> Create Event
             </button>
           )}
         </section>
 
-        {error && <div className="work-empty work-empty--error">{error}</div>}
+        {error && <div className='work-empty work-empty--error'>{error}</div>}
 
-        <section className="work-stats-grid">
-          <div className="work-stat-card"><FiCalendar /><span>Events</span><strong>{activeEvents.length}</strong></div>
-          <div className="work-stat-card"><FiFileText /><span>Excel Rows</span><strong>{fileData.length}</strong></div>
-          <div className="work-stat-card"><FiCheckSquare /><span>Selected</span><strong>{checkedRows.length}</strong></div>
+        <section className='work-stats-grid'>
+          <div className='work-stat-card'>
+            <FiCalendar />
+            <span>Events</span>
+            <strong>{activeEvents.length}</strong>
+          </div>
+          <div className='work-stat-card'>
+            <FiFileText />
+            <span>Excel Rows</span>
+            <strong>{fileData.length}</strong>
+          </div>
+          <div className='work-stat-card'>
+            <FiCheckSquare />
+            <span>Selected</span>
+            <strong>{checkedRows.length}</strong>
+          </div>
         </section>
 
-        <section className="work-manage-grid">
-          <div className="work-panel">
-            <div className="work-panel__header work-panel__header--row">
+        <section className='work-manage-grid'>
+          <div className='work-panel'>
+            <div className='work-panel__header work-panel__header--row'>
               <div>
-                <span className="work-kicker">Assigned</span>
+                <span className='work-kicker'>Assigned</span>
                 <h2>All Voting Events</h2>
               </div>
               {role === 'main' && (
-                <button className="work-button work-button--primary" onClick={handleCreateEvent}>
+                <button
+                  className='work-button work-button--primary'
+                  onClick={handleCreateEvent}
+                >
                   <FiPlus /> Create Event
                 </button>
               )}
             </div>
 
-            <div className="work-card-list">
+            <div className='work-card-list'>
               {loading ? (
-                <div className="work-empty">Loading events...</div>
+                <div className='work-empty'>Loading events...</div>
               ) : activeEvents.length === 0 ? (
-                <div className="work-empty">No voting events available.</div>
+                <div className='work-empty'>No voting events available.</div>
               ) : (
                 activeEvents.map((event) => (
-                  <article key={event.id} className="work-event-card">
-                    <span className="work-pill"><FiCalendar /> {event.date}</span>
+                  <article key={event.id} className='work-event-card'>
+                    <span className='work-pill'>
+                      <FiCalendar /> {event.date}
+                    </span>
                     <h3>{event.name}</h3>
                     <p>{event.description}</p>
-                    <div className="work-event-meta">
+                    <div className='work-event-meta'>
                       <span>Start {event.startTime}</span>
                       <span>Stop {event.stopTime}</span>
                     </div>
-                    <a className="work-link" href={event.link} target="_blank" rel="noopener noreferrer">
+                    <a
+                      className='work-link'
+                      href={event.link}
+                      target='_blank'
+                      rel='noopener noreferrer'
+                    >
                       <FiExternalLink /> Open voting link
                     </a>
-                    <div className="work-actions">
+                    <div className='work-actions'>
                       {role === 'main' && (
                         <>
-                          <button className="work-button work-button--danger" onClick={() => handleDeleteEvent(event.id)}><FiTrash2 /> Delete</button>
-                          <button className="work-button work-button--accent" onClick={() => handleEditEvent(event.id)}><FiEdit3 /> Edit</button>
+                          <button
+                            className='work-button work-button--danger'
+                            onClick={() => handleDeleteEvent(event.id)}
+                          >
+                            <FiTrash2 /> Delete
+                          </button>
+                          <button
+                            className='work-button work-button--accent'
+                            onClick={() => handleEditEvent(event.id)}
+                          >
+                            <FiEdit3 /> Edit
+                          </button>
                         </>
                       )}
-                      <button className="work-button work-button--primary" onClick={() => handleViewResults(event.id)}><FiTrendingUp /> Results</button>
+                      <button
+                        className='work-button work-button--primary'
+                        onClick={() => handleViewResults(event.id)}
+                      >
+                        <FiTrendingUp /> Results
+                      </button>
                     </div>
                   </article>
                 ))
@@ -360,45 +396,107 @@ const Manage = ({ setIsAuthenticated }) => {
           </div>
 
           {role === 'main' && (
-            <div className="work-panel work-create-panel">
-              <div className="work-panel__header">
-                <span className="work-kicker">Builder</span>
+            <div className='work-panel work-create-panel'>
+              <div className='work-panel__header'>
+                <span className='work-kicker'>Builder</span>
                 <h2>{editingEventId ? 'Edit Event' : 'Create Event'}</h2>
-                <p>Configure event timing, upload Excel data, and select candidates for voting.</p>
+                <p>
+                  Configure event timing, upload Excel data, and select
+                  candidates for voting.
+                </p>
               </div>
 
               {!showEventForm ? (
-                <div className="work-empty work-empty--action">
+                <div className='work-empty work-empty--action'>
                   <FiPlus />
                   <strong>No builder open</strong>
                   <span>Create or edit an event to open the builder.</span>
-                  <button className="work-button work-button--primary" onClick={handleCreateEvent}>Create Event</button>
+                  <button
+                    className='work-button work-button--primary'
+                    onClick={handleCreateEvent}
+                  >
+                    Create Event
+                  </button>
                 </div>
               ) : (
-                <form onSubmit={handleEventFormSubmit} className="work-form">
-                  <div className="work-form-grid">
-                    <label className="work-field"><span>Event Date</span><input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} required /></label>
-                    <label className="work-field"><span>Start Time</span><input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required /></label>
-                    <label className="work-field"><span>Stop Time</span><input type="time" value={stopTime} onChange={(e) => setStopTime(e.target.value)} required /></label>
-                    <label className="work-field"><span>Event Name</span><input type="text" value={eventName} onChange={(e) => setEventName(e.target.value)} required /></label>
-                    <label className="work-field work-field--full"><span>Description</span><textarea value={eventDescription} onChange={(e) => setEventDescription(e.target.value)} required /></label>
+                <form onSubmit={handleEventFormSubmit} className='work-form'>
+                  <div className='work-form-grid'>
+                    <label className='work-field'>
+                      <span>Event Date</span>
+                      <input
+                        type='date'
+                        value={eventDate}
+                        onChange={(e) => setEventDate(e.target.value)}
+                        required
+                      />
+                    </label>
+                    <label className='work-field'>
+                      <span>Start Time</span>
+                      <input
+                        type='time'
+                        value={startTime}
+                        onChange={(e) => setStartTime(e.target.value)}
+                        required
+                      />
+                    </label>
+                    <label className='work-field'>
+                      <span>Stop Time</span>
+                      <input
+                        type='time'
+                        value={stopTime}
+                        onChange={(e) => setStopTime(e.target.value)}
+                        required
+                      />
+                    </label>
+                    <label className='work-field'>
+                      <span>Event Name</span>
+                      <input
+                        type='text'
+                        value={eventName}
+                        onChange={(e) => setEventName(e.target.value)}
+                        required
+                      />
+                    </label>
+                    <label className='work-field work-field--full'>
+                      <span>Description</span>
+                      <textarea
+                        value={eventDescription}
+                        onChange={(e) => setEventDescription(e.target.value)}
+                        required
+                      />
+                    </label>
                   </div>
 
-                  <div className="work-upload-box">
+                  <div className='work-upload-box'>
                     <div>
-                      <span><FiUploadCloud /> Upload Excel File</span>
+                      <span>
+                        <FiUploadCloud /> Upload Excel File
+                      </span>
                       <p>File uploaded: {fileName || 'No file selected'}</p>
                     </div>
-                    <input type="file" accept=".xlsx" onChange={handleFileUpload} />
-                    <a className="work-link" href="../file/AllDetailsFile.xlsx" target="_blank" rel="noopener noreferrer"><FiDownload /> Download sample file</a>
+                    <input
+                      type='file'
+                      accept='.xlsx'
+                      onChange={handleFileUpload}
+                    />
+                    <a
+                      className='work-link'
+                      href='../file/AllDetailsFile.xlsx'
+                      target='_blank'
+                      rel='noopener noreferrer'
+                    >
+                      <FiDownload /> Download sample file
+                    </a>
                   </div>
 
                   {fileData.length > 0 && (
-                    <div className="work-table-wrap work-table-wrap--builder">
-                      <table className="work-table">
+                    <div className='work-table-wrap work-table-wrap--builder'>
+                      <table className='work-table'>
                         <thead>
                           <tr>
-                            {Object.keys(fileData[0]).map((key) => <th key={key}>{key}</th>)}
+                            {Object.keys(fileData[0]).map((key) => (
+                              <th key={key}>{key}</th>
+                            ))}
                             <th>Image</th>
                             <th>Select</th>
                           </tr>
@@ -406,19 +504,42 @@ const Manage = ({ setIsAuthenticated }) => {
                         <tbody>
                           {fileData.map((data, index) => (
                             <tr key={index}>
-                              {Object.values(data).map((value, i) => <td key={i}>{value}</td>)}
+                              {Object.values(data).map((value, i) => (
+                                <td key={i}>{value}</td>
+                              ))}
                               <td>
-                                <div className="work-image-upload-cell">
-                                  <input type="file" accept="image/*" onChange={(e) => handleImageUpload(index, e)} />
+                                <div className='work-image-upload-cell'>
+                                  <input
+                                    type='file'
+                                    accept='image/*'
+                                    onChange={(e) =>
+                                      handleImageUpload(index, e)
+                                    }
+                                  />
                                   {candidateImages[index] && (
-                                    <div className="work-image-preview">
-                                      <img src={candidateImages[index].dataUrl} alt={`Candidate ${index}`} />
-                                      <button type="button" className="work-button work-button--danger work-button--small" onClick={() => handleClearImage(index)}><FiImage /> Clear</button>
+                                    <div className='work-image-preview'>
+                                      <img
+                                        src={candidateImages[index].dataUrl}
+                                        alt={`Candidate ${index}`}
+                                      />
+                                      <button
+                                        type='button'
+                                        className='work-button work-button--danger work-button--small'
+                                        onClick={() => handleClearImage(index)}
+                                      >
+                                        <FiImage /> Clear
+                                      </button>
                                     </div>
                                   )}
                                 </div>
                               </td>
-                              <td><input type="checkbox" checked={checkedRows.includes(index)} onChange={() => handleCheckboxChange(index)} /></td>
+                              <td>
+                                <input
+                                  type='checkbox'
+                                  checked={checkedRows.includes(index)}
+                                  onChange={() => handleCheckboxChange(index)}
+                                />
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -426,16 +547,28 @@ const Manage = ({ setIsAuthenticated }) => {
                     </div>
                   )}
 
-                  <button type="submit" className="work-button work-button--primary work-button--full">
+                  <button
+                    type='submit'
+                    className='work-button work-button--primary work-button--full'
+                  >
                     {editingEventId ? 'Update Event' : 'Create Event'}
                   </button>
                 </form>
               )}
 
               {eventCreated && (
-                <div className="work-success-box">
-                  <h3>Event {editingEventId ? 'Updated' : 'Created'} Successfully</h3>
-                  <a className="work-link" href={generatedLink} target="_blank" rel="noopener noreferrer"><FiExternalLink /> {generatedLink}</a>
+                <div className='work-success-box'>
+                  <h3>
+                    Event {editingEventId ? 'Updated' : 'Created'} Successfully
+                  </h3>
+                  <a
+                    className='work-link'
+                    href={generatedLink}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                  >
+                    <FiExternalLink /> {generatedLink}
+                  </a>
                 </div>
               )}
             </div>
@@ -444,7 +577,6 @@ const Manage = ({ setIsAuthenticated }) => {
       </main>
     </div>
   );
-
 };
 
 export default Manage;
