@@ -320,34 +320,6 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     );
   };
 
-  const removeSelectedAt = (selIndex) => {
-    const row = selectedData[selIndex];
-    const fileIndex = findFileIndexForRow(row);
-    setCheckedRows((prev) => prev.filter((i) => i !== fileIndex));
-    setSelectedData((prev) => {
-      const copy = [...prev];
-      copy.splice(selIndex, 1);
-      return copy;
-    });
-  };
-
-  const moveSelected = (selIndex, dir) => {
-    setSelectedData((prev) => {
-      const copy = [...prev];
-      const newIndex = selIndex + dir;
-      if (newIndex < 0 || newIndex >= copy.length) return prev;
-      const [item] = copy.splice(selIndex, 1);
-      copy.splice(newIndex, 0, item);
-
-      // sync checkedRows order to match selectedData order
-      const newChecked = copy
-        .map((r) => findFileIndexForRow(r))
-        .filter((i) => i >= 0);
-      setCheckedRows(newChecked);
-      return copy;
-    });
-  };
-
   const handleCreateEvent = () => {
     if (availableCredits <= 0) {
       alert('No voting credits available. Redirecting to purchase page.');
