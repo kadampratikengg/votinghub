@@ -115,53 +115,22 @@ const LoginPage = ({ onLogin }) => {
       navigate(fallbackPath, { replace: true });
       return;
     }
-    const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
-    if (!googleClientId) return;
-
-    const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      if (
-        window.google &&
-        window.google.accounts &&
-        window.google.accounts.id
-      ) {
-        window.google.accounts.id.initialize({
-          client_id: googleClientId,
-          callback: handleGoogleResponse,
-        });
-        const el = document.getElementById('googleSignInDiv');
-        if (el) {
-          window.google.accounts.id.renderButton(el, {
-            theme: 'outline',
-            size: 'large',
-            width: '280',
-          });
-        }
-      }
-    };
-
-    document.body.appendChild(script);
-    return () => {
-      try {
-        document.body.removeChild(script);
-      } catch (e) {}
-    };
-  }, [handleGoogleResponse]);
+    // We intentionally do NOT load the Google GSI client here to avoid
+    // accounts.google.com network requests in environments where the
+    // origin is not registered for the client ID (causes 403 errors).
+    // Instead we use a server-side redirect flow when the user clicks
+    // the Google button (see `handleGoogleFallbackClick`).
+    return undefined;
+  }, [handleGoogleResponse, navigate, onLogin]);
 
   const handleGoogleFallbackClick = () => {
-    if (window.google && window.google.accounts && window.google.accounts.id) {
-      // If GSI is available, prompt the One Tap / chooser
-      try {
-        window.google.accounts.id.prompt();
-      } catch (e) {
-        console.error('Google prompt failed', e);
-      }
-    } else {
-      setErrorMessage('Google sign-in is not available right now.');
-    }
+    // Use server-side OAuth redirect. The backend will handle the Google
+    // code exchange and redirect back to the frontend with a token.
+    const redirectTarget = window.location.origin || 'http://localhost:3000';
+    const url = `${process.env.REACT_APP_API_URL}/auth/google?redirect=${encodeURIComponent(
+      redirectTarget,
+    )}`;
+    window.location.href = url;
   };
 
   return (
