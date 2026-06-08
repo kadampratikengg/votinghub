@@ -181,10 +181,20 @@ router.get('/auth/google', async (req, res) => {
   try {
     const googleClientId =
       process.env.GOOGLE_CLIENT_ID || process.env.REACT_APP_GOOGLE_CLIENT_ID;
-    if (!googleClientId)
-      return res.status(500).send('Google client id not configured on server');
+    if (!googleClientId) {
+      console.error('❌ GOOGLE_CLIENT_ID missing when initiating Google OAuth');
+      return res
+        .status(500)
+        .json({ message: 'Google client id not configured on server' });
+    }
 
     const redirectUri = `${req.protocol}://${req.get('host')}/auth/google/callback`;
+    console.info('➡️ Initiating Google OAuth', {
+      googleClientIdPresent: !!googleClientId,
+      requestedRedirect: req.query.redirect,
+      redirectUri,
+      host: req.get('host'),
+    });
     const scope = encodeURIComponent('openid email profile');
     const state = encodeURIComponent(
       req.query.redirect || process.env.FRONTEND_URL || 'http://localhost:3000',

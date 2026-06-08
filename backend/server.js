@@ -123,4 +123,12 @@ app.use(errorHandler);
 // Start Server
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://0.0.0.0:${PORT}`);
+
+  // Log presence of important environment variables (do NOT print secret values)
+  console.info('🔒 Env check:', {
+    GOOGLE_CLIENT_ID: !!process.env.GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET: !!process.env.GOOGLE_CLIENT_SECRET,
+    JWT_SECRET: !!process.env.JWT_SECRET,
+    FRONTEND_URL: !!process.env.FRONTEND_URL,
+  });
 });
