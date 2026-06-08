@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { FiArrowRight, FiLock, FiMail, FiShield } from 'react-icons/fi';
@@ -10,7 +10,6 @@ const LoginPage = ({ onLogin }) => {
   const [emailError, setEmailError] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const [googleLoaded, setGoogleLoaded] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -57,41 +56,44 @@ const LoginPage = ({ onLogin }) => {
     }
   };
 
-  const handleGoogleResponse = async (res) => {
-    if (!res?.credential) return;
-    setLoading(true);
-    try {
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/auth/google`,
-        { credential: res.credential },
-        { withCredentials: true },
-      );
+  const handleGoogleResponse = useCallback(
+    async (res) => {
+      if (!res?.credential) return;
+      setLoading(true);
+      try {
+        const response = await axios.post(
+          `${process.env.REACT_APP_API_URL}/auth/google`,
+          { credential: res.credential },
+          { withCredentials: true },
+        );
 
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('userId', response.data.userId);
-      localStorage.setItem('role', response.data.role || 'admin');
-      localStorage.setItem('subUserRole', response.data.subUserRole || '');
-      localStorage.setItem(
-        'permissions',
-        JSON.stringify(response.data.permissions || []),
-      );
-      localStorage.setItem('isAuthenticated', 'true');
-      onLogin();
-      const fallbackPath =
-        (response.data.role || 'admin') === 'subuser'
-          ? '/dashboard'
-          : '/dashboard';
-      const redirectPath = location.state?.from?.pathname || fallbackPath;
-      navigate(redirectPath, { replace: true });
-    } catch (error) {
-      setErrorMessage(
-        error.response?.data?.message ||
-          'An error occurred while logging in with Google',
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('userId', response.data.userId);
+        localStorage.setItem('role', response.data.role || 'admin');
+        localStorage.setItem('subUserRole', response.data.subUserRole || '');
+        localStorage.setItem(
+          'permissions',
+          JSON.stringify(response.data.permissions || []),
+        );
+        localStorage.setItem('isAuthenticated', 'true');
+        onLogin();
+        const fallbackPath =
+          (response.data.role || 'admin') === 'subuser'
+            ? '/dashboard'
+            : '/dashboard';
+        const redirectPath = location.state?.from?.pathname || fallbackPath;
+        navigate(redirectPath, { replace: true });
+      } catch (error) {
+        setErrorMessage(
+          error.response?.data?.message ||
+            'An error occurred while logging in with Google',
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [navigate, location, onLogin],
+  );
 
   useEffect(() => {
     // If the server redirected back with a token in the query string, use it
@@ -137,7 +139,6 @@ const LoginPage = ({ onLogin }) => {
             size: 'large',
             width: '280',
           });
-          setGoogleLoaded(true);
         }
       }
     };
@@ -148,7 +149,7 @@ const LoginPage = ({ onLogin }) => {
         document.body.removeChild(script);
       } catch (e) {}
     };
-  }, []);
+  }, [handleGoogleResponse]);
 
   const handleGoogleFallbackClick = () => {
     if (window.google && window.google.accounts && window.google.accounts.id) {
