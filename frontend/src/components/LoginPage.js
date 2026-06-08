@@ -10,6 +10,7 @@ const LoginPage = ({ onLogin }) => {
   const [emailError, setEmailError] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoaded, setGoogleLoaded] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -101,6 +102,19 @@ const LoginPage = ({ onLogin }) => {
     const serverToken = params.get('token');
     const serverUserId = params.get('userId');
     const serverRole = params.get('role');
+    const serverError = params.get('error');
+    const serverErrorDescription = params.get('error_description');
+
+    if (serverError) {
+      setErrorMessage(
+        serverErrorDescription ||
+          'Google sign-in failed. Please try again or use email/password.',
+      );
+      const cleanUrl = window.location.origin + window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+      return;
+    }
+
     if (serverToken) {
       // Store token and info, then clear query params and navigate
       localStorage.setItem('token', serverToken);
@@ -115,22 +129,60 @@ const LoginPage = ({ onLogin }) => {
       navigate(fallbackPath, { replace: true });
       return;
     }
-    // We intentionally do NOT load the Google GSI client here to avoid
-    // accounts.google.com network requests in environments where the
-    // origin is not registered for the client ID (causes 403 errors).
-    // Instead we use a server-side redirect flow when the user clicks
-    // the Google button (see `handleGoogleFallbackClick`).
-    return undefined;
+    const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+    if (!googleClientId) return undefined;
+
+    let script = document.querySelector('script[data-google-gsi="true"]');
+    const initializeGoogle = () => {
+      if (
+        window.google &&
+        window.google.accounts &&
+        window.google.accounts.id
+      ) {
+        window.google.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: handleGoogleResponse,
+        });
+        const el = document.getElementById('googleSignInDiv');
+        if (el) {
+          window.google.accounts.id.renderButton(el, {
+            theme: 'outline',
+            size: 'large',
+            width: '280',
+          });
+          setGoogleLoaded(true);
+        }
+      }
+    };
+
+    if (!script) {
+      script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.dataset.googleGsi = 'true';
+      script.onload = initializeGoogle;
+      document.body.appendChild(script);
+    } else {
+      initializeGoogle();
+    }
+
+    return () => {
+      setGoogleLoaded(false);
+    };
   }, [handleGoogleResponse, navigate, onLogin]);
 
   const handleGoogleFallbackClick = () => {
-    // Use server-side OAuth redirect. The backend will handle the Google
-    // code exchange and redirect back to the frontend with a token.
-    const redirectTarget = window.location.origin || 'http://localhost:3000';
-    const url = `${process.env.REACT_APP_API_URL}/auth/google?redirect=${encodeURIComponent(
-      redirectTarget,
-    )}`;
-    window.location.href = url;
+    if (window.google && window.google.accounts && window.google.accounts.id) {
+      try {
+        window.google.accounts.id.prompt();
+      } catch (error) {
+        setErrorMessage('Google sign-in is not available right now.');
+      }
+      return;
+    }
+
+    setErrorMessage('Google sign-in is not available right now.');
   };
 
   return (
@@ -206,6 +258,7 @@ const LoginPage = ({ onLogin }) => {
             type='button'
             className='auth-google__btn'
             onClick={handleGoogleFallbackClick}
+            disabled={loading}
           >
             <span className='auth-google__icon' aria-hidden>
               <svg
@@ -235,6 +288,11 @@ const LoginPage = ({ onLogin }) => {
             </span>
             <span className='auth-google__text'>Sign in with Google</span>
           </button>
+          {googleLoaded ? null : (
+            <p className='auth-google__hint'>
+              Loading Google sign-in...
+            </p>
+          )}
           <p className='auth-google__hint'>
             Sign in with Google. If you don't exist in our system, an account
             will be created.

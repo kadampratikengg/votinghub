@@ -25,6 +25,9 @@ const User = require('./models/User');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Ensure req.protocol resolves correctly behind Render / other proxies.
+app.set('trust proxy', 1);
+
 // Ensure Uploads Directory Exists
 const uploadPath = './Uploads';
 if (!fs.existsSync(uploadPath)) {

@@ -44,6 +44,81 @@ const generateUniqueUsername = async (baseUsername) => {
   return username;
 };
 
+const DEFAULT_FRONTEND_URL = 'http://localhost:3000';
+const GOOGLE_OAUTH_SCOPE = 'openid email profile';
+
+const getGoogleClientId = () =>
+  process.env.GOOGLE_CLIENT_ID || process.env.REACT_APP_GOOGLE_CLIENT_ID;
+
+const getGoogleClientSecret = () =>
+  process.env.GOOGLE_CLIENT_SECRET || process.env.REACT_APP_GOOGLE_CLIENT_SECRET;
+
+const getFrontendRedirect = (req) =>
+  req.query.redirect || process.env.FRONTEND_URL || DEFAULT_FRONTEND_URL;
+
+const appendQueryParams = (targetUrl, params) => {
+  const separator = targetUrl.includes('?') ? '&' : '?';
+  return `${targetUrl}${separator}${new URLSearchParams(params).toString()}`;
+};
+
+const getPublicBackendBaseUrl = (req) => {
+  if (process.env.GOOGLE_REDIRECT_URI) {
+    try {
+      return new URL(process.env.GOOGLE_REDIRECT_URI).origin;
+    } catch (error) {
+      console.warn('Invalid GOOGLE_REDIRECT_URI configured', {
+        value: process.env.GOOGLE_REDIRECT_URI,
+        error: error.message,
+      });
+    }
+  }
+
+  if (process.env.BACKEND_PUBLIC_URL) {
+    return process.env.BACKEND_PUBLIC_URL.replace(/\/$/, '');
+  }
+
+  if (process.env.RENDER_EXTERNAL_HOSTNAME) {
+    return `https://${process.env.RENDER_EXTERNAL_HOSTNAME}`;
+  }
+
+  if (process.env.RENDER_EXTERNAL_URL) {
+    return process.env.RENDER_EXTERNAL_URL.replace(/\/$/, '');
+  }
+
+  if (process.env.REACT_APP_API_URL) {
+    try {
+      return new URL(process.env.REACT_APP_API_URL).origin;
+    } catch (error) {
+      console.warn('Invalid REACT_APP_API_URL for Google redirect URI', {
+        value: process.env.REACT_APP_API_URL,
+        error: error.message,
+      });
+    }
+  }
+
+  const host = req.get('x-forwarded-host') || req.get('host');
+  if (!host) {
+    return null;
+  }
+
+  const forwardedProto =
+    (req.get('x-forwarded-proto') || '').split(',')[0].trim() || req.protocol;
+  const isLocalhost = /(^localhost(:\d+)?$)|(^127\.0\.0\.1(:\d+)?$)/i.test(host);
+  const protocol =
+    isLocalhost || forwardedProto === 'https' ? forwardedProto : 'https';
+
+  return `${protocol}://${host}`;
+};
+
+const getGoogleRedirectUri = (req) => {
+  const baseUrl = getPublicBackendBaseUrl(req);
+  if (baseUrl) {
+    return `${baseUrl}/auth/google/callback`;
+  }
+
+  return `${req.protocol}://${req.get('host')}/auth/google/callback`;
+};
+
 // Login (supports main User and SubUser)
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
@@ -176,33 +251,90 @@ router.post('/check-email', express.json(), async (req, res) => {
   }
 });
 
-// Start server-side OAuth2 flow: redirect user to Google's consent screen
-router.get('/auth/google', async (req, res) => {
+// Temporary debug endpoint to build and return the Google OAuth URL
+router.get('/auth/google/debug', async (req, res) => {
   try {
-    const googleClientId =
-      process.env.GOOGLE_CLIENT_ID || process.env.REACT_APP_GOOGLE_CLIENT_ID;
+    const googleClientId = getGoogleClientId();
+    const requestedRedirect = getFrontendRedirect(req);
     if (!googleClientId) {
-      console.error('❌ GOOGLE_CLIENT_ID missing when initiating Google OAuth');
       return res
-        .status(500)
+        .status(400)
         .json({ message: 'Google client id not configured on server' });
     }
 
-    const redirectUri = `${req.protocol}://${req.get('host')}/auth/google/callback`;
+    const redirectUri = getGoogleRedirectUri(req);
+    const authUrl = appendQueryParams(
+      'https://accounts.google.com/o/oauth2/v2/auth?response_type=code',
+      {
+        client_id: googleClientId,
+        redirect_uri: redirectUri,
+        scope: GOOGLE_OAUTH_SCOPE,
+        access_type: 'offline',
+        prompt: 'select_account',
+        state: requestedRedirect,
+      },
+    );
+
+    return res.status(200).json({ authUrl, redirectUri, googleClientId });
+  } catch (error) {
+    console.error('❌ Google auth debug error:', error);
+    return res.status(500).json({ message: 'Failed to build Google auth URL' });
+  }
+});
+
+// Start server-side OAuth2 flow: redirect user to Google's consent screen
+router.get('/auth/google', async (req, res) => {
+  try {
+    const googleClientId = getGoogleClientId();
+    const requestedRedirect = getFrontendRedirect(req);
+    if (!googleClientId) {
+      console.error('❌ GOOGLE_CLIENT_ID missing when initiating Google OAuth');
+      let wantsJSON =
+        req.xhr ||
+        (req.headers.accept &&
+          req.headers.accept.indexOf('application/json') !== -1);
+      // If a redirect target was explicitly provided prefer redirect (browser flow)
+      if (req.query && req.query.redirect) wantsJSON = false;
+      // For API callers return JSON, otherwise redirect browser back to frontend with error
+      console.info('🧭 OAuth start: missing googleClientId', {
+        wantsJSON,
+        query: req.query,
+        accept: req.headers.accept,
+        ip: req.ip,
+      });
+      if (wantsJSON) {
+        return res
+          .status(500)
+          .json({ message: 'Google client id not configured on server' });
+      }
+      const redirectBack = appendQueryParams(requestedRedirect, {
+        error: 'google_not_configured',
+        error_description: 'Google client id not configured on server',
+      });
+      console.info('↩️ Redirecting browser back to frontend with error', {
+        redirectBack,
+      });
+      return res.redirect(redirectBack);
+    }
+
+    const redirectUri = getGoogleRedirectUri(req);
     console.info('➡️ Initiating Google OAuth', {
       googleClientIdPresent: !!googleClientId,
       requestedRedirect: req.query.redirect,
       redirectUri,
       host: req.get('host'),
     });
-    const scope = encodeURIComponent('openid email profile');
-    const state = encodeURIComponent(
-      req.query.redirect || process.env.FRONTEND_URL || 'http://localhost:3000',
+    const authUrl = appendQueryParams(
+      'https://accounts.google.com/o/oauth2/v2/auth?response_type=code',
+      {
+        client_id: googleClientId,
+        redirect_uri: redirectUri,
+        scope: GOOGLE_OAUTH_SCOPE,
+        access_type: 'offline',
+        prompt: 'select_account',
+        state: requestedRedirect,
+      },
     );
-
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id=${googleClientId}&redirect_uri=${encodeURIComponent(
-      redirectUri,
-    )}&scope=${scope}&access_type=offline&prompt=select_account&state=${state}`;
 
     return res.redirect(authUrl);
   } catch (error) {
@@ -215,22 +347,59 @@ router.get('/auth/google', async (req, res) => {
 router.get('/auth/google/callback', async (req, res) => {
   try {
     const { code, state } = req.query;
-    if (!code) return res.status(400).send('Missing code from Google');
-
-    const googleClientId =
-      process.env.GOOGLE_CLIENT_ID || process.env.REACT_APP_GOOGLE_CLIENT_ID;
-    const googleClientSecret =
-      process.env.GOOGLE_CLIENT_SECRET ||
-      process.env.REACT_APP_GOOGLE_CLIENT_SECRET ||
-      process.env['REACT_APP_GOOGLE_lient secret'] ||
-      process.env['REACT_APP_GOOGLE_lient_secret'] ||
-      process.env['REACT_APP_GOOGLE_CLIENT_SECRET'];
-    if (!googleClientId || !googleClientSecret) {
-      console.error('❌ GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET not set');
-      return res.status(500).send('Server configuration error');
+    if (!code) {
+      const error = req.query.error || 'missing_code';
+      const errorDescription =
+        req.query.error_description ||
+        'Google did not return an authorization code';
+      const fallbackRedirect = state || getFrontendRedirect(req);
+      const redirectUrl = appendQueryParams(fallbackRedirect, {
+        error,
+        error_description: errorDescription,
+      });
+      return res.redirect(redirectUrl);
     }
 
-    const redirectUri = `${req.protocol}://${req.get('host')}/auth/google/callback`;
+    const googleClientId = getGoogleClientId();
+    const googleClientSecret = getGoogleClientSecret();
+    const stateRedirect =
+      req.query.state ||
+      req.query.redirect ||
+      process.env.FRONTEND_URL ||
+      DEFAULT_FRONTEND_URL;
+    if (!googleClientId || !googleClientSecret) {
+      console.error('❌ GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET not set');
+      let wantsJSON =
+        req.xhr ||
+        (req.headers.accept &&
+          req.headers.accept.indexOf('application/json') !== -1);
+      // If state or redirect provided, treat as browser flow and prefer redirect
+      if (req.query && (req.query.redirect || req.query.state))
+        wantsJSON = false;
+      console.info('🧭 OAuth callback: missing googleClientId/Secret', {
+        wantsJSON,
+        query: req.query,
+        accept: req.headers.accept,
+        ip: req.ip,
+      });
+      if (wantsJSON) {
+        return res.status(500).json({
+          message: 'Google client id/secret not configured on server',
+        });
+      }
+      // Redirect back to frontend with an error so UI can handle it
+      const redirectBack = appendQueryParams(stateRedirect, {
+        error: 'google_config_missing',
+        error_description: 'Google client id/secret not configured on server',
+      });
+      console.info(
+        '↩️ OAuth callback redirecting back to frontend with error',
+        { redirectBack },
+      );
+      return res.redirect(redirectBack);
+    }
+
+    const redirectUri = getGoogleRedirectUri(req);
 
     // Exchange code for tokens
     const tokenResp = await axios.post(
@@ -309,11 +478,12 @@ router.get('/auth/google/callback', async (req, res) => {
     );
 
     // Redirect back to frontend with token in query string
-    const redirectTo = state
-      ? decodeURIComponent(state)
-      : process.env.FRONTEND_URL || 'http://localhost:3000';
-    const separator = redirectTo.includes('?') ? '&' : '?';
-    const redirectUrl = `${redirectTo}${separator}token=${encodeURIComponent(token)}&userId=${encodeURIComponent(user._id)}&role=${encodeURIComponent(user.role || 'admin')}`;
+    const redirectTo = state || process.env.FRONTEND_URL || DEFAULT_FRONTEND_URL;
+    const redirectUrl = appendQueryParams(redirectTo, {
+      token,
+      userId: user._id,
+      role: user.role || 'admin',
+    });
 
     return res.redirect(redirectUrl);
   } catch (error) {
@@ -333,8 +503,7 @@ router.post('/auth/google', express.json(), async (req, res) => {
       return res.status(400).json({ message: 'Missing credential' });
 
     // Verify ID token with Google's tokeninfo endpoint
-    const googleClientId =
-      process.env.GOOGLE_CLIENT_ID || process.env.REACT_APP_GOOGLE_CLIENT_ID;
+    const googleClientId = getGoogleClientId();
     const tokenInfoUrl = `https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`;
     const tokenResp = await axios.get(tokenInfoUrl);
     const tokenData = tokenResp.data;
