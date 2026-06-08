@@ -13,6 +13,10 @@ const LoginPage = ({ onLogin }) => {
   const [googleLoaded, setGoogleLoaded] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const isLocalDevelopment =
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1';
+  const useGoogleGsi = isLocalDevelopment;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -132,6 +136,11 @@ const LoginPage = ({ onLogin }) => {
     const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
     if (!googleClientId) return undefined;
 
+    if (!useGoogleGsi) {
+      setGoogleLoaded(true);
+      return undefined;
+    }
+
     let script = document.querySelector('script[data-google-gsi="true"]');
     const initializeGoogle = () => {
       if (
@@ -170,10 +179,15 @@ const LoginPage = ({ onLogin }) => {
     return () => {
       setGoogleLoaded(false);
     };
-  }, [handleGoogleResponse, navigate, onLogin]);
+  }, [handleGoogleResponse, navigate, onLogin, useGoogleGsi]);
 
   const handleGoogleFallbackClick = () => {
-    if (window.google && window.google.accounts && window.google.accounts.id) {
+    if (
+      useGoogleGsi &&
+      window.google &&
+      window.google.accounts &&
+      window.google.accounts.id
+    ) {
       try {
         window.google.accounts.id.prompt();
       } catch (error) {
@@ -182,7 +196,11 @@ const LoginPage = ({ onLogin }) => {
       return;
     }
 
-    setErrorMessage('Google sign-in is not available right now.');
+    const redirectTarget = window.location.origin || 'http://localhost:3000';
+    const url = `${process.env.REACT_APP_API_URL}/auth/google?redirect=${encodeURIComponent(
+      redirectTarget,
+    )}`;
+    window.location.href = url;
   };
 
   return (
@@ -288,11 +306,11 @@ const LoginPage = ({ onLogin }) => {
             </span>
             <span className='auth-google__text'>Sign in with Google</span>
           </button>
-          {googleLoaded ? null : (
+          {useGoogleGsi && !googleLoaded ? (
             <p className='auth-google__hint'>
               Loading Google sign-in...
             </p>
-          )}
+          ) : null}
           <p className='auth-google__hint'>
             Sign in with Google. If you don't exist in our system, an account
             will be created.
