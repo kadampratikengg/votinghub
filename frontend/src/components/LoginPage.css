@@ -363,6 +363,115 @@
   opacity: 0.64;
 }
 
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 0;
+  color: var(--auth-muted);
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  height: 1px;
+  background: var(--auth-line);
+  flex: 1 1 0;
+}
+
+.auth-google {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+#googleSignInDiv {
+  width: 100%;
+  max-width: 320px;
+  display: none; /* hide the GSI rendered button to use our custom-styled button for consistent UI */
+}
+
+.auth-google__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  width: 280px;
+  height: 44px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fff;
+  color: rgba(0, 0, 0, 0.87);
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(16, 24, 32, 0.06);
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.auth-google__btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px rgba(16, 24, 32, 0.1);
+}
+
+.auth-google__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+.auth-google__text {
+  display: inline-block;
+}
+
+/* Responsive adjustments for the Google button and container */
+@media (max-width: 680px) {
+  .auth-google {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .auth-google__btn {
+    width: 100%;
+    max-width: 100%;
+    height: 48px;
+    padding: 12px 16px;
+    justify-content: center;
+    font-size: 16px;
+    gap: 10px;
+  }
+
+  .auth-google__icon {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+  }
+
+  .auth-divider {
+    margin: 12px 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-google__btn {
+    height: 50px;
+    font-size: 15px;
+    padding: 10px 14px;
+  }
+}
+
+.auth-google__hint {
+  margin: 0;
+  color: var(--auth-muted);
+  font-size: 13px;
+}
+
 .auth-links {
   display: flex;
   justify-content: space-between;
