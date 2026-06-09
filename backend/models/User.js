@@ -14,6 +14,8 @@ const userSchema = new mongoose.Schema({
   district: { type: String },
   pincode: { type: String },
   gstNumber: { type: String },
+  ipRestrictionEnabled: { type: Boolean, default: false },
+  allowedIp: { type: String, default: '' },
   role: { type: String, enum: ['admin', 'subuser'], default: 'admin' },
   subscription: {
     planDuration: { type: String },

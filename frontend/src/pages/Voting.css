@@ -109,6 +109,35 @@
   margin-bottom: 18px;
 }
 
+.vote-access-banner {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 18px 20px;
+  border: 1px solid var(--vote-line);
+  border-radius: 22px;
+}
+
+.vote-access-banner strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 18px;
+}
+
+.vote-access-banner p {
+  margin: 0;
+  color: var(--vote-muted);
+  line-height: 1.45;
+}
+
+.vote-access-banner--open {
+  background: rgba(31, 122, 77, 0.08);
+}
+
+.vote-access-banner--restricted {
+  background: rgba(244, 180, 79, 0.14);
+}
+
 .vote-summary-card,
 .vote-card,
 .vote-state-card {
@@ -237,6 +266,11 @@
   font-weight: 900;
 }
 
+.vote-closed-note--restricted {
+  background: rgba(244, 180, 79, 0.24);
+  color: #7a4c06;
+}
+
 .vote-state-card {
   display: grid;
   place-items: center;
@@ -244,6 +278,13 @@
   color: var(--vote-muted);
   font-weight: 900;
   text-align: center;
+}
+
+.vote-state-card p {
+  margin: 10px 0 0;
+  max-width: 520px;
+  font-weight: 700;
+  line-height: 1.5;
 }
 
 .vote-state-card--error {
@@ -273,5 +314,9 @@
 
   .vote-primary-button {
     width: 100%;
+  }
+
+  .vote-access-banner strong {
+    font-size: 16px;
   }
 }

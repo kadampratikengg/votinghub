@@ -11,6 +11,7 @@ const Voting = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [canStartVoting, setCanStartVoting] = useState(false);
+  const [accessInfo, setAccessInfo] = useState(null);
   const s3BucketUrl = process.env.REACT_APP_S3_BUCKET_URL;
 
   const checkVotingTime = useCallback((eventData) => {
@@ -31,6 +32,7 @@ const Voting = () => {
         const now = new Date().getTime();
         if (localEvent && localEvent.expiry > now) {
           setEvent(localEvent);
+          setAccessInfo(localEvent.votingAccess || null);
           checkVotingTime(localEvent);
           setLoading(false);
           return;
@@ -44,13 +46,15 @@ const Voting = () => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
+        setAccessInfo(errorData.votingAccess || null);
         throw new Error(errorData.message || 'Failed to fetch event');
       }
 
       const eventData = await response.json();
       eventData.expiry = new Date().getTime() + 60 * 1000;
       setEvent(eventData);
+      setAccessInfo(eventData.votingAccess || null);
       localStorage.setItem(`event-${eventId}`, JSON.stringify(eventData));
       checkVotingTime(eventData);
     } catch (err) {
@@ -67,7 +71,16 @@ const Voting = () => {
   }, [fetchEvent]);
 
   if (loading) return <div className="vote-public-shell"><div className="vote-state-card">Loading voting event...</div></div>;
-  if (error) return <div className="vote-public-shell"><div className="vote-state-card vote-state-card--error">Error: {error}</div></div>;
+  if (error) {
+    return (
+      <div className="vote-public-shell">
+        <div className="vote-state-card vote-state-card--error">
+          <div>Error: {error}</div>
+          {accessInfo?.message && <p>{accessInfo.message}</p>}
+        </div>
+      </div>
+    );
+  }
   if (!event) return <div className="vote-public-shell"><div className="vote-state-card">Voting event not found.</div></div>;
 
   const headers = event.selectedData && event.selectedData.length > 0
@@ -94,6 +107,26 @@ const Voting = () => {
         </div>
       </section>
 
+      <section
+        className={`vote-access-banner ${
+          accessInfo?.enabled ? 'vote-access-banner--restricted' : 'vote-access-banner--open'
+        }`}
+      >
+        <div>
+          <span className="vote-kicker">
+            {accessInfo?.enabled ? 'Restricted access' : 'Open access'}
+          </span>
+          <strong>
+            {accessInfo?.enabled
+              ? accessInfo.allowed
+                ? 'This voting link is restricted to one IP address.'
+                : 'This voting link is restricted from this IP address.'
+              : 'This voting link is open to all IP addresses.'}
+          </strong>
+        </div>
+        <p>{accessInfo?.message || 'IP restriction is disabled for this voting link.'}</p>
+      </section>
+
       <section className="vote-summary-grid">
         <div className="vote-summary-card"><FiUsers /><span>Candidates</span><strong>{event.selectedData?.length || 0}</strong></div>
         <div className="vote-summary-card"><FiCalendar /><span>Date</span><strong>{event.date}</strong></div>
@@ -106,7 +139,7 @@ const Voting = () => {
             <span className="vote-kicker">Ballot Preview</span>
             <h2>Candidates</h2>
           </div>
-          {canStartVoting && (
+          {canStartVoting && (!accessInfo?.enabled || accessInfo.allowed) && (
             <button className="vote-primary-button" onClick={() => navigate(`/voting/${eventId}/start`)}>
               <FiPlay /> Start Voting
             </button>
@@ -157,6 +190,11 @@ const Voting = () => {
 
         {!canStartVoting && (
           <div className="vote-closed-note">Voting is not available at this time.</div>
+        )}
+        {accessInfo?.enabled && !accessInfo.allowed && (
+          <div className="vote-closed-note vote-closed-note--restricted">
+            Only {accessInfo.allowedIp || 'the configured IP'} can open this voting link.
+          </div>
         )}
       </section>
     </main>

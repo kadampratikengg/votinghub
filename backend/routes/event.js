@@ -12,10 +12,105 @@ const {
   getActiveRemainingCredits,
   normalizeSubscriptionForExpiry,
 } = require('../utils/subscription');
+const {
+  getIpRestrictionSettings,
+} = require('../utils/ipRestrictionStore');
 const router = express.Router();
 const upload = multer();
 
 router.use(express.json());
+
+const normalizeIp = (value) =>
+  String(value || '')
+    .trim()
+    .replace(/^::ffff:/, '')
+    .replace(/^\[|\]$/g, '')
+    .replace(/^::1$/, '127.0.0.1')
+    .replace(/^0:0:0:0:0:0:0:1$/, '127.0.0.1');
+
+const getRequestIp = (req) => {
+  const forwardedFor = req.headers['x-forwarded-for'];
+  if (typeof forwardedFor === 'string' && forwardedFor.trim()) {
+    return normalizeIp(forwardedFor.split(',')[0]);
+  }
+
+  return normalizeIp(
+    req.ip ||
+      req.connection?.remoteAddress ||
+      req.socket?.remoteAddress ||
+      req.connection?.socket?.remoteAddress ||
+      '',
+  );
+};
+
+const formatIpRestrictionMessage = (user, requestIp) => {
+  const allowedIp = normalizeIp(user?.allowedIp);
+  const enabled = !!user?.ipRestrictionEnabled;
+
+  if (!enabled) {
+    return {
+      enabled: false,
+      allowedIp,
+      requestIp,
+      allowed: true,
+      message: 'IP restriction is disabled for this voting link.',
+    };
+  }
+
+  if (!allowedIp) {
+    return {
+      enabled: true,
+      allowedIp: '',
+      requestIp,
+      allowed: false,
+      message:
+        'IP restriction is enabled, but no allowed IP address has been configured yet.',
+    };
+  }
+
+  const allowed = requestIp === allowedIp;
+  return {
+    enabled: true,
+    allowedIp,
+    requestIp,
+    allowed,
+    message: allowed
+      ? `IP restriction is enabled. Only ${allowedIp} can open this voting link.`
+      : `Access denied from ${requestIp || 'unknown IP'}. Only ${allowedIp} can open this voting link.`,
+  };
+};
+
+const getVotingOwnerAccess = async (event, req) => {
+  const requestIp = getRequestIp(req);
+  if (!event?.userId) {
+    return {
+      enabled: false,
+      allowedIp: '',
+      requestIp,
+      allowed: true,
+      message: 'IP restriction is disabled for this voting link.',
+    };
+  }
+
+  const owner = await User.findById(event.userId)
+    .select('ipRestrictionEnabled allowedIp')
+    .lean();
+
+  const persistedIpSettings = await getIpRestrictionSettings(event.userId);
+  const resolvedOwner = persistedIpSettings
+    ? {
+        ...owner,
+        ipRestrictionEnabled:
+          persistedIpSettings.ipRestrictionEnabled ?? owner?.ipRestrictionEnabled,
+        allowedIp:
+          persistedIpSettings.allowedIp !== undefined
+            ? persistedIpSettings.allowedIp
+            : owner?.allowedIp,
+      }
+    : owner;
+
+  return formatIpRestrictionMessage(resolvedOwner, requestIp);
+};
 
 const canManageEvents = (user = {}) => {
   if (user.role === 'admin') return true;
@@ -364,7 +459,19 @@ router.post('/verify-id/:eventId', upload.none(), async (req, res) => {
 
   try {
     const event = await Event.findOne({ id: eventId });
-    if (!event || !event.fileData) {
+    if (!event) {
+      return res.status(404).json({ message: 'Voting event not found' });
+    }
+
+    const access = await getVotingOwnerAccess(event, req);
+    if (!access.allowed) {
+      return res.status(403).json({
+        message: access.message,
+        votingAccess: access,
+      });
+    }
+
+    if (!event.fileData) {
       return res
         .status(404)
         .json({ message: 'No Excel data found for this event' });
@@ -418,6 +525,14 @@ router.post('/vote/:eventId', upload.none(), async (req, res) => {
       return res.status(404).json({ message: 'Voting event not found' });
     }
 
+    const access = await getVotingOwnerAccess(event, req);
+    if (!access.allowed) {
+      return res.status(403).json({
+        message: access.message,
+        votingAccess: access,
+      });
+    }
+
     const existingVote = await Vote.findOne({ eventId, voterId });
     if (existingVote) {
       return res.status(400).json({ message: 'This ID has already voted' });
@@ -452,7 +567,18 @@ router.get('/events/:id', async (req, res) => {
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
     }
-    res.status(200).json(normalizeCandidateImages(event));
+    const access = await getVotingOwnerAccess(event, req);
+    if (!access.allowed) {
+      return res.status(403).json({
+        message: access.message,
+        votingAccess: access,
+      });
+    }
+
+    res.status(200).json({
+      ...normalizeCandidateImages(event),
+      votingAccess: access,
+    });
   } catch (error) {
     console.error('Error fetching event:', error);
     res

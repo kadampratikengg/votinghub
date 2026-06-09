@@ -6,6 +6,10 @@ const {
   activatePendingFreeCredits,
   normalizeUserSubscriptionForExpiry,
 } = require('../utils/subscription');
+const {
+  getIpRestrictionSettings,
+  upsertIpRestrictionSettings,
+} = require('../utils/ipRestrictionStore');
 const router = express.Router();
 
 // Helper function to generate a unique username
@@ -26,6 +30,48 @@ const extractS3Key = (val) => {
     return parts.slice(3).join('/');
   }
   return val;
+};
+
+const normalizeIp = (value) =>
+  String(value || '')
+    .trim()
+    .replace(/^::ffff:/, '')
+    .replace(/^\[|\]$/g, '')
+    .replace(/^::1$/, '127.0.0.1')
+    .replace(/^0:0:0:0:0:0:0:1$/, '127.0.0.1');
+
+const parseBoolean = (value) =>
+  value === true ||
+  value === 'true' ||
+  value === 1 ||
+  value === '1' ||
+  value === 'on';
+
+const serializeUserProfile = (user) => ({
+  username: user.username || '',
+  name: user.name || '',
+  organization: user.organization || '',
+  logo: user.logo || '',
+  contact: user.contact || '',
+  email: user.email || '',
+  phone: user.phone || '',
+  address: user.address || '',
+  state: user.state || '',
+  district: user.district || '',
+  pincode: user.pincode || '',
+  gstNumber: user.gstNumber || '',
+  ipRestrictionEnabled: !!user.ipRestrictionEnabled,
+  allowedIp: user.allowedIp || '',
+  subscription: user.subscription || {},
+  subscriptionHistory: user.subscriptionHistory || [],
+});
+
+const applyIpRestrictionSettings = (user, settings) => {
+  if (!user || !settings) return user;
+
+  user.ipRestrictionEnabled = !!settings.ipRestrictionEnabled;
+  user.allowedIp = settings.allowedIp || '';
+  return user;
 };
 
 // Get user profile
@@ -53,6 +99,9 @@ router.get('/api/users', authenticateToken, async (req, res) => {
     await activatePendingFreeCredits(user);
     await normalizeUserSubscriptionForExpiry(user);
 
+    const persistedIpSettings = await getIpRestrictionSettings(userId);
+    applyIpRestrictionSettings(user, persistedIpSettings);
+
     if (!user.username) {
       console.log(
         'ℹ️ No username found for user, creating default username:',
@@ -64,22 +113,7 @@ router.get('/api/users', authenticateToken, async (req, res) => {
       user.username = username;
     }
 
-    res.status(200).json({
-      username: user.username || '',
-      name: user.name || '',
-      organization: user.organization || '',
-      logo: user.logo || '',
-      contact: user.contact || '',
-      email: user.email || '',
-      phone: user.phone || '',
-      address: user.address || '',
-      state: user.state || '',
-      district: user.district || '',
-      pincode: user.pincode || '',
-      gstNumber: user.gstNumber || '',
-      subscription: user.subscription || {},
-      subscriptionHistory: user.subscriptionHistory || [],
-    });
+    res.status(200).json(serializeUserProfile(user));
   } catch (error) {
     console.error('❌ Error fetching profile:', error.message, error.stack);
     res
@@ -122,6 +156,8 @@ router.put('/api/users', authenticateToken, async (req, res) => {
       district,
       pincode,
       gstNumber,
+      ipRestrictionEnabled,
+      allowedIp,
     } = req.body;
 
     // Validate email if provided
@@ -146,6 +182,23 @@ router.put('/api/users', authenticateToken, async (req, res) => {
     user.district = district !== undefined ? district : user.district;
     user.pincode = pincode !== undefined ? pincode : user.pincode;
     user.gstNumber = gstNumber !== undefined ? gstNumber : user.gstNumber;
+
+    const nextIpRestrictionEnabled =
+      ipRestrictionEnabled !== undefined
+        ? parseBoolean(ipRestrictionEnabled)
+        : !!user.ipRestrictionEnabled;
+    const nextAllowedIp =
+      allowedIp !== undefined ? normalizeIp(allowedIp) : normalizeIp(user.allowedIp);
+
+    if (nextIpRestrictionEnabled && !nextAllowedIp) {
+      return res.status(400).json({
+        message:
+          'Please provide the allowed IP address before enabling IP restriction',
+      });
+    }
+
+    user.ipRestrictionEnabled = nextIpRestrictionEnabled;
+    user.allowedIp = nextAllowedIp;
 
     if (
       logo !== undefined &&
@@ -179,23 +232,12 @@ router.put('/api/users', authenticateToken, async (req, res) => {
     }
 
     await user.save();
-
-    res.status(200).json({
-      username: user.username || '',
-      name: user.name || '',
-      organization: user.organization || '',
-      logo: user.logo || '',
-      contact: user.contact || '',
-      email: user.email || '',
-      phone: user.phone || '',
-      address: user.address || '',
-      state: user.state || '',
-      district: user.district || '',
-      pincode: user.pincode || '',
-      gstNumber: user.gstNumber || '',
-      subscription: user.subscription || {},
-      subscriptionHistory: user.subscriptionHistory || [],
+    await upsertIpRestrictionSettings(userId, {
+      ipRestrictionEnabled: user.ipRestrictionEnabled,
+      allowedIp: user.allowedIp,
     });
+
+    res.status(200).json(serializeUserProfile(user));
   } catch (error) {
     console.error('❌ Error updating profile:', error.message, error.stack);
     res

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import Sidebar from './Sidebar';
 import { toast, ToastContainer } from 'react-toastify';
@@ -36,9 +36,14 @@ const Profile = ({ setIsAuthenticated }) => {
     district: '',
     pincode: '',
     gstNumber: '',
+    ipRestrictionEnabled: false,
+    allowedIp: '',
     subscription: {},
     subscriptionHistory: [],
   });
+  const [autoDetectingIp, setAutoDetectingIp] = useState(false);
+  const [ipWasAutoDetected, setIpWasAutoDetected] = useState(false);
+  const [savingIpRestriction, setSavingIpRestriction] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [message, setMessage] = useState('');
@@ -48,6 +53,10 @@ const Profile = ({ setIsAuthenticated }) => {
   const [updatingLogo, setUpdatingLogo] = useState(false);
   const apiUrl = process.env.REACT_APP_API_URL;
   const s3BucketUrl = process.env.REACT_APP_S3_BUCKET_URL;
+  const ipRestrictionDraftRef = useRef({
+    ipRestrictionEnabled: false,
+    allowedIp: '',
+  });
 
   const uploadFileToS3 = async (file, token, folder) => {
     const formData = new FormData();
@@ -154,7 +163,19 @@ const Profile = ({ setIsAuthenticated }) => {
             headers: { Authorization: `Bearer ${token}` },
           },
         );
-        setUserData(response.data);
+        setUserData((prev) => ({
+          ...prev,
+          ...response.data,
+          ipRestrictionEnabled:
+            response.data.ipRestrictionEnabled ??
+            prev.ipRestrictionEnabled ??
+            false,
+          allowedIp: response.data.allowedIp ?? prev.allowedIp ?? '',
+        }));
+        ipRestrictionDraftRef.current = {
+          ipRestrictionEnabled: response.data.ipRestrictionEnabled ?? false,
+          allowedIp: response.data.allowedIp ?? '',
+        };
         setMessage('');
       } catch (error) {
         setMessage(
@@ -174,8 +195,120 @@ const Profile = ({ setIsAuthenticated }) => {
     fetchUserData();
   }, [navigate]);
 
+  const detectIpAddress = async () => {
+    // Require the user to enable IP restriction before detecting
+    if (!userData.ipRestrictionEnabled) {
+      toast.info('Please enable IP restriction first');
+      return;
+    }
+    try {
+      setAutoDetectingIp(true);
+      const res = await axios.get('https://api.ipify.org?format=json');
+      const ip = res.data && res.data.ip ? res.data.ip : '';
+      if (!ip) throw new Error('Unable to detect IP');
+      ipRestrictionDraftRef.current = {
+        ...ipRestrictionDraftRef.current,
+        allowedIp: ip,
+      };
+      setUserData((prev) => ({ ...prev, allowedIp: ip }));
+      setIpWasAutoDetected(true);
+      toast.success('Detected IP address');
+    } catch (err) {
+      toast.error(err.message || 'Failed to detect IP address');
+    } finally {
+      setAutoDetectingIp(false);
+    }
+  };
+
+  const saveIpRestriction = async (ipEnabled, allowedIpValue) => {
+    try {
+      setSavingIpRestriction(true);
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('No authentication token found');
+      const payload = { ipRestrictionEnabled: ipEnabled };
+      if (typeof allowedIpValue !== 'undefined') {
+        payload.allowedIp = String(allowedIpValue || '').trim();
+      }
+      const response = await axios.put(`${apiUrl}/api/users`, payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const profileResponse = await axios.get(`${apiUrl}/api/users`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      setUserData((prev) => ({
+        ...prev,
+        ...profileResponse.data,
+        ipRestrictionEnabled:
+          profileResponse.data.ipRestrictionEnabled ??
+          response.data.ipRestrictionEnabled ??
+          ipEnabled,
+        allowedIp:
+          profileResponse.data.allowedIp ??
+          response.data.allowedIp ??
+          String(allowedIpValue || '').trim(),
+      }));
+      ipRestrictionDraftRef.current = {
+        ipRestrictionEnabled:
+          profileResponse.data.ipRestrictionEnabled ??
+          response.data.ipRestrictionEnabled ??
+          ipEnabled,
+        allowedIp:
+          profileResponse.data.allowedIp ??
+          response.data.allowedIp ??
+          String(allowedIpValue || '').trim(),
+      };
+      toast.success('IP restriction configuration saved');
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message ||
+          err.message ||
+          'Failed to save IP restriction',
+      );
+    } finally {
+      setSavingIpRestriction(false);
+    }
+  };
+
+  const handleToggleIpRestriction = (checked) => {
+    ipRestrictionDraftRef.current = {
+      ...ipRestrictionDraftRef.current,
+      ipRestrictionEnabled: checked,
+    };
+    setUserData((prev) => ({ ...prev, ipRestrictionEnabled: checked }));
+    if (!checked) {
+      setIpWasAutoDetected(false);
+    }
+  };
+
+  const handleSaveIpRestriction = async () => {
+    const draftEnabled =
+      ipRestrictionDraftRef.current.ipRestrictionEnabled ??
+      userData.ipRestrictionEnabled;
+    const draftAllowedIp =
+      ipRestrictionDraftRef.current.allowedIp ?? userData.allowedIp;
+
+    if (draftEnabled && !String(draftAllowedIp || '').trim()) {
+      toast.error('Please enter an allowed IP address before saving');
+      return;
+    }
+    await saveIpRestriction(!!draftEnabled, draftAllowedIp);
+  };
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    // If user edits the allowedIp manually, mark it as not auto-detected
+    if (name === 'allowedIp') {
+      setIpWasAutoDetected(false);
+      ipRestrictionDraftRef.current = {
+        ...ipRestrictionDraftRef.current,
+        allowedIp: value,
+      };
+    }
     setUserData({ ...userData, [name]: value });
   };
 
@@ -672,6 +805,116 @@ const Profile = ({ setIsAuthenticated }) => {
           </aside>
         </section>
 
+        <section className='profile-card profile-security-card profile-security-card--fullwidth'>
+          <div className='profile-card__header profile-card__header--stacked'>
+            <div className='profile-security-card__top'>
+              <div>
+                <span className='profile-section-kicker'>Security</span>
+                <h2>IP Restriction</h2>
+                <p>
+                  Configure the single IP address that can open voting links for
+                  this account.
+                </p>
+              </div>
+              <span
+                className={`profile-status-pill ${
+                  userData.ipRestrictionEnabled
+                    ? 'profile-status-pill--on'
+                    : 'profile-status-pill--off'
+                }`}
+              >
+                {userData.ipRestrictionEnabled ? 'Enabled' : 'Disabled'}
+              </span>
+            </div>
+          </div>
+
+          <div className='profile-security-card__notice'>
+            {userData.ipRestrictionEnabled ? (
+              <strong>
+                Only {userData.allowedIp || 'the configured IP'} can open this
+                voting link.
+              </strong>
+            ) : (
+              <strong>Voting links are open from any IP address.</strong>
+            )}
+            <span>
+              Disabled by default. Save the restriction after choosing the
+              allowed IP address.
+            </span>
+          </div>
+
+          <div className='profile-security-card__controls'>
+            <div className='profile-field profile-field--inline'>
+              <span>
+                <FiShield /> Restrict Voting Links to IP
+              </span>
+              <label className='profile-switch'>
+                <input
+                  type='checkbox'
+                  name='ipRestrictionEnabled'
+                  checked={!!userData.ipRestrictionEnabled}
+                  onChange={(e) => handleToggleIpRestriction(e.target.checked)}
+                />
+                <span className='profile-switch__track'>
+                  <span className='profile-switch__thumb' />
+                </span>
+                <span className='profile-switch__label'>
+                  {userData.ipRestrictionEnabled ? 'On' : 'Off'}
+                </span>
+              </label>
+            </div>
+
+            <label className='profile-field'>
+              <span>
+                <FiMapPin /> Allowed IP Address
+              </span>
+              <input
+                type='text'
+                name='allowedIp'
+                value={userData.allowedIp}
+                onChange={handleInputChange}
+                placeholder='203.0.113.5'
+                disabled={!userData.ipRestrictionEnabled}
+              />
+            </label>
+
+            <div className='profile-security-card__actions'>
+              <button
+                type='button'
+                className='profile-icon-button profile-icon-button--ghost'
+                onClick={detectIpAddress}
+                disabled={autoDetectingIp || !userData.ipRestrictionEnabled}
+              >
+                {autoDetectingIp ? 'Detecting...' : 'Auto-detect IP'}
+              </button>
+              <button
+                type='button'
+                className='profile-icon-button profile-icon-button--dark'
+                onClick={handleSaveIpRestriction}
+                disabled={savingIpRestriction}
+              >
+                <FiSave />
+                {savingIpRestriction ? 'Saving...' : 'Save Restriction'}
+              </button>
+            </div>
+
+            <p className='profile-security-card__hint'>
+              When enabled, only the configured IP address may open voting links
+              for your account.
+            </p>
+            <div className='profile-security-card__meta'>
+              {userData.allowedIp ? (
+                <span>
+                  Current IP: {userData.allowedIp}
+                  {ipWasAutoDetected ? ' (auto-detected)' : ''}
+                </span>
+              ) : (
+                <span>No IP configured yet.</span>
+              )}
+            </div>
+          </div>
+        </section>
+{/*  */}
         <section className='profile-card profile-history-card'>
           <div className='profile-card__header'>
             <div>
