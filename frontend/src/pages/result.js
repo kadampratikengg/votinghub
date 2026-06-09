@@ -21,8 +21,17 @@ import { resolveStoredImageUrl } from '../utils/imageUrl';
 const getCandidateImage = (images, index) =>
   images?.find(
     (img) =>
-      Number(img.selectedIndex) === index || Number(img.candidateIndex) === index,
+      Number(img.selectedIndex) === index ||
+      Number(img.candidateIndex) === index ||
+      Number(img.fileRowIndex) === index,
   );
+
+const getCandidateDirectImage = (candidate) =>
+  candidate?.candidateImage?.key || candidate?.candidateImage?.url
+    ? candidate.candidateImage
+    : candidate?.__candidateImage?.key || candidate?.__candidateImage?.url
+      ? candidate.__candidateImage
+      : null;
 
 const getCandidateName = (candidate, index) =>
   candidate.Name ||
@@ -113,7 +122,8 @@ const Result = () => {
     name: getCandidateName(candidate, index),
     votes: voteCounts[getCandidateName(candidate, index)] || 0,
     image: resolveStoredImageUrl(
-      getCandidateImage(event?.candidateImages, index),
+      getCandidateDirectImage(candidate) ||
+        getCandidateImage(event?.candidateImages, index),
       s3BucketUrl,
       apiUrl,
     ),
@@ -122,10 +132,23 @@ const Result = () => {
     percent: totalVotes > 0 ? (candidate.votes / totalVotes) * 100 : 0,
   })).sort((a, b) => b.percent - a.percent) || [];
 
-  const winner = candidateResults.length > 0
-    ? candidateResults.reduce((top, candidate) => candidate.votes > top.votes ? candidate : top, candidateResults[0])
-    : null;
-  const topPercent = winner ? winner.percent : 0;
+  const topVotes = candidateResults[0]?.votes || 0;
+  const leadingCandidates =
+    topVotes > 0
+      ? candidateResults.filter((candidate) => candidate.votes === topVotes)
+      : [];
+  const hasTieForLead = leadingCandidates.length > 1;
+  const winner =
+    candidateResults.length > 0 && !hasTieForLead
+      ? candidateResults.find((candidate) => candidate.votes === topVotes) || null
+      : null;
+  const topPercent = totalVotes > 0 ? (topVotes / totalVotes) * 100 : 0;
+  const leadingCandidateLabel =
+    totalVotes === 0
+      ? 'No votes yet'
+      : hasTieForLead
+        ? `Tie between ${leadingCandidates.length} candidates`
+        : winner?.name || 'No votes yet';
   const donutSegments = candidateResults.length > 0 && totalVotes > 0
     ? candidateResults
         .map((candidate, index) => {
@@ -234,7 +257,7 @@ const Result = () => {
       <section className="result-summary-grid">
         <div className="result-summary-card"><FiPercent /><span>Voting Done</span><strong>{formatPercent(turnoutPercent)}</strong></div>
         <div className="result-summary-card"><FiUsers /><span>Total Votes Received</span><strong>{totalVotes}</strong></div>
-        <div className="result-summary-card"><FiAward /><span>Leading Candidate</span><strong>{winner?.name || 'No votes'}</strong></div>
+        <div className="result-summary-card"><FiAward /><span>Leading Candidate</span><strong>{leadingCandidateLabel}</strong></div>
         <div className="result-summary-card"><FiTrendingUp /><span>Lead Share</span><strong>{formatPercent(topPercent)}</strong></div>
       </section>
 

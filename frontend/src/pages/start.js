@@ -6,17 +6,31 @@ import { resolveStoredImageUrl } from '../utils/imageUrl';
 const getCandidateImage = (images, index) =>
   images?.find(
     (img) =>
-      Number(img.selectedIndex) === index || Number(img.candidateIndex) === index,
+      Number(img.selectedIndex) === index ||
+      Number(img.candidateIndex) === index ||
+      Number(img.fileRowIndex) === index,
   );
 
-const getPreferredEntries = (record) => {
-  if (!record || typeof record !== 'object') return [];
+const getCandidateDirectImage = (candidate) =>
+  candidate?.candidateImage?.key || candidate?.candidateImage?.url
+    ? candidate.candidateImage
+    : candidate?.__candidateImage?.key || candidate?.__candidateImage?.url
+      ? candidate.__candidateImage
+      : null;
 
-  const entries = Object.entries(record);
-  const findEntry = (patterns) =>
-    entries.find(([key]) =>
-      patterns.some((pattern) => key.toLowerCase().includes(pattern)),
+const getPreferredEntries = (record) => {
+    if (!record || typeof record !== 'object') return [];
+
+    const entries = Object.entries(record).filter(
+      ([key]) =>
+        !['candidateImage', 'candidateRowIndex', 'candidateSelectionIndex'].includes(
+          key,
+        ) && !key.startsWith('__'),
     );
+    const findEntry = (patterns) =>
+      entries.find(([key]) =>
+        patterns.some((pattern) => key.toLowerCase().includes(pattern)),
+      );
 
   const nameEntry = findEntry(['name']);
   const idEntry = findEntry(['id number', 'id', 'voter id']);
@@ -230,7 +244,9 @@ const Start = () => {
             <h3>Select a Candidate to Vote</h3>
             <div className="candidates-list-horizontal">
               {eventData.selectedData.map((candidate, index) => {
-                const image = getCandidateImage(eventData.candidateImages, index);
+                const image =
+                  getCandidateDirectImage(candidate) ||
+                  getCandidateImage(eventData.candidateImages, index);
                 const imageUrl = resolveStoredImageUrl(
                   image,
                   s3BucketUrl,

@@ -132,8 +132,12 @@ const requireManageAccess = (req, res, next) => {
 
 const rowsMatch = (left, right) => {
   if (!left || !right) return false;
-  const leftKeys = Object.keys(left);
-  const rightKeys = Object.keys(right);
+  const isMetaKey = (key) =>
+    ['candidateImage', 'candidateRowIndex', 'candidateSelectionIndex'].includes(
+      key,
+    ) || key.startsWith('__');
+  const leftKeys = Object.keys(left).filter((key) => !isMetaKey(key));
+  const rightKeys = Object.keys(right).filter((key) => !isMetaKey(key));
   if (leftKeys.length !== rightKeys.length) return false;
   return leftKeys.every((key) => String(left[key]) === String(right[key]));
 };

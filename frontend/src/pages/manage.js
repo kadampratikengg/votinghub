@@ -248,15 +248,32 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       setEventId(eventId);
 
       const images = {};
-      (eventToEdit.candidateImages || []).forEach((img) => {
+      (eventToEdit.selectedData || []).forEach((candidate, index) => {
+        const candidateImage = candidate?.candidateImage;
         const fileRowIndex =
-          img.fileRowIndex ?? img.candidateIndex ?? img.selectedIndex;
-        images[fileRowIndex] = img.key
-          ? { key: img.key, url: img.url }
-          : img.uuid
-            ? { uuid: img.uuid, cdnUrl: img.cdnUrl }
-            : null;
+          candidate?.candidateRowIndex ??
+          candidate?.candidateSelectionIndex ??
+          index;
+
+        if (candidateImage?.key || candidateImage?.url) {
+          images[fileRowIndex] = {
+            key: candidateImage.key || '',
+            url: candidateImage.url || '',
+          };
+        }
       });
+
+      if (Object.keys(images).length === 0) {
+        (eventToEdit.candidateImages || []).forEach((img) => {
+          const fileRowIndex =
+            img.fileRowIndex ?? img.candidateIndex ?? img.selectedIndex;
+          images[fileRowIndex] = img.key
+            ? { key: img.key, url: img.url }
+            : img.uuid
+              ? { uuid: img.uuid, cdnUrl: img.cdnUrl }
+              : null;
+        });
+      }
       setCandidateImages(images);
     } catch (error) {
       console.error('Error fetching event for edit:', error);
@@ -303,6 +320,31 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       return updatedCheckedRows;
     });
   };
+
+  const getCandidateImagePayload = (rowIndex) => {
+    const image = candidateImages[rowIndex];
+    if (!image) return null;
+
+    return {
+      key: image.key || image.uuid || '',
+      url: image.url || image.cdnUrl || '',
+    };
+  };
+
+  const buildSelectedCandidates = () =>
+    checkedRows
+      .map((rowIndex, selectedIndex) => {
+        const row = fileData[rowIndex];
+        if (!row) return null;
+
+        return {
+          ...row,
+          candidateImage: getCandidateImagePayload(rowIndex),
+          candidateRowIndex: rowIndex,
+          candidateSelectionIndex: selectedIndex,
+        };
+      })
+      .filter(Boolean);
 
   const filteredFileData = useMemo(() => {
     if (!candidateSearch || candidateSearch.trim() === '') return fileData;
@@ -414,6 +456,8 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     const expiryTime = new Date(`${eventDate}T${stopTime}`).getTime();
     const currentEventId = editingEventId || eventId;
 
+    const selectedCandidates = buildSelectedCandidates();
+
     const serializedCandidateImages = checkedRows
       .map((rowIndex, selectedIndex) => {
         const image = candidateImages[rowIndex];
@@ -434,7 +478,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     formData.append('stopTime', stopTime);
     formData.append('name', eventName);
     formData.append('description', eventDescription);
-    formData.append('selectedData', JSON.stringify(selectedData));
+    formData.append('selectedData', JSON.stringify(selectedCandidates));
     formData.append('fileData', JSON.stringify(fileData));
     formData.append('expiry', expiryTime.toString());
     formData.append(
@@ -479,7 +523,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
         stopTime,
         name: eventName,
         description: eventDescription,
-        selectedData,
+        selectedData: selectedCandidates,
         fileData,
         expiry: expiryTime,
         link:

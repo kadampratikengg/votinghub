@@ -14,6 +14,20 @@ const Voting = () => {
   const [accessInfo, setAccessInfo] = useState(null);
   const s3BucketUrl = process.env.REACT_APP_S3_BUCKET_URL;
 
+  const hiddenCandidateKeys = new Set([
+    'candidateImage',
+    'candidateRowIndex',
+    'candidateSelectionIndex',
+    '__candidateImage',
+    '__candidateRowIndex',
+    '__candidateSelectionIndex',
+  ]);
+
+  const getDisplayHeaders = (candidate) =>
+    Object.keys(candidate || {}).filter(
+      (key) => !hiddenCandidateKeys.has(key) && !key.startsWith('__'),
+    );
+
   const checkVotingTime = useCallback((eventData) => {
     if (eventData.date && eventData.startTime && eventData.stopTime) {
       const [startHours, startMinutes] = eventData.startTime.split(':');
@@ -84,14 +98,25 @@ const Voting = () => {
   if (!event) return <div className="vote-public-shell"><div className="vote-state-card">Voting event not found.</div></div>;
 
   const headers = event.selectedData && event.selectedData.length > 0
-    ? Object.keys(event.selectedData[0])
+    ? getDisplayHeaders(event.selectedData[0])
     : [];
 
-  const getCandidateImage = (images, index) =>
-    images?.find(
+  const getCandidateImage = (candidate, images, index) => {
+    if (candidate?.candidateImage?.key || candidate?.candidateImage?.url) {
+      return candidate.candidateImage;
+    }
+
+    if (candidate?.__candidateImage?.key || candidate?.__candidateImage?.url) {
+      return candidate.__candidateImage;
+    }
+
+    return images?.find(
       (img) =>
-        Number(img.selectedIndex) === index || Number(img.candidateIndex) === index,
+        Number(img.selectedIndex) === index ||
+        Number(img.candidateIndex) === index ||
+        Number(img.fileRowIndex) === index,
     );
+  };
 
   return (
     <main className="vote-public-shell">
@@ -157,7 +182,11 @@ const Voting = () => {
               </thead>
               <tbody>
                 {event.selectedData.map((candidate, index) => {
-                  const image = getCandidateImage(event.candidateImages, index);
+                  const image = getCandidateImage(
+                    candidate,
+                    event.candidateImages,
+                    index,
+                  );
                   const imageUrl = resolveStoredImageUrl(
                     image,
                     s3BucketUrl,
