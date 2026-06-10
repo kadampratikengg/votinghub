@@ -25,6 +25,7 @@
     "nodemailer": "^6.10.0",
     "pdfkit": "^0.18.0",
     "razorpay": "^2.9.6",
-    "react-razorpay": "^3.0.1"
+    "react-razorpay": "^3.0.1",
+    "prom-client": "^14.0.1"
   }
 }

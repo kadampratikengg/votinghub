@@ -1,19 +1,32 @@
-FROM node:18-alpine
+FROM node:20-alpine AS base
 
-# Set working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json
+# Set production env by default in the image
+ENV NODE_ENV=production
+
+# create non-root user
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install --production
+# Install only production dependencies
+RUN npm ci --omit=dev
 
-# Copy source code
 COPY . .
 
-# Expose backend port (e.g., 3000)
-EXPOSE 3000
+# Ensure correct ownership
+RUN chown -R appuser:appgroup /app
 
-# Start the server
+# Install small runtime tools used by healthchecks
+RUN apk add --no-cache curl
+
+USER appuser
+
+EXPOSE 5000
+
+# Basic container-level healthcheck (k8s probes preferred)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s \
+	CMD curl -f http://localhost:5000/ || exit 1
+
 CMD ["node", "server.js"]

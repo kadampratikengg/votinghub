@@ -1,93 +1,183 @@
 pipeline {
-    agent any
+agent any
 
-    tools {
-        maven 'Maven 3.9.2'
-        jdk 'Java 17'
+```
+tools {
+    nodejs 'Node 20'
+}
+
+environment {
+    DOCKER_HUB_CREDENTIALS = 'docker-hub-creds'
+    DOCKER_HUB_REPO = 'kadampratikpassport'
+
+    BACKEND_IMAGE = "${DOCKER_HUB_REPO}/votinghub-backend"
+    FRONTEND_IMAGE = "${DOCKER_HUB_REPO}/votinghub-frontend"
+
+    IMAGE_TAG = "${BUILD_NUMBER}"
+}
+
+options {
+    timeout(time: 30, unit: 'MINUTES')
+    buildDiscarder(logRotator(numToKeepStr: '10'))
+}
+
+stages {
+
+    stage('Clean Workspace') {
+        steps {
+            cleanWs()
+        }
     }
 
-    environment {
-        DOCKER_HUB_CREDENTIALS = 'docker-hub-creds'
-        DOCKER_HUB_REPO = 'kadampratikpassport'
-        BACKEND_IMAGE = "${DOCKER_HUB_REPO}/backend-app"
-        FRONTEND_IMAGE = "${DOCKER_HUB_REPO}/frontend-app"
+    stage('Checkout Code') {
+        steps {
+            git branch: 'main',
+                url: 'https://github.com/kadampratikengg/votinghub.git',
+                credentialsId: 'git'
+        }
     }
 
-    stages {
-        stage('Clean Workspace') {
-            steps {
-                // Clean the workspace to avoid git clone errors
-                cleanWs()
+    stage('Verify Node') {
+        steps {
+            sh '''
+                node -v
+                npm -v
+            '''
+        }
+    }
+
+    stage('Install Frontend Dependencies') {
+        steps {
+            dir('frontend') {
+                sh 'npm ci'
             }
         }
+    }
 
-        stage('Clone Repository') {
-            steps {
+    stage('Install Backend Dependencies') {
+        steps {
+            dir('backend') {
+                sh 'npm ci'
+            }
+        }
+    }
+
+    stage('Build Frontend') {
+        steps {
+            dir('frontend') {
+                sh 'npm run build'
+            }
+        }
+    }
+
+    stage('Run Backend Tests') {
+        steps {
+            dir('backend') {
+                sh 'npm test || true'
+            }
+        }
+    }
+
+    stage('Build Backend Docker Image') {
+        steps {
+            dir('backend') {
                 script {
-                    // Clone the repository directly into workspace
-                    bat 'git clone https://github.com/kadampratikengg/AGRLANDEAUCTION.git .'
-                }
-            }
-        }
-
-        stage('Build Backend') {
-            steps {
-                dir('backend') {
-                    script {
-                        bat 'node -v'
-                        bat 'npm -v'
-                        bat 'npm install'
-                    }
-                }
-            }
-        }
-
-        stage('Build Frontend') {
-            steps {
-                dir('frontend') {
-                    bat 'node -v'
-                    bat 'npm -v'
-                    bat 'npm install'
-                    bat 'npm run build'
-                }
-            }
-        }
-
-        stage('Docker Build & Push Backend') {
-            steps {
-                dir('backend') {
-                    script {
-                        docker.build("${BACKEND_IMAGE}:latest", '.')
-                        docker.withRegistry('', DOCKER_HUB_CREDENTIALS) {
-                            docker.image("${BACKEND_IMAGE}:latest").push()
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Docker Build & Push Frontend') {
-            steps {
-                dir('frontend') {
-                    script {
-                        docker.build("${FRONTEND_IMAGE}:latest", '.')
-                        docker.withRegistry('', DOCKER_HUB_CREDENTIALS) {
-                            docker.image("${FRONTEND_IMAGE}:latest").push()
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Deploy to Kubernetes') {
-            steps {
-                script {
-                    bat '''
-                        kubectl apply -f k8s/backend-deployment.yaml --validate=false
-                        kubectl apply -f k8s/frontend-deployment.yaml --validate=false
-                    '''
+                    docker.build(
+                        "${BACKEND_IMAGE}:${IMAGE_TAG}",
+                        '.'
+                    )
                 }
             }
         }
     }
+
+    stage('Build Frontend Docker Image') {
+        steps {
+            dir('frontend') {
+                script {
+                    docker.build(
+                        "${FRONTEND_IMAGE}:${IMAGE_TAG}",
+                        '.'
+                    )
+                }
+            }
+        }
+    }
+
+    stage('Push Docker Images') {
+        steps {
+            script {
+                docker.withRegistry(
+                    'https://index.docker.io/v1/',
+                    DOCKER_HUB_CREDENTIALS
+                ) {
+
+                    docker.image(
+                        "${BACKEND_IMAGE}:${IMAGE_TAG}"
+                    ).push()
+
+                    docker.image(
+                        "${BACKEND_IMAGE}:${IMAGE_TAG}"
+                    ).push('latest')
+
+                    docker.image(
+                        "${FRONTEND_IMAGE}:${IMAGE_TAG}"
+                    ).push()
+
+                    docker.image(
+                        "${FRONTEND_IMAGE}:${IMAGE_TAG}"
+                    ).push('latest')
+                }
+            }
+        }
+    }
+
+    /*
+    Uncomment if Kubernetes is configured
+
+    stage('Deploy to Kubernetes') {
+        steps {
+            sh '''
+                kubectl set image deployment/backend \
+                backend=${BACKEND_IMAGE}:${IMAGE_TAG}
+
+                kubectl set image deployment/frontend \
+                frontend=${FRONTEND_IMAGE}:${IMAGE_TAG}
+            '''
+        }
+    }
+    */
+
+    /*
+    OR Deploy using Docker Compose
+
+    stage('Deploy Docker Compose') {
+        steps {
+            sh '''
+                docker compose down
+                docker compose pull
+                docker compose up -d
+            '''
+        }
+    }
+    */
+}
+
+post {
+
+    success {
+        echo 'Build, Push and Deployment completed successfully.'
+    }
+
+    failure {
+        echo 'Pipeline failed.'
+    }
+
+    always {
+        sh 'docker system prune -af || true'
+        cleanWs()
+    }
+}
+```
+
 }

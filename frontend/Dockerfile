@@ -1,13 +1,21 @@
-# Build stage
-FROM node:18 as build
+# Build Stage
+FROM node:20-alpine AS build
+
 WORKDIR /app
+
 COPY package*.json ./
-RUN npm install
+
+RUN npm ci
+
 COPY . .
+
 RUN npm run build
 
-# Production stage: Nginx to serve static files
-FROM nginx:1.25-alpine
+# Production Stage
+FROM nginx:1.27-alpine
+
 COPY --from=build /app/build /usr/share/nginx/html
+
 EXPOSE 80
+
 CMD ["nginx", "-g", "daemon off;"]

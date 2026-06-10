@@ -25,6 +25,17 @@ const User = require('./models/User');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// prometheus instrumentation
+const client = require('prom-client');
+const mongoose = require('mongoose');
+
+// collect default metrics
+try {
+  client.collectDefaultMetrics({ timeout: 5000 });
+} catch (err) {
+  console.warn('Prom-client metrics collection failed to start', err);
+}
+
 // Ensure req.protocol resolves correctly behind Render / other proxies.
 app.set('trust proxy', 1);
 
@@ -75,6 +86,23 @@ connectDB();
 // Routes
 app.get('/', (req, res) => {
   res.status(200).json({ message: '✅ Backend is running' });
+});
+// Expose Prometheus metrics
+app.get('/metrics', async (req, res) => {
+  try {
+    res.set('Content-Type', client.register.contentType);
+    res.end(await client.register.metrics());
+  } catch (err) {
+    res.status(500).end(err);
+  }
+});
+
+// readiness probe: checks mongoose connection state
+app.get('/ready', (req, res) => {
+  const state = mongoose.connection && mongoose.connection.readyState;
+  // 1 == connected
+  if (state === 1) return res.status(200).json({ ready: true });
+  return res.status(503).json({ ready: false });
 });
 app.post('/api/change-password', authenticateToken, async (req, res) => {
   const { newPassword } = req.body;

@@ -1,0 +1,29 @@
+version: '3.8'
+services:
+  mongo:
+    image: mongo:6
+    restart: always
+    volumes:
+      - mongo-data:/data/db
+    ports:
+      - '27017:27017'
+
+  backend:
+    build: ./backend
+    ports:
+      - '3000:5000'
+    environment:
+      - NODE_ENV=development
+      - MONGODB_URI=mongodb://mongo:27017/votinghub
+    depends_on:
+      - mongo
+
+  frontend:
+    build: ./frontend
+    ports:
+      - '3001:80'
+    depends_on:
+      - backend
+
+volumes:
+  mongo-data:

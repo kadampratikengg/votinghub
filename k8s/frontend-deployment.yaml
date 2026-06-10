@@ -12,11 +12,21 @@ spec:
       labels:
         app: frontend
     spec:
+      securityContext:
+        fsGroup: 1000
       containers:
         - name: frontend
-          image: kadampratikpassport/frontend-app:latest
+          image: kadampratikpassport/frontend-app:1.0.0
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
+          resources:
+            requests:
+              cpu: '100m'
+              memory: '128Mi'
+            limits:
+              cpu: '300m'
+              memory: '256Mi'
 ---
 apiVersion: v1
 kind: Service
