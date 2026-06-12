@@ -12,9 +12,15 @@ const {
   getActiveRemainingCredits,
   normalizeSubscriptionForExpiry,
 } = require('../utils/subscription');
+const { getIpRestrictionSettings } = require('../utils/ipRestrictionStore');
 const {
-  getIpRestrictionSettings,
-} = require('../utils/ipRestrictionStore');
+  canAddBufferTime,
+  getEffectiveEndDateTime,
+  getOriginalEndDateTime,
+  getStartDateTime,
+  getVotingWindow,
+  isSameCalendarDay,
+} = require('../utils/votingWindow');
 const router = express.Router();
 const upload = multer();
 
@@ -80,10 +86,48 @@ const formatIpRestrictionMessage = (user, requestIp) => {
   };
 };
 
-const getVotingOwnerAccess = async (event, req) => {
+const getVotingTimeAccess = (event, now = new Date()) => {
+  const votingWindow = getVotingWindow(event, now);
+
+  return {
+    phase: votingWindow.phase,
+    isOpen: votingWindow.isOpen,
+    message: votingWindow.message,
+    startDateTime: votingWindow.startDateTime,
+    originalEndDateTime: votingWindow.originalEndDateTime,
+    effectiveEndDateTime: votingWindow.effectiveEndDateTime,
+    bufferMinutes: votingWindow.bufferMinutes,
+  };
+};
+
+const getVotingAccess = async (event, req, now = new Date()) => {
+  const timeAccess = getVotingTimeAccess(event, now);
+  if (timeAccess.phase === 'closed') {
+    return {
+      ...timeAccess,
+      enabled: false,
+      allowedIp: '',
+      requestIp: getRequestIp(req),
+      allowed: false,
+      message: 'Voting time is over.',
+    };
+  }
+
+  if (timeAccess.phase === 'before-start') {
+    return {
+      ...timeAccess,
+      enabled: false,
+      allowedIp: '',
+      requestIp: getRequestIp(req),
+      allowed: false,
+      message: 'Voting has not started yet.',
+    };
+  }
+
   const requestIp = getRequestIp(req);
   if (!event?.userId) {
     return {
+      ...timeAccess,
       enabled: false,
       allowedIp: '',
       requestIp,
@@ -101,7 +145,8 @@ const getVotingOwnerAccess = async (event, req) => {
     ? {
         ...owner,
         ipRestrictionEnabled:
-          persistedIpSettings.ipRestrictionEnabled ?? owner?.ipRestrictionEnabled,
+          persistedIpSettings.ipRestrictionEnabled ??
+          owner?.ipRestrictionEnabled,
         allowedIp:
           persistedIpSettings.allowedIp !== undefined
             ? persistedIpSettings.allowedIp
@@ -109,8 +154,25 @@ const getVotingOwnerAccess = async (event, req) => {
       }
     : owner;
 
-  return formatIpRestrictionMessage(resolvedOwner, requestIp);
+  const ipAccess = formatIpRestrictionMessage(resolvedOwner, requestIp);
+  return {
+    ...timeAccess,
+    ...ipAccess,
+  };
 };
+
+const getVotingOwnerAccess = async (event, req) => {
+  return getVotingAccess(event, req);
+};
+
+const formatTimeHHMM = (date) =>
+  date instanceof Date && !Number.isNaN(date.getTime())
+    ? date.toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      })
+    : '';
 
 const canManageEvents = (user = {}) => {
   if (user.role === 'admin') return true;
@@ -127,6 +189,18 @@ const requireManageAccess = (req, res, next) => {
 
   return res.status(403).json({
     message: 'Access denied: manage permission required',
+  });
+};
+
+const canAddBuffer = (user = {}) => user.role === 'admin' && !user.subUserId;
+
+const requireSuperAdmin = (req, res, next) => {
+  if (canAddBuffer(req.user)) {
+    return next();
+  }
+
+  return res.status(403).json({
+    message: 'Access denied: super admin permission required',
   });
 };
 
@@ -187,16 +261,14 @@ const normalizeCandidateImages = (event) => {
 };
 
 const getEventStatus = (event) => {
-  const endTime = Number(event.expiry);
-  if (Number.isFinite(endTime) && Date.now() > endTime) return 'done';
+  const window = getVotingWindow(event);
+  if (window.phase === 'closed' || window.phase === 'invalid') return 'done';
   return 'active';
 };
 
 const getResultDate = (event) => {
-  const endTime = Number(event.expiry);
-  if (Number.isFinite(endTime)) return new Date(endTime);
-  const stopDate = new Date(`${event.date}T${event.stopTime}`);
-  return Number.isNaN(stopDate.getTime()) ? null : stopDate;
+  const endTime = getEffectiveEndDateTime(event);
+  return endTime || null;
 };
 
 const getVoteSummary = (votes = []) => {
@@ -266,12 +338,37 @@ const toHistoryRecord = (event, votes, fallbackActor = null) => {
   };
 };
 
+const serializeEventForResponse = (event, req = null) => {
+  const normalizedEvent = normalizeCandidateImages(event);
+  const votingWindow = getVotingWindow(normalizedEvent);
+
+  return {
+    ...normalizedEvent,
+    votingWindow: {
+      phase: votingWindow.phase,
+      isOpen: votingWindow.isOpen,
+      message: votingWindow.message,
+      startDateTime: votingWindow.startDateTime,
+      originalEndDateTime: votingWindow.originalEndDateTime,
+      effectiveEndDateTime: votingWindow.effectiveEndDateTime,
+      bufferMinutes: votingWindow.bufferMinutes,
+    },
+    ...(req
+      ? {
+          votingAccess: null,
+        }
+      : {}),
+  };
+};
+
 // Fetch all events for authenticated user
 router.get('/events', authenticateToken, async (req, res) => {
   console.log('📥 Fetching all events for user:', req.user.userId);
   try {
     const events = await Event.find({ userId: req.user.userId });
-    res.status(200).json(events.map(normalizeCandidateImages));
+    res
+      .status(200)
+      .json(events.map((event) => serializeEventForResponse(event)));
   } catch (error) {
     console.error('❌ Error fetching all events:', error);
     res
@@ -467,8 +564,8 @@ router.post('/verify-id/:eventId', upload.none(), async (req, res) => {
       return res.status(404).json({ message: 'Voting event not found' });
     }
 
-    const access = await getVotingOwnerAccess(event, req);
-    if (!access.allowed) {
+    const access = await getVotingAccess(event, req);
+    if (!access.isOpen || !access.allowed) {
       return res.status(403).json({
         message: access.message,
         votingAccess: access,
@@ -529,8 +626,8 @@ router.post('/vote/:eventId', upload.none(), async (req, res) => {
       return res.status(404).json({ message: 'Voting event not found' });
     }
 
-    const access = await getVotingOwnerAccess(event, req);
-    if (!access.allowed) {
+    const access = await getVotingAccess(event, req);
+    if (!access.isOpen || !access.allowed) {
       return res.status(403).json({
         message: access.message,
         votingAccess: access,
@@ -563,31 +660,85 @@ router.post('/vote/:eventId', upload.none(), async (req, res) => {
   }
 });
 
-// Get Event
-router.get('/events/:id', async (req, res) => {
+// Get Event for authenticated admin/manage views
+router.get('/events/:id', authenticateToken, async (req, res) => {
   console.log('Event fetch request for ID:', req.params.id);
   try {
-    const event = await Event.findOne({ id: req.params.id });
+    const event = await Event.findOne({
+      id: req.params.id,
+      userId: req.user.userId,
+    });
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
     }
-    const access = await getVotingOwnerAccess(event, req);
-    if (!access.allowed) {
-      return res.status(403).json({
-        message: access.message,
-        votingAccess: access,
-      });
-    }
-
     res.status(200).json({
-      ...normalizeCandidateImages(event),
-      votingAccess: access,
+      ...serializeEventForResponse(event),
+      votingAccess: await getVotingAccess(event, req),
     });
   } catch (error) {
     console.error('Error fetching event:', error);
     res
       .status(500)
       .json({ message: 'Failed to fetch event', error: error.message });
+  }
+});
+
+// Get Event for public voting views
+router.get('/public/events/:id', async (req, res) => {
+  console.log('Public event fetch request for ID:', req.params.id);
+  try {
+    const event = await Event.findOne({ id: req.params.id });
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+
+    const access = await getVotingAccess(event, req);
+    if (access.phase === 'closed') {
+      return res.status(403).json({
+        message: 'Voting time is over.',
+        votingAccess: access,
+      });
+    }
+
+    return res.status(200).json({
+      ...serializeEventForResponse(event),
+      votingAccess: access,
+    });
+  } catch (error) {
+    console.error('Error fetching public event:', error);
+    return res
+      .status(500)
+      .json({ message: 'Failed to fetch event', error: error.message });
+  }
+});
+
+// Public: Fetch buffer history for an event (buffer additions only)
+router.get('/public/events/:id/history', async (req, res) => {
+  try {
+    const event = await Event.findOne({ id: req.params.id });
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+
+    const history = await EventHistory.find({
+      eventId: req.params.id,
+      action: 'buffer-added',
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const simplified = history.map((h) => ({
+      bufferMinutes: h.bufferMinutes || 0,
+      createdAt: h.createdAt,
+      createdBy: h.createdBy || null,
+    }));
+
+    return res.status(200).json(simplified);
+  } catch (error) {
+    console.error('Error fetching public event history:', error);
+    return res
+      .status(500)
+      .json({ message: 'Failed to fetch event history', error: error.message });
   }
 });
 
@@ -683,6 +834,20 @@ router.post(
           .json({ message: 'selectedData must be a non-empty array' });
       }
 
+      const startDateTime = getStartDateTime({ date, startTime });
+      const originalEndDateTime = getOriginalEndDateTime({ date, stopTime });
+      if (!startDateTime || !originalEndDateTime) {
+        return res.status(400).json({
+          message: 'Invalid event date or time values provided',
+        });
+      }
+
+      if (startDateTime >= originalEndDateTime) {
+        return res.status(400).json({
+          message: 'End time must be greater than start time',
+        });
+      }
+
       const actor = await resolveActor(req.user);
       const event = new Event({
         id,
@@ -692,10 +857,14 @@ router.post(
         stopTime,
         name,
         description,
+        startDateTime,
+        endDateTime: originalEndDateTime,
+        originalEndDateTime,
+        bufferMinutes: 0,
         selectedData: parsedSelectedData,
         fileData: parsedFileData,
         candidateImages: parsedCandidateImages,
-        expiry: Number(expiry),
+        expiry: originalEndDateTime.getTime(),
         link,
         createdBy: actor,
       });
@@ -748,6 +917,33 @@ router.post(
     }
   },
 );
+
+// Authenticated: Fetch history for a specific event (all history items for owner)
+router.get('/events/:id/history', authenticateToken, async (req, res) => {
+  try {
+    const event = await Event.findOne({
+      id: req.params.id,
+      userId: req.user.userId,
+    });
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+
+    const history = await EventHistory.find({
+      eventId: req.params.id,
+      userId: req.user.userId,
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.status(200).json(history);
+  } catch (error) {
+    console.error('Error fetching event history for owner:', error);
+    return res
+      .status(500)
+      .json({ message: 'Failed to fetch event history', error: error.message });
+  }
+});
 
 // Update Event - only admin
 router.put(
@@ -837,6 +1033,34 @@ router.put(
           .json({ message: 'Event not found or unauthorized' });
       }
 
+      const existingStartDateTime =
+        existingEvent.startDateTime ||
+        getStartDateTime(existingEvent) ||
+        parseLocalDateTime(existingEvent.date, existingEvent.startTime);
+      const now = new Date();
+      if (existingStartDateTime && now >= new Date(existingStartDateTime)) {
+        return res.status(400).json({
+          message: 'Event has already started and cannot be edited',
+        });
+      }
+
+      const nextStartDateTime = getStartDateTime({ date, startTime });
+      const nextEndDateTime = getOriginalEndDateTime({ date, stopTime });
+      if (!nextStartDateTime || !nextEndDateTime) {
+        return res.status(400).json({
+          message: 'Invalid event date or time values provided',
+        });
+      }
+      if (nextStartDateTime >= nextEndDateTime) {
+        return res.status(400).json({
+          message: 'End time must be greater than start time',
+        });
+      }
+      const currentBufferMinutes = Number(existingEvent.bufferMinutes || 0);
+      const effectiveEndDateTime = new Date(
+        nextEndDateTime.getTime() + currentBufferMinutes * 60 * 1000,
+      );
+
       // Identify images to delete (supports S3 keys or legacy UUID fields)
       const existingImageKeys = new Set(
         existingEvent.candidateImages
@@ -908,10 +1132,14 @@ router.put(
           stopTime,
           name,
           description,
+          startDateTime: nextStartDateTime,
+          endDateTime: effectiveEndDateTime,
+          originalEndDateTime: nextEndDateTime,
+          bufferMinutes: currentBufferMinutes,
           selectedData: parsedSelectedData,
           fileData: parsedFileData,
           candidateImages: parsedCandidateImages,
-          expiry: Number(expiry),
+          expiry: effectiveEndDateTime.getTime(),
           link,
         },
         { new: true, runValidators: true },
@@ -931,6 +1159,140 @@ router.put(
       res
         .status(500)
         .json({ message: 'Failed to update event', error: error.message });
+    }
+  },
+);
+
+// Add Buffer Time - only super admin
+router.patch(
+  '/events/:id/buffer-time',
+  authenticateToken,
+  requireSuperAdmin,
+  upload.none(),
+  async (req, res) => {
+    console.log(
+      '📥 Buffer time request for ID:',
+      req.params.id,
+      'Data:',
+      req.body,
+    );
+
+    const hours = Number(req.body.hours || 0);
+    const minutes = Number(req.body.minutes || 0);
+    const totalBufferMinutes = hours * 60 + minutes;
+
+    if (
+      !Number.isFinite(hours) ||
+      !Number.isFinite(minutes) ||
+      hours < 0 ||
+      minutes < 0 ||
+      minutes >= 60 ||
+      totalBufferMinutes <= 0
+    ) {
+      return res.status(400).json({
+        message: 'Please choose a valid buffer duration',
+      });
+    }
+
+    try {
+      const event = await Event.findOne({
+        id: req.params.id,
+        userId: req.user.userId,
+      });
+
+      if (!event) {
+        return res
+          .status(404)
+          .json({ message: 'Event not found or unauthorized' });
+      }
+
+      // Allow multiple buffer additions. We'll accumulate buffer minutes.
+
+      const bufferCheck = canAddBufferTime(event, new Date());
+      if (!bufferCheck.allowed) {
+        return res.status(400).json({ message: bufferCheck.message });
+      }
+
+      const originalEndDateTime =
+        getOriginalEndDateTime(event) || getEffectiveEndDateTime(event);
+      if (!originalEndDateTime) {
+        return res.status(400).json({
+          message: 'Unable to determine the voting end time',
+        });
+      }
+
+      // accumulate existing buffer minutes (if any)
+      const existingBuffer = Number(event.bufferMinutes || 0);
+      const newBufferMinutes = existingBuffer + totalBufferMinutes;
+
+      const effectiveEndDateTime = new Date(
+        originalEndDateTime.getTime() + newBufferMinutes * 60 * 1000,
+      );
+      const now = new Date();
+
+      // Validate that the resulting time is in the future
+      if (now >= effectiveEndDateTime) {
+        return res.status(400).json({
+          message:
+            'Buffer time is too small. Please choose a larger duration so the voting remains open.',
+        });
+      }
+
+      // Ensure the effective end time is on the same calendar day as the original event
+      if (!isSameCalendarDay(effectiveEndDateTime, originalEndDateTime)) {
+        return res.status(400).json({
+          message:
+            'Buffer time cannot extend voting beyond the current calendar day. Please choose a smaller duration.',
+        });
+      }
+
+      const formattedStopTime = formatTimeHHMM(effectiveEndDateTime);
+
+      const updatedEvent = await Event.findOneAndUpdate(
+        { id: req.params.id, userId: req.user.userId },
+        {
+          bufferMinutes: newBufferMinutes,
+          bufferAddedAt: now,
+          bufferAddedBy: await resolveActor(req.user),
+          endDateTime: effectiveEndDateTime,
+          expiry: effectiveEndDateTime.getTime(),
+          stopTime: formattedStopTime,
+        },
+        { new: true, runValidators: true },
+      );
+
+      // Record buffer addition in event history
+      try {
+        const actor = await resolveActor(req.user);
+        await EventHistory.create({
+          eventId: updatedEvent.id,
+          userId: req.user.userId,
+          name: updatedEvent.name,
+          date: updatedEvent.date,
+          startTime: updatedEvent.startTime,
+          stopTime: updatedEvent.stopTime,
+          status: getEventStatus(updatedEvent),
+          action: 'buffer-added',
+          bufferMinutes: Number(totalBufferMinutes || 0),
+          createdBy: actor,
+        });
+      } catch (histErr) {
+        console.error(
+          '❌ Failed to write event history for buffer addition:',
+          histErr,
+        );
+      }
+
+      return res.status(200).json({
+        message: 'Buffer time added successfully',
+        event: serializeEventForResponse(updatedEvent),
+      });
+    } catch (error) {
+      console.error('❌ Error adding buffer time:', error);
+      return res.status(500).json({
+        message: 'Failed to add buffer time',
+        error: error.message,
+      });
     }
   },
 );

@@ -164,8 +164,10 @@ const AdminDashboard = () => {
           ? new Date(`${event.date}T${event.startTime}`)
           : null;
       const stop =
-        event.date && event.stopTime
-          ? new Date(`${event.date}T${event.stopTime}`)
+        event.votingWindow?.effectiveEndDateTime
+          ? new Date(event.votingWindow.effectiveEndDateTime)
+          : event.date && event.stopTime
+            ? new Date(`${event.date}T${event.stopTime}`)
           : null;
       const resultDate = event.resultDate ? new Date(event.resultDate) : stop;
 

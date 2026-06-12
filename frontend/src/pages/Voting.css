@@ -9,8 +9,16 @@
   min-height: 100vh;
   padding: clamp(18px, 4vw, 52px);
   background:
-    radial-gradient(circle at 12% 10%, rgba(215, 240, 110, 0.36), transparent 28%),
-    radial-gradient(circle at 88% 0%, rgba(244, 180, 79, 0.22), transparent 26%),
+    radial-gradient(
+      circle at 12% 10%,
+      rgba(215, 240, 110, 0.36),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at 88% 0%,
+      rgba(244, 180, 79, 0.22),
+      transparent 26%
+    ),
     linear-gradient(135deg, #f8f5ec 0%, #eef4e9 50%, #f7f1e2 100%);
   color: var(--vote-ink);
 }
@@ -31,7 +39,11 @@
   color: #fffaf0;
   background:
     linear-gradient(135deg, rgba(23, 33, 26, 0.95), rgba(31, 122, 77, 0.9)),
-    repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0 1px, transparent 1px 15px);
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.06) 0 1px,
+      transparent 1px 15px
+    );
   box-shadow: 0 24px 70px rgba(37, 48, 35, 0.16);
   overflow: hidden;
   position: relative;
@@ -240,6 +252,21 @@
 
 .vote-table tr:last-child td {
   border-bottom: 0;
+}
+
+/* Buffer history section spacing */
+.vote-buffer-section {
+  margin-bottom: 28px;
+  padding-bottom: 12px;
+}
+
+.vote-buffer-section .vote-table {
+  min-width: 560px;
+}
+
+.vote-table .actor-cell {
+  color: var(--vote-ink);
+  font-weight: 800;
 }
 
 .vote-candidate-image {

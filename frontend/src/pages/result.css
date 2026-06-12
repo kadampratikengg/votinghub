@@ -9,8 +9,16 @@
   min-height: 100vh;
   padding: clamp(18px, 4vw, 52px);
   background:
-    radial-gradient(circle at 12% 10%, rgba(215, 240, 110, 0.36), transparent 28%),
-    radial-gradient(circle at 88% 0%, rgba(244, 180, 79, 0.22), transparent 26%),
+    radial-gradient(
+      circle at 12% 10%,
+      rgba(215, 240, 110, 0.36),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at 88% 0%,
+      rgba(244, 180, 79, 0.22),
+      transparent 26%
+    ),
     linear-gradient(135deg, #f8f5ec 0%, #eef4e9 50%, #f7f1e2 100%);
   color: var(--result-ink);
 }
@@ -31,7 +39,11 @@
   color: #fffaf0;
   background:
     linear-gradient(135deg, rgba(30, 36, 28, 0.95), rgba(140, 82, 43, 0.88)),
-    repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0 1px, transparent 1px 15px);
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.06) 0 1px,
+      transparent 1px 15px
+    );
   box-shadow: 0 24px 70px rgba(37, 48, 35, 0.16);
   overflow: hidden;
   position: relative;
@@ -126,7 +138,9 @@
   background: var(--result-lime);
   font-weight: 900;
   cursor: pointer;
-  transition: transform 0.16s ease, box-shadow 0.16s ease;
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease;
 }
 
 .result-actions button:hover {
@@ -580,6 +594,44 @@
   width: 42px;
   height: 42px;
   border-radius: 10px;
+}
+
+/* Buffer history section spacing and table */
+.result-buffer-section {
+  margin-bottom: 28px;
+  padding-bottom: 12px;
+}
+
+.result-table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.result-table th,
+.result-table td {
+  padding: 12px;
+  border-bottom: 1px solid rgba(23, 33, 26, 0.08);
+  text-align: left;
+}
+
+.result-table th {
+  color: var(--result-muted);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(239, 231, 214, 0.36);
+}
+
+.result-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.result-table .actor-cell {
+  color: var(--result-ink);
+  font-weight: 800;
 }
 
 .result-pdf-mode .result-candidate-identity {

@@ -9,6 +9,17 @@ const eventSchema = new mongoose.Schema(
     stopTime: { type: String, required: true },
     name: { type: String, required: true },
     description: { type: String, required: true },
+    startDateTime: { type: Date },
+    endDateTime: { type: Date },
+    originalEndDateTime: { type: Date },
+    bufferMinutes: { type: Number, default: 0 },
+    bufferAddedAt: { type: Date },
+    bufferAddedBy: {
+      id: { type: String },
+      name: { type: String },
+      role: { type: String },
+      type: { type: String },
+    },
     selectedData: [
       {
         type: mongoose.Schema.Types.Mixed,

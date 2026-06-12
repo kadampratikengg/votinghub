@@ -34,6 +34,8 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const [activeEvents, setActiveEvents] = useState([]);
   const [editingEventId, setEditingEventId] = useState(null);
   const [candidateImages, setCandidateImages] = useState({});
+  const [bufferForms, setBufferForms] = useState({});
+  const [bufferPickerOpen, setBufferPickerOpen] = useState({});
   const [eventId, setEventId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -41,9 +43,51 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const [availableCredits, setAvailableCredits] = useState(0);
   const [subscriptionMessage, setSubscriptionMessage] = useState('');
   const navigate = useNavigate();
+  const role = localStorage.getItem('role') || 'admin';
+
+  const isSuperAdmin = role === 'admin';
+  const getLocalDateKey = (value = new Date()) => {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, '0'),
+      String(date.getDate()).padStart(2, '0'),
+    ].join('-');
+  };
+
+  const handleConfirmAddBuffer = async (eventId) => {
+    const ok = window.confirm(
+      'Are you sure you want to add buffer time?\n\nPlease ensure you have sufficient permission to add buffer time.\n\nClick OK to add 15 minutes.',
+    );
+    if (!ok) return;
+
+    // Always add 15 minutes when confirming via this flow
+    await handleAddBufferTime(eventId, { hours: 0, minutes: 15 });
+  };
 
   const apiUrl = process.env.REACT_APP_API_URL;
   const s3BucketUrl = process.env.REACT_APP_S3_BUCKET_URL;
+
+  const isAfterStopSameDay = (event) => {
+    try {
+      const now = new Date();
+      const eventDateKey = getLocalDateKey(event.date);
+      const todayKey = getLocalDateKey(now);
+      if (!eventDateKey || eventDateKey !== todayKey) return false;
+
+      const originalEnd = event?.votingWindow?.originalEndDateTime
+        ? new Date(event.votingWindow.originalEndDateTime)
+        : event?.stopTime
+          ? new Date(`${event.date}T${event.stopTime}`)
+          : null;
+      if (!originalEnd || Number.isNaN(originalEnd.getTime())) return false;
+
+      return now > originalEnd;
+    } catch (e) {
+      return false;
+    }
+  };
 
   const uploadFileToS3 = async (file, token, folder) => {
     const formData = new FormData();
@@ -403,6 +447,113 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     }
   };
 
+  const handleAddBufferTime = async (targetEventId, override = null) => {
+    // support override for fixed durations (e.g., 15 minutes)
+    let hours = 0;
+    let minutes = 30;
+    if (override && typeof override === 'object') {
+      hours = Number(override.hours || 0);
+      minutes = Number(override.minutes || 0);
+    } else {
+      const form = bufferForms[targetEventId] || { hours: 0, minutes: 30 };
+      hours = Number(form.hours || 0);
+      minutes = Number(form.minutes || 0);
+    }
+
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+      alert('Please choose a valid buffer duration.');
+      return;
+    }
+
+    try {
+      const apiUrl = process.env.REACT_APP_API_URL;
+      const token = localStorage.getItem('token');
+
+      // Validate range
+      if (minutes < 0 || minutes >= 60 || hours < 0) {
+        alert('Please choose a valid buffer duration (0 <= minutes < 60)');
+        return;
+      }
+
+      // Refresh event state from server to avoid stale data and compute
+      // server-correct minimum buffer before sending PATCH.
+      let liveEvent = null;
+      try {
+        const evRes = await fetch(`${apiUrl}/api/events/${targetEventId}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (evRes.ok) {
+          liveEvent = await evRes.json();
+        }
+      } catch (e) {
+        // ignore; we'll validate best-effort with client-side data
+        console.warn('Failed to refresh event before adding buffer:', e);
+      }
+
+      const sourceEvent =
+        liveEvent || activeEvents.find((ev) => ev.id === targetEventId) || {};
+      const originalEnd = sourceEvent?.votingWindow?.originalEndDateTime
+        ? new Date(sourceEvent.votingWindow.originalEndDateTime)
+        : sourceEvent?.stopTime && sourceEvent?.date
+          ? new Date(`${sourceEvent.date}T${sourceEvent.stopTime}`)
+          : null;
+
+      const payload = { hours, minutes };
+
+      const response = await fetch(
+        `${apiUrl}/api/events/${targetEventId}/buffer-time`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        console.error('Buffer time API error:', data);
+        throw new Error(data.message || 'Failed to add buffer time');
+      }
+
+      setActiveEvents((prev) =>
+        prev.map((event) =>
+          event.id === targetEventId ? { ...event, ...data.event } : event,
+        ),
+      );
+
+      // If the user currently has this event open in the builder (editing or creating),
+      // update the form stop time so the selector reflects the new stop time returned by backend.
+      const updatedEvent = data && data.event ? data.event : null;
+      if (updatedEvent) {
+        if (editingEventId === targetEventId || eventId === targetEventId) {
+          if (updatedEvent.stopTime) setStopTime(updatedEvent.stopTime);
+          if (updatedEvent.startTime) setStartTime(updatedEvent.startTime);
+          if (updatedEvent.date) setEventDate(updatedEvent.date);
+        }
+      }
+
+      setBufferForms((prev) => ({
+        ...prev,
+        [targetEventId]: { hours: 0, minutes: 30 },
+      }));
+      setBufferPickerOpen((prev) => ({
+        ...prev,
+        [targetEventId]: false,
+      }));
+      alert('Buffer time added successfully.');
+    } catch (err) {
+      console.error('Failed to add buffer time:', err);
+      alert(err.message || 'Failed to add buffer time.');
+    }
+  };
+
   const handleEventFormSubmit = async (e) => {
     e.preventDefault();
     // Require at least one candidate selected (checkedRows)
@@ -655,6 +806,29 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                       <span>Start {event.startTime}</span>
                       <span>Stop {event.stopTime}</span>
                     </div>
+                    <div className='work-event-status'>
+                      <strong>
+                        Status:{' '}
+                        {event.votingWindow?.phase === 'before-start'
+                          ? 'Voting has not started yet.'
+                          : event.votingWindow?.phase === 'closed'
+                            ? 'Voting time is over.'
+                            : event.votingWindow?.phase === 'buffer'
+                              ? 'Buffer period active.'
+                              : 'Voting active.'}
+                      </strong>
+                      {event.votingWindow?.effectiveEndDateTime && (
+                        <span>
+                          Effective end:{' '}
+                          {new Date(
+                            event.votingWindow.effectiveEndDateTime,
+                          ).toLocaleString([], {
+                            dateStyle: 'medium',
+                            timeStyle: 'short',
+                          })}
+                        </span>
+                      )}
+                    </div>
                     <a
                       className='work-link'
                       href={event.link}
@@ -670,6 +844,16 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                       >
                         <FiTrash2 /> Delete
                       </button>
+                      {isSuperAdmin &&
+                        event.votingWindow?.phase === 'closed' && (
+                          <button
+                            type='button'
+                            className='work-button work-button--accent'
+                            onClick={() => handleConfirmAddBuffer(event.id)}
+                          >
+                            Add Buffer Time
+                          </button>
+                        )}
                       <button
                         className='work-button work-button--accent'
                         onClick={() => handleEditEvent(event.id, event)}
@@ -682,6 +866,84 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                       >
                         <FiTrendingUp /> Results
                       </button>
+                      {isSuperAdmin &&
+                        event.votingWindow?.phase === 'closed' &&
+                        bufferPickerOpen[event.id] && (
+                          <div className='work-buffer-controls'>
+                            <div
+                              style={{
+                                display: 'flex',
+                                gap: '8px',
+                                alignItems: 'flex-end',
+                              }}
+                            >
+                              <label className='work-field' style={{ flex: 1 }}>
+                                <span>Hours</span>
+                                <input
+                                  type='number'
+                                  min='0'
+                                  max='23'
+                                  value={bufferForms[event.id]?.hours || 0}
+                                  onChange={(e) =>
+                                    setBufferForms((prev) => ({
+                                      ...prev,
+                                      [event.id]: {
+                                        ...(prev[event.id] || {
+                                          hours: 0,
+                                          minutes: 30,
+                                        }),
+                                        hours: Math.max(
+                                          0,
+                                          Math.min(
+                                            23,
+                                            Number(e.target.value) || 0,
+                                          ),
+                                        ),
+                                      },
+                                    }))
+                                  }
+                                  style={{ width: '100%' }}
+                                />
+                              </label>
+                              <label className='work-field' style={{ flex: 1 }}>
+                                <span>Minutes</span>
+                                <input
+                                  type='number'
+                                  min='0'
+                                  max='59'
+                                  value={bufferForms[event.id]?.minutes || 30}
+                                  onChange={(e) =>
+                                    setBufferForms((prev) => ({
+                                      ...prev,
+                                      [event.id]: {
+                                        ...(prev[event.id] || {
+                                          hours: 0,
+                                          minutes: 30,
+                                        }),
+                                        minutes: Math.max(
+                                          0,
+                                          Math.min(
+                                            59,
+                                            Number(e.target.value) || 0,
+                                          ),
+                                        ),
+                                      },
+                                    }))
+                                  }
+                                  style={{ width: '100%' }}
+                                />
+                              </label>
+                            </div>
+                            <button
+                              type='button'
+                              className='work-button work-button--primary'
+                              onClick={() => handleAddBufferTime(event.id)}
+                              style={{ marginTop: '8px', width: '100%' }}
+                            >
+                              Apply Buffer
+                            </button>
+                          </div>
+                        )}
                     </div>
                   </article>
                 ))

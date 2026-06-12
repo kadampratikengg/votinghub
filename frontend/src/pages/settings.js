@@ -33,6 +33,7 @@ const Settings = ({ setIsAuthenticated }) => {
   const [eventHistory, setEventHistory] = useState([]);
   const [historyError, setHistoryError] = useState('');
   const [historyExpanded, setHistoryExpanded] = useState(false);
+  const [bufferExpanded, setBufferExpanded] = useState(false);
   const apiUrl = process.env.REACT_APP_API_URL;
   const s3BucketUrl = process.env.REACT_APP_S3_BUCKET_URL;
 
@@ -82,8 +83,9 @@ const Settings = ({ setIsAuthenticated }) => {
         event.date && event.startTime
           ? new Date(`${event.date}T${event.startTime}`)
           : null;
-      const stop =
-        event.date && event.stopTime
+      const stop = event.votingWindow?.effectiveEndDateTime
+        ? new Date(event.votingWindow.effectiveEndDateTime)
+        : event.date && event.stopTime
           ? new Date(`${event.date}T${event.stopTime}`)
           : null;
       const resultDate = event.resultDate ? new Date(event.resultDate) : stop;
@@ -129,7 +131,12 @@ const Settings = ({ setIsAuthenticated }) => {
   };
 
   const visibleHistory = useMemo(() => {
-    const list = eventHistory.flatMap((event) => {
+    // Exclude buffer-added entries from the main voting history view
+    const filteredHistory = Array.isArray(eventHistory)
+      ? eventHistory.filter((e) => e.action !== 'buffer-added')
+      : [];
+
+    const list = filteredHistory.flatMap((event) => {
       if (event.action === 'conducted' || !isVotingCompleted(event)) {
         return [event];
       }
@@ -153,6 +160,11 @@ const Settings = ({ setIsAuthenticated }) => {
       const right = new Date(b.deletedAt || b.resultDate || b.createdAt || 0);
       return right - left;
     });
+  }, [eventHistory]);
+
+  const bufferHistoryList = useMemo(() => {
+    if (!Array.isArray(eventHistory)) return [];
+    return eventHistory.filter((h) => h.action === 'buffer-added');
   }, [eventHistory]);
 
   const uploadFileToS3 = async (file, token, folder) => {
@@ -706,6 +718,73 @@ const Settings = ({ setIsAuthenticated }) => {
                   </div>
                 </article>
               ))}
+            </div>
+          )}
+        </section>
+
+        <section className='work-panel'>
+          <div className='work-panel__header work-panel__header--row'>
+            <div>
+              <span className='work-kicker'>
+                <FiClock /> Buffer Additions
+              </span>
+              <h2>Buffer History</h2>
+              <p>
+                Recent buffer additions for voting events (minutes added and
+                actor).
+              </p>
+            </div>
+            <button
+              className='work-button work-button--light work-history-toggle'
+              type='button'
+              onClick={() => setBufferExpanded((c) => !c)}
+              aria-expanded={bufferExpanded}
+            >
+              {bufferExpanded ? (
+                <>
+                  <FiChevronUp /> Compress
+                </>
+              ) : (
+                <>
+                  <FiChevronDown /> Expand
+                </>
+              )}
+            </button>
+          </div>
+
+          {!bufferExpanded ? (
+            <div className='work-history-collapsed'>
+              {bufferHistoryList.length} buffer record
+              {bufferHistoryList.length === 1 ? '' : 's'} hidden
+            </div>
+          ) : bufferHistoryList.length === 0 ? (
+            <div className='work-empty'>No buffer history available.</div>
+          ) : (
+            <div className='work-table-wrap'>
+              <table className='work-table'>
+                <thead>
+                  <tr>
+                    <th>Event</th>
+                    <th>Time</th>
+                    <th>Minutes Added</th>
+                    <th>Added By</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bufferHistoryList.map((entry, i) => (
+                    <tr key={entry._id || `${entry.eventId}-${i}`}>
+                      <td>{entry.name || entry.eventId}</td>
+                      <td>{formatDateTime(entry.createdAt)}</td>
+                      <td>{entry.bufferMinutes || 0}</td>
+                      <td>{formatActorName(entry.createdBy)}</td>
+                      <td>
+                        <span className='work-pill'>Buffer Added</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </section>

@@ -1,8 +1,22 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { FiCalendar, FiClock, FiImage, FiPlay, FiUsers } from 'react-icons/fi';
 import './Voting.css';
 import { resolveStoredImageUrl } from '../utils/imageUrl';
+
+const hiddenCandidateKeys = new Set([
+  'candidateImage',
+  'candidateRowIndex',
+  'candidateSelectionIndex',
+  '__candidateImage',
+  '__candidateRowIndex',
+  '__candidateSelectionIndex',
+]);
+
+const getDisplayHeaders = (candidate) =>
+  Object.keys(candidate || {}).filter(
+    (key) => !hiddenCandidateKeys.has(key) && !key.startsWith('__'),
+  );
 
 const Voting = () => {
   const { eventId } = useParams();
@@ -10,96 +24,73 @@ const Voting = () => {
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [canStartVoting, setCanStartVoting] = useState(false);
   const [accessInfo, setAccessInfo] = useState(null);
+  const [bufferHistory, setBufferHistory] = useState([]);
   const s3BucketUrl = process.env.REACT_APP_S3_BUCKET_URL;
 
-  const hiddenCandidateKeys = new Set([
-    'candidateImage',
-    'candidateRowIndex',
-    'candidateSelectionIndex',
-    '__candidateImage',
-    '__candidateRowIndex',
-    '__candidateSelectionIndex',
-  ]);
-
-  const getDisplayHeaders = (candidate) =>
-    Object.keys(candidate || {}).filter(
-      (key) => !hiddenCandidateKeys.has(key) && !key.startsWith('__'),
-    );
-
-  const checkVotingTime = useCallback((eventData) => {
-    if (eventData.date && eventData.startTime && eventData.stopTime) {
-      const [startHours, startMinutes] = eventData.startTime.split(':');
-      const [stopHours, stopMinutes] = eventData.stopTime.split(':');
-      const startDateTime = new Date(`${eventData.date}T${startHours}:${startMinutes}:00`).getTime();
-      const stopDateTime = new Date(`${eventData.date}T${stopHours}:${stopMinutes}:00`).getTime();
-      const now = new Date().getTime();
-      setCanStartVoting(now >= startDateTime && now <= stopDateTime);
-    }
-  }, []);
-
-  const fetchEvent = useCallback(async (bypassCache = false) => {
+  const fetchEvent = useCallback(async () => {
     try {
-      if (!bypassCache) {
-        const localEvent = JSON.parse(localStorage.getItem(`event-${eventId}`));
-        const now = new Date().getTime();
-        if (localEvent && localEvent.expiry > now) {
-          setEvent(localEvent);
-          setAccessInfo(localEvent.votingAccess || null);
-          checkVotingTime(localEvent);
-          setLoading(false);
-          return;
-        }
-      }
-
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/events/${eventId}`, {
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/public/events/${eventId}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
         },
-      });
+      );
+
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        setAccessInfo(errorData.votingAccess || null);
-        throw new Error(errorData.message || 'Failed to fetch event');
+        setAccessInfo(data.votingAccess || null);
+        throw new Error(data.message || 'Failed to fetch event');
       }
 
-      const eventData = await response.json();
-      eventData.expiry = new Date().getTime() + 60 * 1000;
-      setEvent(eventData);
-      setAccessInfo(eventData.votingAccess || null);
-      localStorage.setItem(`event-${eventId}`, JSON.stringify(eventData));
-      checkVotingTime(eventData);
+      setEvent(data);
+      setAccessInfo(data.votingAccess || null);
+
+      // fetch public buffer history for this event
+      try {
+        const historyRes = await fetch(
+          `${process.env.REACT_APP_API_URL}/api/public/events/${eventId}/history`,
+          { headers: { 'Content-Type': 'application/json' } },
+        );
+        const historyData = await historyRes.json().catch(() => []);
+        if (historyRes.ok && Array.isArray(historyData)) {
+          setBufferHistory(historyData);
+        }
+      } catch (err) {
+        // ignore history fetch errors for public view
+        console.warn('Failed to load buffer history', err);
+      }
     } catch (err) {
-      setError(err.message);
+      setEvent(null);
+      setError(err.message || 'Failed to load voting event');
     } finally {
       setLoading(false);
     }
-  }, [eventId, checkVotingTime]);
+  }, [eventId]);
 
   useEffect(() => {
-    fetchEvent(true);
-    const interval = setInterval(() => fetchEvent(true), 60000);
-    return () => clearInterval(interval);
+    fetchEvent();
   }, [fetchEvent]);
 
-  if (loading) return <div className="vote-public-shell"><div className="vote-state-card">Loading voting event...</div></div>;
-  if (error) {
-    return (
-      <div className="vote-public-shell">
-        <div className="vote-state-card vote-state-card--error">
-          <div>Error: {error}</div>
-          {accessInfo?.message && <p>{accessInfo.message}</p>}
-        </div>
-      </div>
-    );
-  }
-  if (!event) return <div className="vote-public-shell"><div className="vote-state-card">Voting event not found.</div></div>;
+  const hiddenState = useMemo(
+    () => ({
+      notStarted: accessInfo?.phase === 'before-start',
+      closed: accessInfo?.phase === 'closed',
+      open: !!event?.votingWindow?.isOpen && accessInfo?.allowed !== false,
+    }),
+    [accessInfo, event],
+  );
 
-  const headers = event.selectedData && event.selectedData.length > 0
-    ? getDisplayHeaders(event.selectedData[0])
-    : [];
+  const headers = useMemo(
+    () =>
+      event?.selectedData && event.selectedData.length > 0
+        ? getDisplayHeaders(event.selectedData[0])
+        : [],
+    [event],
+  );
 
   const getCandidateImage = (candidate, images, index) => {
     if (candidate?.candidateImage?.key || candidate?.candidateImage?.url) {
@@ -118,65 +109,184 @@ const Voting = () => {
     );
   };
 
+  if (loading) {
+    return (
+      <div className='vote-public-shell'>
+        <div className='vote-state-card'>Loading voting event...</div>
+      </div>
+    );
+  }
+
+  if (error && !event) {
+    return (
+      <div className='vote-public-shell'>
+        <div className='vote-state-card vote-state-card--error'>
+          <div>Error: {error}</div>
+          {accessInfo?.message && <p>{accessInfo.message}</p>}
+        </div>
+      </div>
+    );
+  }
+
+  if (!event) {
+    return (
+      <div className='vote-public-shell'>
+        <div className='vote-state-card'>Voting event not found.</div>
+      </div>
+    );
+  }
+
+  const votingStatus =
+    event.votingWindow?.phase === 'before-start'
+      ? 'Not started'
+      : event.votingWindow?.phase === 'closed'
+        ? 'Closed'
+        : event.votingWindow?.phase === 'buffer'
+          ? 'Buffer'
+          : 'Open';
+
   return (
-    <main className="vote-public-shell">
-      <section className="vote-hero">
+    <main className='vote-public-shell'>
+      <section className='vote-hero'>
         <div>
-          <span className="vote-kicker"><FiUsers /> Voting Event</span>
+          <span className='vote-kicker'>
+            <FiUsers /> Voting Event
+          </span>
           <h1>{event.name}</h1>
           <p>{event.description}</p>
         </div>
-        <div className="vote-hero-card">
-          <span><FiCalendar /> {event.date}</span>
-          <strong><FiClock /> {event.startTime} - {event.stopTime}</strong>
+        <div className='vote-hero-card'>
+          <span>
+            <FiCalendar /> {event.date}
+          </span>
+          <strong>
+            <FiClock /> {event.startTime} - {event.stopTime}
+          </strong>
         </div>
       </section>
 
       <section
         className={`vote-access-banner ${
-          accessInfo?.enabled ? 'vote-access-banner--restricted' : 'vote-access-banner--open'
+          accessInfo?.enabled
+            ? 'vote-access-banner--restricted'
+            : 'vote-access-banner--open'
         }`}
       >
         <div>
-          <span className="vote-kicker">
-            {accessInfo?.enabled ? 'Restricted access' : 'Open access'}
+          <span className='vote-kicker'>
+            {hiddenState.notStarted
+              ? 'Voting not started'
+              : hiddenState.closed
+                ? 'Voting closed'
+                : accessInfo?.enabled
+                  ? 'Restricted access'
+                  : 'Open access'}
           </span>
           <strong>
-            {accessInfo?.enabled
-              ? accessInfo.allowed
-                ? 'This voting link is restricted to one IP address.'
-                : 'This voting link is restricted from this IP address.'
-              : 'This voting link is open to all IP addresses.'}
+            {hiddenState.notStarted
+              ? 'Voting has not started yet.'
+              : hiddenState.closed
+                ? 'Voting time is over.'
+                : accessInfo?.enabled
+                  ? accessInfo.allowed
+                    ? 'This voting link is restricted to one IP address.'
+                    : 'This voting link is restricted from this IP address.'
+                  : 'This voting link is open to all IP addresses.'}
           </strong>
         </div>
-        <p>{accessInfo?.message || 'IP restriction is disabled for this voting link.'}</p>
+        <p>
+          {accessInfo?.message ||
+            (hiddenState.notStarted || hiddenState.closed
+              ? 'Voting access is controlled by the configured event window.'
+              : 'IP restriction is disabled for this voting link.')}
+        </p>
       </section>
 
-      <section className="vote-summary-grid">
-        <div className="vote-summary-card"><FiUsers /><span>Candidates</span><strong>{event.selectedData?.length || 0}</strong></div>
-        <div className="vote-summary-card"><FiCalendar /><span>Date</span><strong>{event.date}</strong></div>
-        <div className="vote-summary-card"><FiClock /><span>Status</span><strong>{canStartVoting ? 'Open' : 'Closed'}</strong></div>
+      <section className='vote-summary-grid'>
+        <div className='vote-summary-card'>
+          <FiUsers />
+          <span>Candidates</span>
+          <strong>{event.selectedData?.length || 0}</strong>
+        </div>
+        <div className='vote-summary-card'>
+          <FiCalendar />
+          <span>Date</span>
+          <strong>{event.date}</strong>
+        </div>
+        <div className='vote-summary-card'>
+          <FiClock />
+          <span>Status</span>
+          <strong>{votingStatus}</strong>
+        </div>
       </section>
 
-      <section className="vote-card">
-        <div className="vote-card-header">
+      {bufferHistory && bufferHistory.length > 0 && (
+        <section className='vote-card vote-buffer-section'>
+          <div className='vote-card-header'>
+            <div>
+              <span className='vote-kicker'>Buffer Extensions</span>
+              <h2>Buffer History</h2>
+            </div>
+          </div>
+          <div className='vote-table-wrap'>
+            <table className='vote-table'>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Minutes Added</th>
+                  <th>Added By</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bufferHistory.map((entry, idx) => (
+                  <tr key={idx}>
+                    <td>{new Date(entry.createdAt).toLocaleString()}</td>
+                    <td>{entry.bufferMinutes}</td>
+                    <td className='actor-cell'>
+                      {entry.createdBy?.name ||
+                        entry.createdBy?.email ||
+                        'System'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      <section className='vote-card'>
+        <div className='vote-card-header'>
           <div>
-            <span className="vote-kicker">Ballot Preview</span>
+            <span className='vote-kicker'>Ballot Preview</span>
             <h2>Candidates</h2>
           </div>
-          {canStartVoting && (!accessInfo?.enabled || accessInfo.allowed) && (
-            <button className="vote-primary-button" onClick={() => navigate(`/voting/${eventId}/start`)}>
+          {hiddenState.open && accessInfo?.allowed !== false && (
+            <button
+              className='vote-primary-button'
+              onClick={() => navigate(`/voting/${eventId}/start`)}
+            >
               <FiPlay /> Start Voting
             </button>
           )}
         </div>
 
+        {hiddenState.notStarted && (
+          <div className='vote-state-card'>Voting has not started yet.</div>
+        )}
+
+        {hiddenState.closed && (
+          <div className='vote-state-card'>Voting time is over.</div>
+        )}
+
         {event.selectedData && event.selectedData.length > 0 ? (
-          <div className="vote-table-wrap">
-            <table className="vote-table">
+          <div className='vote-table-wrap'>
+            <table className='vote-table'>
               <thead>
                 <tr>
-                  {headers.map((header) => <th key={header}>{header}</th>)}
+                  {headers.map((header) => (
+                    <th key={header}>{header}</th>
+                  ))}
                   <th>Image</th>
                 </tr>
               </thead>
@@ -194,17 +304,23 @@ const Voting = () => {
                   );
                   return (
                     <tr key={index}>
-                      {headers.map((header) => <td key={header}>{candidate[header]}</td>)}
+                      {headers.map((header) => (
+                        <td key={header}>{candidate[header]}</td>
+                      ))}
                       <td>
                         {imageUrl ? (
                           <img
                             src={imageUrl}
                             alt={`Candidate ${index + 1}`}
-                            className="vote-candidate-image"
-                            onError={(e) => { e.target.style.display = 'none'; }}
+                            className='vote-candidate-image'
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
                           />
                         ) : (
-                          <span className="vote-no-image"><FiImage /> No image</span>
+                          <span className='vote-no-image'>
+                            <FiImage /> No image
+                          </span>
                         )}
                       </td>
                     </tr>
@@ -214,15 +330,34 @@ const Voting = () => {
             </table>
           </div>
         ) : (
-          <div className="vote-state-card">No candidates available for this voting event.</div>
+          <div className='vote-state-card'>
+            No candidates available for this voting event.
+          </div>
         )}
 
-        {!canStartVoting && (
-          <div className="vote-closed-note">Voting is not available at this time.</div>
+        {hiddenState.open ? (
+          <div className='vote-closed-note'>
+            Voting is available until{' '}
+            {event.votingWindow?.effectiveEndDateTime
+              ? new Date(
+                  event.votingWindow.effectiveEndDateTime,
+                ).toLocaleString([], {
+                  dateStyle: 'medium',
+                  timeStyle: 'short',
+                })
+              : `${event.date} ${event.stopTime}`}
+            .
+          </div>
+        ) : hiddenState.notStarted ? (
+          <div className='vote-closed-note'>Voting has not started yet.</div>
+        ) : (
+          <div className='vote-closed-note'>Voting time is over.</div>
         )}
-        {accessInfo?.enabled && !accessInfo.allowed && (
-          <div className="vote-closed-note vote-closed-note--restricted">
-            Only {accessInfo.allowedIp || 'the configured IP'} can open this voting link.
+
+        {accessInfo?.enabled && accessInfo.allowed === false && (
+          <div className='vote-closed-note vote-closed-note--restricted'>
+            Only {accessInfo.allowedIp || 'the configured IP'} can open this
+            voting link.
           </div>
         )}
       </section>

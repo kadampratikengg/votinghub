@@ -15,9 +15,10 @@ const eventHistorySchema = new mongoose.Schema(
     },
     action: {
       type: String,
-      enum: ['created', 'deleted'],
+      enum: ['created', 'deleted', 'buffer-added'],
       default: 'created',
     },
+    bufferMinutes: { type: Number },
     winner: { type: String },
     totalVotes: { type: Number, default: 0 },
     winnerVotes: { type: Number, default: 0 },

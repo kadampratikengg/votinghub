@@ -35,7 +35,38 @@ const Manage = ({ setIsAuthenticated }) => {
   const [checkedRows, setCheckedRows] = useState([]);
   const [eventCreated, setEventCreated] = useState(false);
   const [generatedLink, setGeneratedLink] = useState('');
+  const [bufferForms, setBufferForms] = useState({});
+  const [bufferPickerOpen, setBufferPickerOpen] = useState({});
   const navigate = useNavigate();
+  const getLocalDateKey = (value = new Date()) => {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, '0'),
+      String(date.getDate()).padStart(2, '0'),
+    ].join('-');
+  };
+
+  const isAfterStopSameDay = (event) => {
+    try {
+      const now = new Date();
+      const eventDateKey = getLocalDateKey(event.date);
+      const todayKey = getLocalDateKey(now);
+      if (!eventDateKey || eventDateKey !== todayKey) return false;
+
+      const originalEnd = event?.votingWindow?.originalEndDateTime
+        ? new Date(event.votingWindow.originalEndDateTime)
+        : event?.stopTime
+          ? new Date(`${event.date}T${event.stopTime}`)
+          : null;
+      if (!originalEnd || Number.isNaN(originalEnd.getTime())) return false;
+
+      return now > originalEnd;
+    } catch (e) {
+      return false;
+    }
+  };
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -152,6 +183,53 @@ const Manage = ({ setIsAuthenticated }) => {
         throw new Error(data.message || 'Failed to delete event');
       }
       setActiveEvents(activeEvents.filter((event) => event.id !== eventId));
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleAddBufferTime = async (eventId) => {
+    const form = bufferForms[eventId] || { time: '00:30' };
+    const [hoursRaw = '0', minutesRaw = '0'] = String(
+      form.time || '00:30',
+    ).split(':');
+    const hours = Number(hoursRaw);
+    const minutes = Number(minutesRaw);
+    try {
+      const token = localStorage.getItem('token');
+      if (minutes < 0 || minutes >= 60 || hours < 0) {
+        setError('Please choose a valid buffer duration (0 <= minutes < 60)');
+        return;
+      }
+
+      const payload = { hours, minutes };
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/events/${eventId}/buffer-time`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to add buffer time');
+      }
+
+      setActiveEvents((prev) =>
+        prev.map((event) =>
+          event.id === eventId ? { ...event, ...data.event } : event,
+        ),
+      );
+      setBufferPickerOpen((prev) => ({
+        ...prev,
+        [eventId]: false,
+      }));
+      alert('Buffer time added successfully.');
     } catch (err) {
       setError(err.message);
     }
@@ -357,6 +435,29 @@ const Manage = ({ setIsAuthenticated }) => {
                       <span>Start {event.startTime}</span>
                       <span>Stop {event.stopTime}</span>
                     </div>
+                    <div className='work-event-status'>
+                      <strong>
+                        Status:{' '}
+                        {event.votingWindow?.phase === 'before-start'
+                          ? 'Voting has not started yet.'
+                          : event.votingWindow?.phase === 'closed'
+                            ? 'Voting time is over.'
+                            : event.votingWindow?.phase === 'buffer'
+                              ? 'Buffer period active.'
+                              : 'Voting active.'}
+                      </strong>
+                      {event.votingWindow?.effectiveEndDateTime && (
+                        <span>
+                          Effective end:{' '}
+                          {new Date(
+                            event.votingWindow.effectiveEndDateTime,
+                          ).toLocaleString([], {
+                            dateStyle: 'medium',
+                            timeStyle: 'short',
+                          })}
+                        </span>
+                      )}
+                    </div>
                     <a
                       className='work-link'
                       href={event.link}
@@ -374,6 +475,20 @@ const Manage = ({ setIsAuthenticated }) => {
                           >
                             <FiTrash2 /> Delete
                           </button>
+                          {event.votingWindow?.phase === 'closed' && (
+                            <button
+                              type='button'
+                              className='work-button work-button--accent'
+                              onClick={() =>
+                                setBufferPickerOpen((prev) => ({
+                                  ...prev,
+                                  [event.id]: !prev[event.id],
+                                }))
+                              }
+                            >
+                              Add Buffer Time
+                            </button>
+                          )}
                           <button
                             className='work-button work-button--accent'
                             onClick={() => handleEditEvent(event.id)}
@@ -388,6 +503,35 @@ const Manage = ({ setIsAuthenticated }) => {
                       >
                         <FiTrendingUp /> Results
                       </button>
+                      {role === 'main' &&
+                        event.votingWindow?.phase === 'closed' &&
+                        bufferPickerOpen[event.id] && (
+                          <div className='work-buffer-controls'>
+                            <label className='work-field'>
+                              <span>Buffer Time</span>
+                              <input
+                                type='time'
+                                value={bufferForms[event.id]?.time || '00:30'}
+                                onChange={(e) =>
+                                  setBufferForms((prev) => ({
+                                    ...prev,
+                                    [event.id]: {
+                                      ...(prev[event.id] || { time: '00:30' }),
+                                      time: e.target.value,
+                                    },
+                                  }))
+                                }
+                              />
+                            </label>
+                            <button
+                              type='button'
+                              className='work-button work-button--primary'
+                              onClick={() => handleAddBufferTime(event.id)}
+                            >
+                              Apply Buffer
+                            </button>
+                          </div>
+                        )}
                     </div>
                   </article>
                 ))
