@@ -125,12 +125,22 @@ const canAddBufferTime = (event = {}, now = new Date()) => {
         'Buffer time can only be added on the same calendar day as the original voting end date.',
     };
   }
-
-  if (current <= originalEndDateTime) {
+  // Allow adding buffer only within the 1 hour window before the original end time
+  // and not after the original end time. Frontend displays the Add button in the
+  // same 1-hour window; keep backend validation consistent.
+  try {
+    const oneHourBefore = new Date(originalEndDateTime.getTime() - 60 * MINUTE);
+    if (current < oneHourBefore || current >= originalEndDateTime) {
+      return {
+        allowed: false,
+        message:
+          'Buffer time may only be added within the 1 hour before the original end time (on the same day).',
+      };
+    }
+  } catch (e) {
     return {
       allowed: false,
-      message:
-        'Buffer time can only be added after the original end time has passed.',
+      message: 'Invalid event timing.',
     };
   }
 

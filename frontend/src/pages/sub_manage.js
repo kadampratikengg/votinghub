@@ -68,6 +68,25 @@ const Manage = ({ setIsAuthenticated }) => {
     }
   };
 
+  // Show Add Buffer Time button only within 1 hour before voting ends
+  const shouldShowAddBufferButton = (event) => {
+    try {
+      const now = new Date();
+      const originalEnd = event?.votingWindow?.originalEndDateTime
+        ? new Date(event.votingWindow.originalEndDateTime)
+        : event?.stopTime && event?.date
+          ? new Date(`${event.date}T${event.stopTime}`)
+          : null;
+      if (!originalEnd || Number.isNaN(originalEnd.getTime())) return false;
+
+      // Button shows only if: now < originalEnd (voting not over yet) AND now >= (originalEnd - 60 minutes)
+      const oneHourBefore = new Date(originalEnd.getTime() - 60 * 60 * 1000);
+      return now >= oneHourBefore && now < originalEnd;
+    } catch (e) {
+      return false;
+    }
+  };
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
@@ -475,7 +494,7 @@ const Manage = ({ setIsAuthenticated }) => {
                           >
                             <FiTrash2 /> Delete
                           </button>
-                          {event.votingWindow?.phase === 'closed' && (
+                          {shouldShowAddBufferButton(event) && (
                             <button
                               type='button'
                               className='work-button work-button--accent'
@@ -504,7 +523,7 @@ const Manage = ({ setIsAuthenticated }) => {
                         <FiTrendingUp /> Results
                       </button>
                       {role === 'main' &&
-                        event.votingWindow?.phase === 'closed' &&
+                        shouldShowAddBufferButton(event) &&
                         bufferPickerOpen[event.id] && (
                           <div className='work-buffer-controls'>
                             <label className='work-field'>
