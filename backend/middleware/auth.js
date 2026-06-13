@@ -1,10 +1,24 @@
 const jwt = require('jsonwebtoken');
 
 const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer <token>
+  const authHeader =
+    req.headers['authorization'] ||
+    req.headers['Authorization'] ||
+    req.headers['x-access-token'] ||
+    req.headers['x-authorization'];
+
+  const token = authHeader
+    ? authHeader.startsWith('Bearer ')
+      ? authHeader.slice(7)
+      : authHeader
+    : null;
+
   if (!token) {
-    console.log('❌ No token provided');
+    console.log('❌ No token provided; headers:', {
+      authorization: req.headers['authorization'],
+      xAccessToken: req.headers['x-access-token'],
+      xAuthorization: req.headers['x-authorization'],
+    });
     return res.status(401).json({ message: 'Authentication token required' });
   }
 
