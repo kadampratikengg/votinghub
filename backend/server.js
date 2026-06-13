@@ -46,22 +46,18 @@ if (!fs.existsSync(uploadPath)) {
 }
 
 // Middleware
-// Only allow origins explicitly set via .env (DEFAULT_ALLOWED_ORIGINS).
-// Use comma-separated values. If not set, no default origins are allowed.
+// Use DEFAULT_ALLOWED_ORIGINS from .env if configured, otherwise fall back to the local/production app origins.
 const defaultAllowedOrigins = process.env.DEFAULT_ALLOWED_ORIGINS
-  ? process.env.DEFAULT_ALLOWED_ORIGINS.split(',')
-      .map((o) => o.trim())
-      .filter(Boolean)
-  : [];
-
-if (defaultAllowedOrigins.length === 0) {
-  console.warn(
-    'CORS: No DEFAULT_ALLOWED_ORIGINS configured. Only origins from ALLOWED_ORIGINS (if set) or same-origin requests without Origin will be allowed.',
-  );
-}
+  ? process.env.DEFAULT_ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
+  : [
+      'http://localhost:3000',
+      'https://votinghub-sigma.vercel.app',
+    ];
 
 const configuredAllowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',')
+      .map((o) => o.trim())
+      .filter(Boolean)
   : [];
 
 const allowedOrigins = [...configuredAllowedOrigins, ...defaultAllowedOrigins]
