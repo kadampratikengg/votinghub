@@ -53,8 +53,22 @@ const getGoogleClientId = () =>
 const getGoogleClientSecret = () =>
   process.env.GOOGLE_CLIENT_SECRET || process.env.REACT_APP_GOOGLE_CLIENT_SECRET;
 
-const getFrontendRedirect = (req) =>
-  req.query.redirect || process.env.FRONTEND_URL || DEFAULT_FRONTEND_URL;
+const getFrontendRedirect = (req) => {
+  if (req.query.redirect) return req.query.redirect;
+  if (process.env.FRONTEND_URL) return process.env.FRONTEND_URL;
+  if (req.get('origin')) return req.get('origin');
+  if (req.get('referer')) {
+    try {
+      return new URL(req.get('referer')).origin;
+    } catch (error) {
+      console.warn('Invalid referer when computing frontend redirect', {
+        referer: req.get('referer'),
+        error: error.message,
+      });
+    }
+  }
+  return DEFAULT_FRONTEND_URL;
+};
 
 const appendQueryParams = (targetUrl, params) => {
   const separator = targetUrl.includes('?') ? '&' : '?';
@@ -64,7 +78,23 @@ const appendQueryParams = (targetUrl, params) => {
 const getPublicBackendBaseUrl = (req) => {
   if (process.env.GOOGLE_REDIRECT_URI) {
     try {
-      return new URL(process.env.GOOGLE_REDIRECT_URI).origin;
+      const redirectOrigin = new URL(process.env.GOOGLE_REDIRECT_URI).origin;
+      const host = req.get('x-forwarded-host') || req.get('host');
+      const isLocalRedirect = /(^localhost(:\d+)?$)|(^127\.0\.0\.1(:\d+)?$)/i.test(
+        new URL(process.env.GOOGLE_REDIRECT_URI).hostname,
+      );
+      const isLocalRequest = /(^localhost(:\d+)?$)|(^127\.0\.0\.1(:\d+)?$)/i.test(
+        host || '',
+      );
+
+      if (isLocalRedirect && !isLocalRequest) {
+        console.warn(
+          'Ignoring GOOGLE_REDIRECT_URI on non-local request; using request host instead.',
+          { GOOGLE_REDIRECT_URI: process.env.GOOGLE_REDIRECT_URI, host },
+        );
+      } else {
+        return redirectOrigin;
+      }
     } catch (error) {
       console.warn('Invalid GOOGLE_REDIRECT_URI configured', {
         value: process.env.GOOGLE_REDIRECT_URI,
@@ -111,6 +141,21 @@ const getPublicBackendBaseUrl = (req) => {
 };
 
 const getGoogleRedirectUri = (req) => {
+  if (process.env.GOOGLE_REDIRECT_URI) {
+    try {
+      const configured = new URL(process.env.GOOGLE_REDIRECT_URI);
+      if (configured.pathname && configured.pathname !== '/') {
+        return process.env.GOOGLE_REDIRECT_URI.replace(/\/$/, '');
+      }
+      return `${configured.origin}/auth/google/callback`;
+    } catch (error) {
+      console.warn('Invalid GOOGLE_REDIRECT_URI configured', {
+        value: process.env.GOOGLE_REDIRECT_URI,
+        error: error.message,
+      });
+    }
+  }
+
   const baseUrl = getPublicBackendBaseUrl(req);
   if (baseUrl) {
     return `${baseUrl}/auth/google/callback`;

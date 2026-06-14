@@ -106,6 +106,20 @@ const LoginPage = ({ onLogin }) => {
     const serverToken = params.get('token');
     const serverUserId = params.get('userId');
     const serverRole = params.get('role');
+    const serverSubUserRole = params.get('subUserRole');
+    const serverPermissionsRaw = params.get('permissions');
+    let serverPermissions = serverPermissionsRaw;
+    if (
+      serverPermissionsRaw &&
+      (serverPermissionsRaw.startsWith('[') ||
+        serverPermissionsRaw.startsWith('{'))
+    ) {
+      try {
+        serverPermissions = JSON.stringify(JSON.parse(serverPermissionsRaw));
+      } catch (parseError) {
+        serverPermissions = serverPermissionsRaw;
+      }
+    }
     const serverError = params.get('error');
     const serverErrorDescription = params.get('error_description');
 
@@ -124,6 +138,8 @@ const LoginPage = ({ onLogin }) => {
       localStorage.setItem('token', serverToken);
       if (serverUserId) localStorage.setItem('userId', serverUserId);
       localStorage.setItem('role', serverRole || 'admin');
+      if (serverSubUserRole) localStorage.setItem('subUserRole', serverSubUserRole);
+      if (serverPermissions) localStorage.setItem('permissions', serverPermissions);
       localStorage.setItem('isAuthenticated', 'true');
       onLogin();
       // Remove token from URL

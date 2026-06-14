@@ -108,6 +108,32 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     }
   };
 
+  // Calculate time remaining until voting ends
+  const getTimeRemaining = (event) => {
+    try {
+      const now = new Date();
+      const originalEnd = event?.votingWindow?.originalEndDateTime
+        ? new Date(event.votingWindow.originalEndDateTime)
+        : event?.stopTime && event?.date
+          ? new Date(`${event.date}T${event.stopTime}`)
+          : null;
+      if (!originalEnd || Number.isNaN(originalEnd.getTime())) return null;
+
+      const diffMs = originalEnd.getTime() - now.getTime();
+      if (diffMs <= 0) return null;
+
+      const hours = Math.floor(diffMs / (1000 * 60 * 60));
+      const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+      if (hours > 0) {
+        return `${hours}h ${minutes}m left`;
+      }
+      return `${minutes}m left`;
+    } catch (e) {
+      return null;
+    }
+  };
+
   const uploadFileToS3 = async (file, token, folder) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -868,8 +894,9 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                           type='button'
                           className='work-button work-button--accent'
                           onClick={() => handleConfirmAddBuffer(event.id)}
+                          title='Add 15 minutes to voting time'
                         >
-                          Add Buffer Time
+                          Add Buffer Time ({getTimeRemaining(event)})
                         </button>
                       )}
                       <button

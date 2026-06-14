@@ -152,11 +152,6 @@ const Start = () => {
     setSelectedCandidate(candidateName);
     setHighlightedCandidate(index);
 
-    const beep = new Audio(
-      // 'https://actions.google.com/sounds/v1/alarms/beep_short.ogg',
-      'https://votinghub.s3.us-east-1.amazonaws.com/Beep.wav?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=ASIATQY3A6PUTEXOFP73%2F20260613%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20260613T174348Z&X-Amz-Expires=300&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEGoaCXVzLWVhc3QtMSJHMEUCIQDLxpvEcoe%2BtNLplHX7nOdE%2BZTWJxM04aD58Tiy7kB8EAIgTEb2xSvYZxXyhyvHgKh0Z%2F3sADtldwoqz5oCrcvNSO0q2gIIMxAAGgwyNDIxODU0NjY4NTciDL%2FlJ3%2BKU7bIeRMPoCq3AkSj6f%2BEVYr%2BYQ9T13%2FHMHqsLsFVqchKhjSYweECnKmmm6QJvkyBr%2FO4PB9dCWKSe3MD4v44WnTpN04d%2B%2FyPXMFhTXHrxqXrM3yChDyzRMZLfBMiOMEfOLio5IOmU43UbEirZXfAQ3h87W8K0wPYxLT78CgeavXTg%2FjlEV%2BsPvj7L7ef8T6a9McjGP%2F%2FUKL5c1%2B0IWqO86snbEVFlvm6htw4cVVRWQ93y9i54Jyac0nZcvtEzxKLxjJ2DeKVKuet3yGwyP4qwQdttDPylMuJ%2F0XvW5j3eDc4tXFw%2FALUJDXwRvf42d0BcjLQvvv%2FAm%2B8QDrH8xBbLDL9bY%2FbmpUjfrfdoqHNg%2BUf5Sr%2FnQm2NE4d6ztGb3e5V%2BtcQvJl4LM7O0ctKzhMRn9C0Tyz6KDQ44Jk7yC7XU2fML2rttEGOq0CUu5xvLstBoTvLaRONysuIyDhC24bIg6aRDiTVQEcf3hZblDkemti38%2FN7cPqrB9qg9wY%2BHx9rLoDrqYX1%2BvahmUGjJ4c%2FFcvsbAy%2FUynNQmhXUQCzEbxjfN5Vu%2FdCfGaETO876W%2BUHEYo8MQ1zest5YsJE5VU9OZdr8flkMdJwzfyId%2BkuJv%2FYG4jtl%2Fp9bVyNaCsPuhRuSPkyZPIu51dXquOQIy34A0Fcb9ngtcA9IVFzUSux4qOgU1Rvi2x%2BpfamRpfW7d7xQo1MULoH5W3516AddGhDGZrf7piNqXCAyxa%2Fy7mX3r81uxR5zAcbk5ofxjrb1q%2BA8GIqiGlHmdpvS8ACaof2pwkeCOfLZ1UvNS49RAyjQXaF%2FZXoQnCu2LZzCO14tW%2BqlNu%2BEzMw%3D%3D&X-Amz-Signature=95ff36b378ba73046f6cab553c626f3f8d5a19e80e65033d1c8109e33f3cf072&X-Amz-SignedHeaders=host&response-content-disposition=inline',
-    );
-
     const handleVoteSubmission = async () => {
       try {
         const response = await fetch(
@@ -198,13 +193,39 @@ const Start = () => {
       }
     };
 
-    try {
-      beep.play();
-      beep.onended = handleVoteSubmission;
-    } catch (err) {
-      console.error('Error playing beep:', err);
-      await handleVoteSubmission();
-    }
+    // Try to play a beep sound, but don't block voting if it fails
+    const playBeepAndContinue = async () => {
+      try {
+        // Use Web Audio API for better cross-browser support
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.frequency.value = 800; // 800 Hz beep
+        oscillator.type = 'sine';
+
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(
+          0.01,
+          audioContext.currentTime + 0.1,
+        );
+
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.1);
+
+        // Wait for beep to finish before submitting vote
+        setTimeout(() => handleVoteSubmission(), 100);
+      } catch (beepError) {
+        console.warn('Beep sound unavailable, proceeding with vote submission:', beepError);
+        // Continue with vote submission even if beep fails
+        await handleVoteSubmission();
+      }
+    };
+
+    playBeepAndContinue();
   };
 
   const handleGoForVote = () => {
