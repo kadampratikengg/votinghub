@@ -46,15 +46,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const role = localStorage.getItem('role') || 'admin';
 
   const isSuperAdmin = role === 'admin';
-  const getLocalDateKey = (value = new Date()) => {
-    const date = value instanceof Date ? value : new Date(value);
-    if (Number.isNaN(date.getTime())) return '';
-    return [
-      date.getFullYear(),
-      String(date.getMonth() + 1).padStart(2, '0'),
-      String(date.getDate()).padStart(2, '0'),
-    ].join('-');
-  };
+  // helper removed: getLocalDateKey (unused)
 
   const handleConfirmAddBuffer = async (eventId) => {
     const ok = window.confirm(
@@ -69,25 +61,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const apiUrl = process.env.REACT_APP_API_URL;
   const s3BucketUrl = process.env.REACT_APP_S3_BUCKET_URL;
 
-  const isAfterStopSameDay = (event) => {
-    try {
-      const now = new Date();
-      const eventDateKey = getLocalDateKey(event.date);
-      const todayKey = getLocalDateKey(now);
-      if (!eventDateKey || eventDateKey !== todayKey) return false;
-
-      const originalEnd = event?.votingWindow?.originalEndDateTime
-        ? new Date(event.votingWindow.originalEndDateTime)
-        : event?.stopTime
-          ? new Date(`${event.date}T${event.stopTime}`)
-          : null;
-      if (!originalEnd || Number.isNaN(originalEnd.getTime())) return false;
-
-      return now > originalEnd;
-    } catch (e) {
-      return false;
-    }
-  };
+  // (removed unused) previously used helper to check same-day past stop time
 
   // Show Add Buffer Time button only within 1 hour before voting ends
   const shouldShowAddBufferButton = (event) => {
@@ -520,32 +494,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
         return;
       }
 
-      // Refresh event state from server to avoid stale data and compute
-      // server-correct minimum buffer before sending PATCH.
-      let liveEvent = null;
-      try {
-        const evRes = await fetch(`${apiUrl}/api/events/${targetEventId}`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (evRes.ok) {
-          liveEvent = await evRes.json();
-        }
-      } catch (e) {
-        // ignore; we'll validate best-effort with client-side data
-        console.warn('Failed to refresh event before adding buffer:', e);
-      }
-
-      const sourceEvent =
-        liveEvent || activeEvents.find((ev) => ev.id === targetEventId) || {};
-      const originalEnd = sourceEvent?.votingWindow?.originalEndDateTime
-        ? new Date(sourceEvent.votingWindow.originalEndDateTime)
-        : sourceEvent?.stopTime && sourceEvent?.date
-          ? new Date(`${sourceEvent.date}T${sourceEvent.stopTime}`)
-          : null;
+      // (removed server refresh) proceed with client-side validation and submit
 
       const payload = { hours, minutes };
 
