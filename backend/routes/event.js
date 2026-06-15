@@ -15,6 +15,7 @@ const {
 const { getIpRestrictionSettings } = require('../utils/ipRestrictionStore');
 const {
   canAddBufferTime,
+  formatTimeInTimeZone,
   getEffectiveEndDateTime,
   getOriginalEndDateTime,
   getStartDateTime,
@@ -34,12 +35,61 @@ const normalizeIp = (value) =>
     .replace(/^::1$/, '127.0.0.1')
     .replace(/^0:0:0:0:0:0:0:1$/, '127.0.0.1');
 
-const getRequestIp = (req) => {
-  const forwardedFor = req.headers['x-forwarded-for'];
-  if (typeof forwardedFor === 'string' && forwardedFor.trim()) {
-    return normalizeIp(forwardedFor.split(',')[0]);
+const parseForwardedHeaderIp = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  const firstSegment = raw.split(',')[0].trim();
+  const match = firstSegment.match(/for=(?:"?\[?([^;\]\"]+)\]?"?)/i);
+  if (match && match[1]) {
+    return normalizeIp(match[1].split(':')[0]);
   }
 
+  return normalizeIp(firstSegment);
+};
+
+const getRequestIp = (req) => {
+  // Check a list of common headers that may contain the client's IP when
+  // the app is behind proxies, load balancers, or CDNs.
+  const headerCandidates = [
+    'x-forwarded-for',
+    'x-real-ip',
+    'cf-connecting-ip',
+    'true-client-ip',
+    'x-client-ip',
+    'forwarded-for',
+    'forwarded',
+  ];
+
+  for (const h of headerCandidates) {
+    const value = req.headers[h];
+    if (!value) continue;
+    if (Array.isArray(value) && value.length > 0) {
+      const v = String(value[0] || '').trim();
+      if (v) {
+        return h === 'forwarded'
+          ? parseForwardedHeaderIp(v)
+          : normalizeIp(v.split(',')[0]);
+      }
+    }
+
+    if (typeof value === 'string' && value.trim()) {
+      return h === 'forwarded'
+        ? parseForwardedHeaderIp(value)
+        : normalizeIp(value.split(',')[0]);
+    }
+  }
+
+  const clientPublicIp = req.headers['x-client-public-ip'];
+  if (clientPublicIp && req.ip) {
+    const fallbackIp = normalizeIp(req.ip);
+    if (fallbackIp === '127.0.0.1') {
+      return normalizeIp(clientPublicIp);
+    }
+  }
+
+  // Express exposes `req.ip` which respects `trust proxy` when configured.
+  // Fall back to connection/socket addresses if needed.
   return normalizeIp(
     req.ip ||
       req.connection?.remoteAddress ||
@@ -50,20 +100,20 @@ const getRequestIp = (req) => {
 };
 
 const formatIpRestrictionMessage = (user, requestIp) => {
-  const allowedIp = normalizeIp(user?.allowedIp);
+  const rawAllowed = String(user?.allowedIp || '').trim();
   const enabled = !!user?.ipRestrictionEnabled;
 
   if (!enabled) {
     return {
       enabled: false,
-      allowedIp,
+      allowedIp: rawAllowed,
       requestIp,
       allowed: true,
       message: 'IP restriction is disabled for this voting link.',
     };
   }
 
-  if (!allowedIp) {
+  if (!rawAllowed) {
     return {
       enabled: true,
       allowedIp: '',
@@ -74,15 +124,23 @@ const formatIpRestrictionMessage = (user, requestIp) => {
     };
   }
 
-  const allowed = requestIp === allowedIp;
+  // Support comma-separated allowed IP list. Normalize each entry and match.
+  const allowedList = rawAllowed
+    .split(',')
+    .map((v) => normalizeIp(v))
+    .filter(Boolean);
+
+  const allowed = allowedList.includes(requestIp);
+  const displayAllowed = allowedList.join(',');
+
   return {
     enabled: true,
-    allowedIp,
+    allowedIp: displayAllowed,
     requestIp,
     allowed,
     message: allowed
-      ? `IP restriction is enabled. Only ${allowedIp} can open this voting link.`
-      : `Access denied from ${requestIp || 'unknown IP'}. Only ${allowedIp} can open this voting link.`,
+      ? `IP restriction is enabled. Only ${displayAllowed} can open this voting link.`
+      : `Access denied from ${requestIp || 'unknown IP'}. Only ${displayAllowed} can open this voting link.`,
   };
 };
 
@@ -164,15 +222,6 @@ const getVotingAccess = async (event, req, now = new Date()) => {
 const getVotingOwnerAccess = async (event, req) => {
   return getVotingAccess(event, req);
 };
-
-const formatTimeHHMM = (date) =>
-  date instanceof Date && !Number.isNaN(date.getTime())
-    ? date.toLocaleTimeString('en-GB', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-      })
-    : '';
 
 const canManageEvents = (user = {}) => {
   if (user.role === 'admin') return true;
@@ -712,6 +761,75 @@ router.get('/public/events/:id', async (req, res) => {
   }
 });
 
+// Debug: Return server-side computed voting window and server time for troubleshooting
+router.get('/public/events/:id/debug', async (req, res) => {
+  try {
+    const event = await Event.findOne({ id: req.params.id }).lean();
+    if (!event) return res.status(404).json({ message: 'Event not found' });
+
+    const serverNow = new Date();
+    const votingWindow = getVotingWindow(event, serverNow);
+    const access = await getVotingAccess(event, req);
+
+    return res.status(200).json({
+      serverNow: serverNow.toString(),
+      serverNowISO: serverNow.toISOString(),
+      event: {
+        id: event.id,
+        date: event.date,
+        startTime: event.startTime,
+        stopTime: event.stopTime,
+        startDateTimeRaw: event.startDateTime || null,
+        originalEndDateTimeRaw: event.originalEndDateTime || null,
+        bufferMinutes: event.bufferMinutes || 0,
+      },
+      votingWindow: {
+        phase: votingWindow.phase,
+        isOpen: votingWindow.isOpen,
+        message: votingWindow.message,
+        startDateTime: votingWindow.startDateTime
+          ? votingWindow.startDateTime.toString()
+          : null,
+        startDateTimeISO: votingWindow.startDateTime
+          ? votingWindow.startDateTime.toISOString()
+          : null,
+        originalEndDateTime: votingWindow.originalEndDateTime
+          ? votingWindow.originalEndDateTime.toString()
+          : null,
+        originalEndDateTimeISO: votingWindow.originalEndDateTime
+          ? votingWindow.originalEndDateTime.toISOString()
+          : null,
+        effectiveEndDateTime: votingWindow.effectiveEndDateTime
+          ? votingWindow.effectiveEndDateTime.toString()
+          : null,
+        effectiveEndDateTimeISO: votingWindow.effectiveEndDateTime
+          ? votingWindow.effectiveEndDateTime.toISOString()
+          : null,
+      },
+      votingAccess: access,
+      // Echo some request header info and connection addresses so we can see
+      // what the server actually received from the client/proxy.
+      requestInfo: {
+        headers: {
+          'x-forwarded-for': req.headers['x-forwarded-for'] || null,
+          'x-real-ip': req.headers['x-real-ip'] || null,
+          'cf-connecting-ip': req.headers['cf-connecting-ip'] || null,
+          'true-client-ip': req.headers['true-client-ip'] || null,
+          'x-client-ip': req.headers['x-client-ip'] || null,
+        },
+        expressIp: req.ip || null,
+        connectionRemoteAddress:
+          req.connection?.remoteAddress || req.socket?.remoteAddress || null,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching debug info for event:', error);
+    return res
+      .status(500)
+      .json({ message: 'Failed to fetch debug info', error: error.message });
+  }
+});
+
 // Public: Fetch buffer history for an event (buffer additions only)
 router.get('/public/events/:id/history', async (req, res) => {
   try {
@@ -1177,22 +1295,7 @@ router.patch(
       req.body,
     );
 
-    const hours = Number(req.body.hours || 0);
-    const minutes = Number(req.body.minutes || 0);
-    const totalBufferMinutes = hours * 60 + minutes;
-
-    if (
-      !Number.isFinite(hours) ||
-      !Number.isFinite(minutes) ||
-      hours < 0 ||
-      minutes < 0 ||
-      minutes >= 60 ||
-      totalBufferMinutes <= 0
-    ) {
-      return res.status(400).json({
-        message: 'Please choose a valid buffer duration',
-      });
-    }
+    const totalBufferMinutes = 15;
 
     try {
       const event = await Event.findOne({
@@ -1246,7 +1349,7 @@ router.patch(
         });
       }
 
-      const formattedStopTime = formatTimeHHMM(effectiveEndDateTime);
+      const formattedStopTime = formatTimeInTimeZone(effectiveEndDateTime);
 
       const updatedEvent = await Event.findOneAndUpdate(
         { id: req.params.id, userId: req.user.userId },
@@ -1324,9 +1427,10 @@ router.delete(
           .json({ message: 'Event not found or unauthorized' });
       }
 
-      const eventStartTime = new Date(`${event.date}T${event.startTime}`);
+      const eventStartTime = getStartDateTime(event);
       const currentTime = new Date();
-      const shouldRestoreCredit = currentTime < eventStartTime;
+      const shouldRestoreCredit =
+        eventStartTime instanceof Date && currentTime < eventStartTime;
       let restoredCredit = false;
       const votes = await Vote.find({ eventId: req.params.id }).lean();
       const voteSummary = getVoteSummary(votes);

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { FiCalendar, FiClock, FiImage, FiPlay, FiUsers } from 'react-icons/fi';
 import './Voting.css';
 import { resolveStoredImageUrl } from '../utils/imageUrl';
+import { buildClientIpHeaders } from '../utils/clientIp';
 
 const hiddenCandidateKeys = new Set([
   'candidateImage',
@@ -30,11 +31,13 @@ const Voting = () => {
 
   const fetchEvent = useCallback(async () => {
     try {
+      const clientIpHeaders = await buildClientIpHeaders();
       const response = await fetch(
         `${process.env.REACT_APP_API_URL}/api/public/events/${eventId}`,
         {
           headers: {
             'Content-Type': 'application/json',
+            ...clientIpHeaders,
           },
         },
       );
@@ -51,9 +54,15 @@ const Voting = () => {
 
       // fetch public buffer history for this event
       try {
+        const historyHeaders = await buildClientIpHeaders();
         const historyRes = await fetch(
           `${process.env.REACT_APP_API_URL}/api/public/events/${eventId}/history`,
-          { headers: { 'Content-Type': 'application/json' } },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              ...historyHeaders,
+            },
+          },
         );
         const historyData = await historyRes.json().catch(() => []);
         if (historyRes.ok && Array.isArray(historyData)) {
@@ -79,6 +88,7 @@ const Voting = () => {
     () => ({
       notStarted: accessInfo?.phase === 'before-start',
       closed: accessInfo?.phase === 'closed',
+      restricted: accessInfo?.enabled && accessInfo?.allowed === false,
       open: !!event?.votingWindow?.isOpen && accessInfo?.allowed !== false,
     }),
     [accessInfo, event],
@@ -350,6 +360,10 @@ const Voting = () => {
           </div>
         ) : hiddenState.notStarted ? (
           <div className='vote-closed-note'>Voting has not started yet.</div>
+        ) : hiddenState.restricted ? (
+          <div className='vote-closed-note vote-closed-note--restricted'>
+            Voting is restricted from this IP address.
+          </div>
         ) : (
           <div className='vote-closed-note'>Voting time is over.</div>
         )}

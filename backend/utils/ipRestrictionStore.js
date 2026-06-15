@@ -26,7 +26,10 @@ const readStore = async () => {
     return parsed && typeof parsed === 'object' ? parsed : {};
   } catch (error) {
     if (error.code !== 'ENOENT') {
-      console.warn('Failed to read IP restriction store:', error.message || error);
+      console.warn(
+        'Failed to read IP restriction store:',
+        error.message || error,
+      );
     }
     return {};
   }
@@ -60,7 +63,17 @@ const upsertIpRestrictionSettings = async (userId, settings = {}) => {
 
   const normalizedSettings = {
     ipRestrictionEnabled: !!settings.ipRestrictionEnabled,
-    allowedIp: normalizeIp(settings.allowedIp),
+    // Support comma-separated list of allowed IPs. Normalize each entry.
+    allowedIp: Array.isArray(settings.allowedIp)
+      ? settings.allowedIp
+          .map((v) => normalizeIp(v))
+          .filter(Boolean)
+          .join(',')
+      : String(settings.allowedIp || '')
+          .split(',')
+          .map((v) => normalizeIp(v))
+          .filter(Boolean)
+          .join(','),
     updatedAt: new Date().toISOString(),
   };
 

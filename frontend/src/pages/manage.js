@@ -34,8 +34,6 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const [activeEvents, setActiveEvents] = useState([]);
   const [editingEventId, setEditingEventId] = useState(null);
   const [candidateImages, setCandidateImages] = useState({});
-  const [bufferForms, setBufferForms] = useState({});
-  const [bufferPickerOpen, setBufferPickerOpen] = useState({});
   const [eventId, setEventId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -46,7 +44,15 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const role = localStorage.getItem('role') || 'admin';
 
   const isSuperAdmin = role === 'admin';
-  // helper removed: getLocalDateKey (unused)
+  const getLocalDateKey = (value = new Date()) => {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, '0'),
+      String(date.getDate()).padStart(2, '0'),
+    ].join('-');
+  };
 
   const handleConfirmAddBuffer = async (eventId) => {
     const ok = window.confirm(
@@ -54,8 +60,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     );
     if (!ok) return;
 
-    // Always add 15 minutes when confirming via this flow
-    await handleAddBufferTime(eventId, { hours: 0, minutes: 15 });
+    await handleAddBufferTime(eventId);
   };
 
   const apiUrl = process.env.REACT_APP_API_URL;
@@ -67,12 +72,21 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const shouldShowAddBufferButton = (event) => {
     try {
       const now = new Date();
+      const todayKey = getLocalDateKey(now);
+      const eventDateKey = getLocalDateKey(event?.date);
       const originalEnd = event?.votingWindow?.originalEndDateTime
         ? new Date(event.votingWindow.originalEndDateTime)
         : event?.stopTime && event?.date
           ? new Date(`${event.date}T${event.stopTime}`)
           : null;
-      if (!originalEnd || Number.isNaN(originalEnd.getTime())) return false;
+      if (
+        !originalEnd ||
+        Number.isNaN(originalEnd.getTime()) ||
+        !todayKey ||
+        todayKey !== eventDateKey
+      ) {
+        return false;
+      }
 
       // Button shows only if: now < originalEnd (voting not over yet) AND now >= (originalEnd - 60 minutes)
       const oneHourBefore = new Date(originalEnd.getTime() - 60 * 60 * 1000);
@@ -466,36 +480,13 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     }
   };
 
-  const handleAddBufferTime = async (targetEventId, override = null) => {
-    // support override for fixed durations (e.g., 15 minutes)
-    let hours = 0;
-    let minutes = 30;
-    if (override && typeof override === 'object') {
-      hours = Number(override.hours || 0);
-      minutes = Number(override.minutes || 0);
-    } else {
-      const form = bufferForms[targetEventId] || { hours: 0, minutes: 30 };
-      hours = Number(form.hours || 0);
-      minutes = Number(form.minutes || 0);
-    }
-
-    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
-      alert('Please choose a valid buffer duration.');
-      return;
-    }
+  const handleAddBufferTime = async (targetEventId) => {
+    const hours = 0;
+    const minutes = 15;
 
     try {
       const apiUrl = process.env.REACT_APP_API_URL;
       const token = localStorage.getItem('token');
-
-      // Validate range
-      if (minutes < 0 || minutes >= 60 || hours < 0) {
-        alert('Please choose a valid buffer duration (0 <= minutes < 60)');
-        return;
-      }
-
-      // (removed server refresh) proceed with client-side validation and submit
-
       const payload = { hours, minutes };
 
       const response = await fetch(
@@ -533,14 +524,6 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
         }
       }
 
-      setBufferForms((prev) => ({
-        ...prev,
-        [targetEventId]: { hours: 0, minutes: 30 },
-      }));
-      setBufferPickerOpen((prev) => ({
-        ...prev,
-        [targetEventId]: false,
-      }));
       alert('Buffer time added successfully.');
     } catch (err) {
       console.error('Failed to add buffer time:', err);
@@ -860,84 +843,6 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                       >
                         <FiTrendingUp /> Results
                       </button>
-                      {isSuperAdmin &&
-                        shouldShowAddBufferButton(event) &&
-                        bufferPickerOpen[event.id] && (
-                          <div className='work-buffer-controls'>
-                            <div
-                              style={{
-                                display: 'flex',
-                                gap: '8px',
-                                alignItems: 'flex-end',
-                              }}
-                            >
-                              <label className='work-field' style={{ flex: 1 }}>
-                                <span>Hours</span>
-                                <input
-                                  type='number'
-                                  min='0'
-                                  max='23'
-                                  value={bufferForms[event.id]?.hours || 0}
-                                  onChange={(e) =>
-                                    setBufferForms((prev) => ({
-                                      ...prev,
-                                      [event.id]: {
-                                        ...(prev[event.id] || {
-                                          hours: 0,
-                                          minutes: 30,
-                                        }),
-                                        hours: Math.max(
-                                          0,
-                                          Math.min(
-                                            23,
-                                            Number(e.target.value) || 0,
-                                          ),
-                                        ),
-                                      },
-                                    }))
-                                  }
-                                  style={{ width: '100%' }}
-                                />
-                              </label>
-                              <label className='work-field' style={{ flex: 1 }}>
-                                <span>Minutes</span>
-                                <input
-                                  type='number'
-                                  min='0'
-                                  max='59'
-                                  value={bufferForms[event.id]?.minutes || 30}
-                                  onChange={(e) =>
-                                    setBufferForms((prev) => ({
-                                      ...prev,
-                                      [event.id]: {
-                                        ...(prev[event.id] || {
-                                          hours: 0,
-                                          minutes: 30,
-                                        }),
-                                        minutes: Math.max(
-                                          0,
-                                          Math.min(
-                                            59,
-                                            Number(e.target.value) || 0,
-                                          ),
-                                        ),
-                                      },
-                                    }))
-                                  }
-                                  style={{ width: '100%' }}
-                                />
-                              </label>
-                            </div>
-                            <button
-                              type='button'
-                              className='work-button work-button--primary'
-                              onClick={() => handleAddBufferTime(event.id)}
-                              style={{ marginTop: '8px', width: '100%' }}
-                            >
-                              Apply Buffer
-                            </button>
-                          </div>
-                        )}
                     </div>
                   </article>
                 ))

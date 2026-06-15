@@ -1,6 +1,43 @@
 const MINUTE = 60 * 1000;
+const EVENT_TIME_ZONE = process.env.EVENT_TIME_ZONE || 'Asia/Kolkata';
 
-const parseLocalDateTime = (date, time) => {
+const getDateTimePartsInTimeZone = (date, timeZone = EVENT_TIME_ZONE) => {
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(date);
+  const output = {};
+  for (const part of parts) {
+    if (part.type !== 'literal') {
+      output[part.type] = part.value;
+    }
+  }
+  return output;
+};
+
+const getTimeZoneOffsetMs = (date, timeZone = EVENT_TIME_ZONE) => {
+  const parts = getDateTimePartsInTimeZone(date, timeZone);
+  const asUTC = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+    Number(parts.second),
+  );
+
+  return asUTC - date.getTime();
+};
+
+const parseLocalDateTime = (date, time, timeZone = EVENT_TIME_ZONE) => {
   if (!date || !time) return null;
   // Expect date in YYYY-MM-DD and time in HH:mm or HH:mm:ss (local values)
   try {
@@ -27,33 +64,42 @@ const parseLocalDateTime = (date, time) => {
     const minute = Number.isFinite(timeParts[1]) ? timeParts[1] : 0;
     const second = Number.isFinite(timeParts[2]) ? timeParts[2] : 0;
 
-    // Construct Date using numeric components so it's interpreted as local time
-    const parsed = new Date(year, month - 1, day, hour, minute, second);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
+    // Interpret the input as wall-clock time in the configured timezone.
+    const utcGuess = Date.UTC(year, month - 1, day, hour, minute, second);
+    const firstPass = new Date(utcGuess);
+    const firstOffset = getTimeZoneOffsetMs(firstPass, timeZone);
+    const parsed = new Date(utcGuess - firstOffset);
+
+    // Run one more pass so the result stays stable for zones with DST rules.
+    const secondOffset = getTimeZoneOffsetMs(parsed, timeZone);
+    const stabilized =
+      secondOffset === firstOffset
+        ? parsed
+        : new Date(utcGuess - secondOffset);
+
+    return Number.isNaN(stabilized.getTime()) ? null : stabilized;
   } catch (e) {
     return null;
   }
 };
 
-const toDateKey = (value) => {
+const toDateKey = (value, timeZone = EVENT_TIME_ZONE) => {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return null;
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, '0'),
-    String(date.getDate()).padStart(2, '0'),
-  ].join('-');
+
+  const parts = getDateTimePartsInTimeZone(date, timeZone);
+  return [parts.year, parts.month, parts.day].join('-');
 };
 
-const isSameCalendarDay = (left, right) => {
-  const leftKey = toDateKey(left);
-  const rightKey = toDateKey(right);
+const isSameCalendarDay = (left, right, timeZone = EVENT_TIME_ZONE) => {
+  const leftKey = toDateKey(left, timeZone);
+  const rightKey = toDateKey(right, timeZone);
   return !!leftKey && leftKey === rightKey;
 };
 
 const getStartDateTime = (event = {}) => {
   // Prefer the explicit date+startTime values (interpreted as local)
-  // — this mitigates older events that may have stored a mis-parsed Date.
+  // This keeps older events compatible while avoiding system timezone drift.
   const fromComponents = parseLocalDateTime(event.date, event.startTime);
   if (fromComponents) return fromComponents;
 
@@ -192,12 +238,35 @@ const canAddBufferTime = (event = {}, now = new Date()) => {
   };
 };
 
+const formatTimeInTimeZone = (date, timeZone = EVENT_TIME_ZONE) => {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+
+  try {
+    return date.toLocaleTimeString('en-GB', {
+      timeZone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+  } catch (e) {
+    return date.toLocaleTimeString('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+  }
+};
+
 module.exports = {
+  EVENT_TIME_ZONE,
   MINUTE,
   canAddBufferTime,
+  formatTimeInTimeZone,
+  getDateTimePartsInTimeZone,
   getEffectiveEndDateTime,
   getOriginalEndDateTime,
   getStartDateTime,
+  getTimeZoneOffsetMs,
   getVotingWindow,
   isSameCalendarDay,
   parseLocalDateTime,

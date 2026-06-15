@@ -35,8 +35,6 @@ const Manage = ({ setIsAuthenticated }) => {
   const [checkedRows, setCheckedRows] = useState([]);
   const [eventCreated, setEventCreated] = useState(false);
   const [generatedLink, setGeneratedLink] = useState('');
-  const [bufferForms, setBufferForms] = useState({});
-  const [bufferPickerOpen, setBufferPickerOpen] = useState({});
   const navigate = useNavigate();
   const getLocalDateKey = (value = new Date()) => {
     const date = value instanceof Date ? value : new Date(value);
@@ -72,12 +70,21 @@ const Manage = ({ setIsAuthenticated }) => {
   const shouldShowAddBufferButton = (event) => {
     try {
       const now = new Date();
+      const todayKey = getLocalDateKey(now);
+      const eventDateKey = getLocalDateKey(event?.date);
       const originalEnd = event?.votingWindow?.originalEndDateTime
         ? new Date(event.votingWindow.originalEndDateTime)
         : event?.stopTime && event?.date
           ? new Date(`${event.date}T${event.stopTime}`)
           : null;
-      if (!originalEnd || Number.isNaN(originalEnd.getTime())) return false;
+      if (
+        !originalEnd ||
+        Number.isNaN(originalEnd.getTime()) ||
+        !todayKey ||
+        todayKey !== eventDateKey
+      ) {
+        return false;
+      }
 
       // Button shows only if: now < originalEnd (voting not over yet) AND now >= (originalEnd - 60 minutes)
       const oneHourBefore = new Date(originalEnd.getTime() - 60 * 60 * 1000);
@@ -208,19 +215,10 @@ const Manage = ({ setIsAuthenticated }) => {
   };
 
   const handleAddBufferTime = async (eventId) => {
-    const form = bufferForms[eventId] || { time: '00:30' };
-    const [hoursRaw = '0', minutesRaw = '0'] = String(
-      form.time || '00:30',
-    ).split(':');
-    const hours = Number(hoursRaw);
-    const minutes = Number(minutesRaw);
+    const hours = 0;
+    const minutes = 15;
     try {
       const token = localStorage.getItem('token');
-      if (minutes < 0 || minutes >= 60 || hours < 0) {
-        setError('Please choose a valid buffer duration (0 <= minutes < 60)');
-        return;
-      }
-
       const payload = { hours, minutes };
       const response = await fetch(
         `${process.env.REACT_APP_API_URL}/api/events/${eventId}/buffer-time`,
@@ -244,10 +242,6 @@ const Manage = ({ setIsAuthenticated }) => {
           event.id === eventId ? { ...event, ...data.event } : event,
         ),
       );
-      setBufferPickerOpen((prev) => ({
-        ...prev,
-        [eventId]: false,
-      }));
       alert('Buffer time added successfully.');
     } catch (err) {
       setError(err.message);
@@ -498,12 +492,7 @@ const Manage = ({ setIsAuthenticated }) => {
                             <button
                               type='button'
                               className='work-button work-button--accent'
-                              onClick={() =>
-                                setBufferPickerOpen((prev) => ({
-                                  ...prev,
-                                  [event.id]: !prev[event.id],
-                                }))
-                              }
+                              onClick={() => handleAddBufferTime(event.id)}
                             >
                               Add Buffer Time
                             </button>
@@ -522,35 +511,6 @@ const Manage = ({ setIsAuthenticated }) => {
                       >
                         <FiTrendingUp /> Results
                       </button>
-                      {role === 'main' &&
-                        shouldShowAddBufferButton(event) &&
-                        bufferPickerOpen[event.id] && (
-                          <div className='work-buffer-controls'>
-                            <label className='work-field'>
-                              <span>Buffer Time</span>
-                              <input
-                                type='time'
-                                value={bufferForms[event.id]?.time || '00:30'}
-                                onChange={(e) =>
-                                  setBufferForms((prev) => ({
-                                    ...prev,
-                                    [event.id]: {
-                                      ...(prev[event.id] || { time: '00:30' }),
-                                      time: e.target.value,
-                                    },
-                                  }))
-                                }
-                              />
-                            </label>
-                            <button
-                              type='button'
-                              className='work-button work-button--primary'
-                              onClick={() => handleAddBufferTime(event.id)}
-                            >
-                              Apply Buffer
-                            </button>
-                          </div>
-                        )}
                     </div>
                   </article>
                 ))

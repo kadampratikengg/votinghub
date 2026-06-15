@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import './start.css';
 import { resolveStoredImageUrl } from '../utils/imageUrl';
+import { buildClientIpHeaders } from '../utils/clientIp';
 
 const getCandidateImage = (images, index) =>
   images?.find(
@@ -56,11 +57,13 @@ const Start = () => {
 
   const fetchEventData = useCallback(async () => {
     try {
+      const clientIpHeaders = await buildClientIpHeaders();
       const response = await fetch(
         `${process.env.REACT_APP_API_URL}/api/public/events/${eventId}`,
         {
           headers: {
             'Content-Type': 'application/json',
+            ...clientIpHeaders,
           },
         },
       );
@@ -119,12 +122,14 @@ const Start = () => {
     setShowVotePopup(false);
 
     try {
+      const clientIpHeaders = await buildClientIpHeaders();
       const response = await fetch(
         `${process.env.REACT_APP_API_URL}/api/verify-id/${eventId}`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            ...clientIpHeaders,
           },
           body: JSON.stringify({ id: idInput }),
         },
@@ -154,12 +159,14 @@ const Start = () => {
 
     const handleVoteSubmission = async () => {
       try {
+        const clientIpHeaders = await buildClientIpHeaders();
         const response = await fetch(
           `${process.env.REACT_APP_API_URL}/api/vote/${eventId}`,
           {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              ...clientIpHeaders,
             },
             body: JSON.stringify({
               voterId: idInput,

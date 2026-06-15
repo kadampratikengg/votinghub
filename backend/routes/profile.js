@@ -40,6 +40,18 @@ const normalizeIp = (value) =>
     .replace(/^::1$/, '127.0.0.1')
     .replace(/^0:0:0:0:0:0:0:1$/, '127.0.0.1');
 
+const normalizeAllowedIpList = (value) =>
+  Array.isArray(value)
+    ? value
+        .map((v) => normalizeIp(v))
+        .filter(Boolean)
+        .join(',')
+    : String(value || '')
+        .split(',')
+        .map((v) => normalizeIp(v))
+        .filter(Boolean)
+        .join(',');
+
 const parseBoolean = (value) =>
   value === true ||
   value === 'true' ||
@@ -188,7 +200,9 @@ router.put('/api/users', authenticateToken, async (req, res) => {
         ? parseBoolean(ipRestrictionEnabled)
         : !!user.ipRestrictionEnabled;
     const nextAllowedIp =
-      allowedIp !== undefined ? normalizeIp(allowedIp) : normalizeIp(user.allowedIp);
+      allowedIp !== undefined
+        ? normalizeAllowedIpList(allowedIp)
+        : normalizeAllowedIpList(user.allowedIp);
 
     if (nextIpRestrictionEnabled && !nextAllowedIp) {
       return res.status(400).json({
