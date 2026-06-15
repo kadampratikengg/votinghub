@@ -2,11 +2,37 @@ const MINUTE = 60 * 1000;
 
 const parseLocalDateTime = (date, time) => {
   if (!date || !time) return null;
-  const normalizedTime = String(time).trim();
-  const value =
-    normalizedTime.length === 5 ? `${normalizedTime}:00` : normalizedTime;
-  const parsed = new Date(`${date}T${value}`);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  // Expect date in YYYY-MM-DD and time in HH:mm or HH:mm:ss (local values)
+  try {
+    const dateParts = String(date)
+      .split('-')
+      .map((p) => parseInt(p, 10));
+    if (dateParts.length !== 3 || dateParts.some((n) => Number.isNaN(n))) {
+      return null;
+    }
+
+    const normalizedTime = String(time).trim();
+    const timeParts = normalizedTime.split(':').map((p) => parseInt(p, 10));
+    if (
+      timeParts.length < 2 ||
+      timeParts.slice(0, 2).some((n) => Number.isNaN(n))
+    ) {
+      return null;
+    }
+
+    const year = dateParts[0];
+    const month = dateParts[1];
+    const day = dateParts[2];
+    const hour = Number.isFinite(timeParts[0]) ? timeParts[0] : 0;
+    const minute = Number.isFinite(timeParts[1]) ? timeParts[1] : 0;
+    const second = Number.isFinite(timeParts[2]) ? timeParts[2] : 0;
+
+    // Construct Date using numeric components so it's interpreted as local time
+    const parsed = new Date(year, month - 1, day, hour, minute, second);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  } catch (e) {
+    return null;
+  }
 };
 
 const toDateKey = (value) => {
@@ -25,15 +51,31 @@ const isSameCalendarDay = (left, right) => {
   return !!leftKey && leftKey === rightKey;
 };
 
-const getStartDateTime = (event = {}) =>
-  event.startDateTime
-    ? new Date(event.startDateTime)
-    : parseLocalDateTime(event.date, event.startTime);
+const getStartDateTime = (event = {}) => {
+  // Prefer the explicit date+startTime values (interpreted as local)
+  // — this mitigates older events that may have stored a mis-parsed Date.
+  const fromComponents = parseLocalDateTime(event.date, event.startTime);
+  if (fromComponents) return fromComponents;
 
-const getOriginalEndDateTime = (event = {}) =>
-  event.originalEndDateTime
-    ? new Date(event.originalEndDateTime)
-    : parseLocalDateTime(event.date, event.stopTime);
+  if (event.startDateTime) {
+    const parsed = new Date(event.startDateTime);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  return null;
+};
+
+const getOriginalEndDateTime = (event = {}) => {
+  const fromComponents = parseLocalDateTime(event.date, event.stopTime);
+  if (fromComponents) return fromComponents;
+
+  if (event.originalEndDateTime) {
+    const parsed = new Date(event.originalEndDateTime);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  return null;
+};
 
 const getEffectiveEndDateTime = (event = {}) => {
   if (event.endDateTime) {

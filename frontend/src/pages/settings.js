@@ -25,7 +25,7 @@ const Settings = ({ setIsAuthenticated }) => {
   const [subUserProfilePic, setSubUserProfilePic] = useState(null);
   const [subUserPermissions, setSubUserPermissions] = useState({
     voting: true,
-    manage: true,
+    manage: false,
   });
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [subUsers, setSubUsers] = useState([]);
@@ -244,7 +244,8 @@ const Settings = ({ setIsAuthenticated }) => {
     setSubUserPassword('');
     setSubUserRole('user');
     setSubUserProfilePic(null);
-    setSubUserPermissions({ voting: true, manage: true });
+    // Default permissions for a new 'user' role: voting access only
+    setSubUserPermissions({ voting: true, manage: false });
   };
 
   const handleClearSubUserImage = async () => {
@@ -378,6 +379,18 @@ const Settings = ({ setIsAuthenticated }) => {
     setEditingUserId(userId);
     setShowCreateForm(true);
   };
+
+  // Auto-assign permissions when role changes for NEW users.
+  // When editing an existing user (editingUserId != null) we preserve stored permissions.
+  useEffect(() => {
+    if (editingUserId) return; // preserve existing user's permissions while editing
+
+    if (subUserRole === 'admin') {
+      setSubUserPermissions({ voting: true, manage: true });
+    } else if (subUserRole === 'user') {
+      setSubUserPermissions({ voting: true, manage: false });
+    }
+  }, [subUserRole, editingUserId]);
 
   const handleUpdateSubUser = async (e) => {
     e.preventDefault();
