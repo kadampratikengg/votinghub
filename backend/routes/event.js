@@ -382,6 +382,7 @@ const toHistoryRecord = (event, votes, fallbackActor = null) => {
     resultDate: status === 'done' ? getResultDate(event) : null,
     createdAt: event.createdAt || null,
     deletedAt: null,
+    deleteReason: null,
     createdBy: withFallbackActor(event.createdBy, fallbackActor),
     deletedBy: null,
   };
@@ -1489,6 +1490,8 @@ router.delete(
         id: req.params.id,
         userId: req.user.userId,
       });
+      const deleteReason =
+        typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
       await EventHistory.findOneAndUpdate(
         {
           eventId: event.id,
@@ -1509,6 +1512,7 @@ router.delete(
           winnerVotes: voteSummary.winnerVotes || 0,
           resultDate,
           deletedAt: new Date(),
+          deleteReason: deleteReason || null,
           createdBy: event.createdBy || null,
           deletedBy: actor,
         },

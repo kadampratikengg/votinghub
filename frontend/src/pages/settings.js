@@ -709,6 +709,9 @@ const Settings = ({ setIsAuthenticated }) => {
                       Voting Time: {event.startTime || 'N/A'} to{' '}
                       {event.stopTime || 'N/A'}
                     </span>
+                    {event.action === 'deleted' && event.deleteReason && (
+                      <span>Delete Reason: {event.deleteReason}</span>
+                    )}
                     {isVotingCompleted(event) && (
                       <>
                         <span>

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { v4 as uuidv4 } from 'uuid';
 import Sidebar from './Sidebar';
+import Popup from '../components/Popup';
 import {
   FiCalendar,
   FiCheckSquare,
@@ -43,6 +44,21 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const navigate = useNavigate();
   const role = localStorage.getItem('role') || 'admin';
 
+  const [popup, setPopup] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+    hideCancel: false,
+    confirmLabel: 'OK',
+    cancelLabel: 'Cancel',
+    children: null,
+  });
+
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
+  const [deleteReason, setDeleteReason] = useState('');
+
   const isSuperAdmin = role === 'admin';
   const getLocalDateKey = (value = new Date()) => {
     const date = value instanceof Date ? value : new Date(value);
@@ -55,12 +71,19 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   };
 
   const handleConfirmAddBuffer = async (eventId) => {
-    const ok = window.confirm(
-      'Are you sure you want to add buffer time?\n\nPlease ensure you have sufficient permission to add buffer time.\n\nClick OK to add 15 minutes.',
-    );
-    if (!ok) return;
-
-    await handleAddBufferTime(eventId);
+    setPopup({
+      visible: true,
+      title: 'Add Buffer Time',
+      message:
+        'Are you sure you want to add 15 minutes buffer time? Please ensure you have sufficient permission to add buffer time.',
+      onConfirm: async () => {
+        setPopup((p) => ({ ...p, visible: false }));
+        await handleAddBufferTime(eventId);
+      },
+      confirmLabel: 'Add Buffer',
+      cancelLabel: 'Cancel',
+      hideCancel: false,
+    });
   };
 
   const apiUrl = process.env.REACT_APP_API_URL;
@@ -284,7 +307,13 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     const currentTime = new Date();
 
     if (eventStartTime <= currentTime) {
-      alert('Event has already started and cannot be edited.');
+      setPopup({
+        visible: true,
+        title: 'Cannot Edit Event',
+        message: 'Event has already started and cannot be edited.',
+        onConfirm: () => setPopup((p) => ({ ...p, visible: false })),
+        hideCancel: true,
+      });
       return;
     }
 
@@ -451,7 +480,26 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   };
 
   const handleDeleteEvent = async (id) => {
+    // Open delete-reason modal
+    setDeleteTargetId(id);
+    setDeleteReason('');
+    setDeleteModalVisible(true);
+  };
+
+  const performDeleteEvent = async (id, reason) => {
     try {
+      const trimmedReason = String(reason || '').trim();
+      if (!trimmedReason) {
+        setPopup({
+          visible: true,
+          title: 'Delete Reason Required',
+          message: 'Please enter a delete reason before continuing.',
+          onConfirm: () => setPopup((p) => ({ ...p, visible: false })),
+          hideCancel: true,
+        });
+        return;
+      }
+
       const apiUrl = process.env.REACT_APP_API_URL;
       const token = localStorage.getItem('token');
       const response = await fetch(`${apiUrl}/api/events/${id}`, {
@@ -460,10 +508,11 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
+        body: JSON.stringify({ reason: trimmedReason }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || 'Failed to delete event');
       }
 
@@ -471,12 +520,20 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
         prevEvents.filter((event) => event.id !== id),
       );
       fetchUserSubscription();
+      setDeleteModalVisible(false);
+      setDeleteTargetId(null);
+      setDeleteReason('');
     } catch (error) {
       console.error('Error deleting event:', error);
-      alert(
-        error.message ||
+      setPopup({
+        visible: true,
+        title: 'Delete Failed',
+        message:
+          (error && error.message) ||
           'There was an error deleting the event. Please try again.',
-      );
+        onConfirm: () => setPopup((p) => ({ ...p, visible: false })),
+        hideCancel: true,
+      });
     }
   };
 
@@ -524,10 +581,22 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
         }
       }
 
-      alert('Buffer time added successfully.');
+      setPopup({
+        visible: true,
+        title: 'Buffer Added',
+        message: 'Buffer time added successfully.',
+        onConfirm: () => setPopup((p) => ({ ...p, visible: false })),
+        hideCancel: true,
+      });
     } catch (err) {
       console.error('Failed to add buffer time:', err);
-      alert(err.message || 'Failed to add buffer time.');
+      setPopup({
+        visible: true,
+        title: 'Buffer Add Failed',
+        message: err.message || 'Failed to add buffer time.',
+        onConfirm: () => setPopup((p) => ({ ...p, visible: false })),
+        hideCancel: true,
+      });
     }
   };
 
@@ -1094,6 +1163,40 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
             )}
           </div>
         </section>
+        <Popup
+          visible={popup.visible}
+          title={popup.title}
+          message={popup.message}
+          onClose={() => setPopup((p) => ({ ...p, visible: false }))}
+          onConfirm={popup.onConfirm}
+          confirmLabel={popup.confirmLabel}
+          cancelLabel={popup.cancelLabel}
+          hideCancel={popup.hideCancel}
+        >
+          {popup.children}
+        </Popup>
+
+        <Popup
+          visible={deleteModalVisible}
+          title='Delete Voting Event'
+          message={null}
+          onClose={() => setDeleteModalVisible(false)}
+          onConfirm={() => performDeleteEvent(deleteTargetId, deleteReason)}
+          confirmLabel='Delete'
+          cancelLabel='Cancel'
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <label>
+              Enter reason for deleting this voting event:
+              <textarea
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                rows={4}
+                style={{ width: '100%', marginTop: 8 }}
+              />
+            </label>
+          </div>
+        </Popup>
       </main>
     </div>
   );

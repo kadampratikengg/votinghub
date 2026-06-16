@@ -24,6 +24,7 @@ const eventHistorySchema = new mongoose.Schema(
     winnerVotes: { type: Number, default: 0 },
     resultDate: { type: Date },
     deletedAt: { type: Date },
+    deleteReason: { type: String },
     createdBy: {
       id: { type: String },
       name: { type: String },

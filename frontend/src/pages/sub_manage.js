@@ -192,16 +192,29 @@ const Manage = ({ setIsAuthenticated }) => {
   };
 
   const handleDeleteEvent = async (eventId) => {
-    if (!window.confirm('Are you sure you want to delete this event?')) return;
     try {
+      const deleteReason = window.prompt(
+        'Enter a reason for deleting this voting event. Click OK to continue or Cancel to abort.',
+      );
+
+      if (deleteReason === null) return;
+
+      const trimmedReason = deleteReason.trim();
+      if (!trimmedReason) {
+        alert('Please enter a delete reason before continuing.');
+        return;
+      }
+
       const token = localStorage.getItem('token');
       const response = await fetch(
         `${process.env.REACT_APP_API_URL}/api/events/${eventId}`,
         {
           method: 'DELETE',
           headers: {
+            'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
+          body: JSON.stringify({ reason: trimmedReason }),
         },
       );
       if (!response.ok) {
