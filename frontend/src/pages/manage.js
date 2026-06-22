@@ -30,6 +30,8 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const [stopTime, setStopTime] = useState('');
   const [eventName, setEventName] = useState('');
   const [eventDescription, setEventDescription] = useState('');
+  const [ballots, setBallots] = useState([]);
+  const [activeBallotId, setActiveBallotId] = useState('');
   const [generatedLink, setGeneratedLink] = useState('');
   const [eventCreated, setEventCreated] = useState(false);
   const [activeEvents, setActiveEvents] = useState([]);
@@ -38,6 +40,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const [eventId, setEventId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [bufferLoadingId, setBufferLoadingId] = useState(null);
   const [candidateSelectionError, setCandidateSelectionError] = useState('');
   const [availableCredits, setAvailableCredits] = useState(0);
   const [subscriptionMessage, setSubscriptionMessage] = useState('');
@@ -60,22 +63,150 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const [deleteReason, setDeleteReason] = useState('');
 
   const isSuperAdmin = role === 'admin';
-  const getLocalDateKey = (value = new Date()) => {
-    const date = value instanceof Date ? value : new Date(value);
-    if (Number.isNaN(date.getTime())) return '';
-    return [
-      date.getFullYear(),
-      String(date.getMonth() + 1).padStart(2, '0'),
-      String(date.getDate()).padStart(2, '0'),
-    ].join('-');
+  const BUFFER_INCREMENT_MINUTES = 15;
+
+  const getVotingEndDateTime = (event) => {
+    const endTimeSource =
+      event?.votingWindow?.effectiveEndDateTimeISO ||
+      event?.votingWindow?.effectiveEndDateTime ||
+      (event?.stopTime && event?.date ? `${event.date}T${event.stopTime}` : null);
+
+    if (!endTimeSource) return null;
+
+    const parsed = new Date(endTimeSource);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+
+  const createBallotDraft = (overrides = {}) => ({
+    ballotId: uuidv4(),
+    name: '',
+    description: '',
+    checkedRows: [],
+    selectedData: [],
+    candidateImages: {},
+    ...overrides,
+  });
+
+  const normalizeBallotForForm = (ballot = {}) => ({
+    ballotId: ballot.ballotId || ballot.id || uuidv4(),
+    name: ballot.name || '',
+    description: ballot.description || '',
+    checkedRows: Array.isArray(ballot.checkedRows) ? ballot.checkedRows : [],
+    selectedData: Array.isArray(ballot.selectedData) ? ballot.selectedData : [],
+    candidateImages: ballot.candidateImages || {},
+  });
+
+  const buildBallotPayload = (ballot = {}) => {
+    const normalized = normalizeBallotForForm(ballot);
+    const rows = normalized.checkedRows || [];
+    const selected = rows
+      .map((rowIndex, selectedIndex) => {
+        const row = fileData[rowIndex];
+        if (!row) return null;
+        const image = normalized.candidateImages[rowIndex];
+        return {
+          ...row,
+          candidateImage: image
+            ? {
+                key: image.key || image.uuid || '',
+                url: image.url || image.cdnUrl || '',
+              }
+            : null,
+          candidateRowIndex: rowIndex,
+          candidateSelectionIndex: selectedIndex,
+        };
+      })
+      .filter(Boolean);
+
+    return {
+      ballotId: normalized.ballotId,
+      name: normalized.name,
+      description: normalized.description,
+      selectedData: selected,
+      fileData,
+      candidateImages: rows
+        .map((rowIndex, selectedIndex) => {
+          const image = normalized.candidateImages[rowIndex];
+          if (
+            !image ||
+            (!image.key && !image.uuid && !image.url && !image.cdnUrl)
+          )
+            return null;
+          return {
+            candidateIndex: rowIndex,
+            fileRowIndex: rowIndex,
+            selectedIndex,
+            key: image.key || image.uuid || null,
+            url: image.url || image.cdnUrl || null,
+          };
+        })
+        .filter(Boolean),
+    };
+  };
+
+  const persistBallot = (ballotId, nextState) => {
+    setBallots((prev) =>
+      prev.map((ballot) =>
+        ballot.ballotId === ballotId ? { ...ballot, ...nextState } : ballot,
+      ),
+    );
+  };
+
+  const loadBallotIntoForm = (ballot) => {
+    const normalized = normalizeBallotForForm(ballot);
+    setActiveBallotId(normalized.ballotId);
+    setEventName(normalized.name);
+    setEventDescription(normalized.description);
+    setCheckedRows(normalized.checkedRows);
+    setSelectedData(normalized.selectedData);
+    setCandidateImages(normalized.candidateImages);
+  };
+
+  const syncActiveBallot = (patch = {}) => {
+    if (!activeBallotId) return;
+    const nextPatch = { ...patch };
+    if (Object.prototype.hasOwnProperty.call(nextPatch, 'checkedRows')) {
+      nextPatch.selectedData = (nextPatch.checkedRows || [])
+        .map((rowIndex, selectedIndex) => {
+          const row = fileData[rowIndex];
+          if (!row) return null;
+          const image = candidateImages[rowIndex];
+          return {
+            ...row,
+            candidateImage: image
+              ? {
+                  key: image.key || image.uuid || '',
+                  url: image.url || image.cdnUrl || '',
+                }
+              : null,
+            candidateRowIndex: rowIndex,
+            candidateSelectionIndex: selectedIndex,
+          };
+        })
+        .filter(Boolean);
+    }
+    persistBallot(activeBallotId, {
+      ballotId: activeBallotId,
+      name: nextPatch.name ?? eventName,
+      description: nextPatch.description ?? eventDescription,
+      checkedRows: nextPatch.checkedRows ?? checkedRows,
+      selectedData: nextPatch.selectedData ?? selectedData,
+      candidateImages: nextPatch.candidateImages ?? candidateImages,
+    });
   };
 
   const handleConfirmAddBuffer = async (eventId) => {
+    if (bufferLoadingId === eventId) {
+      // prevent opening another confirm while request in-flight
+      alert('Buffer add already in progress for this event. Please wait.');
+      return;
+    }
+
     setPopup({
       visible: true,
       title: 'Add Buffer Time',
       message:
-        'Are you sure you want to add 15 minutes buffer time? Please ensure you have sufficient permission to add buffer time.',
+        `Are you sure you want to add ${BUFFER_INCREMENT_MINUTES} minutes buffer time? Please ensure you have sufficient permission to add buffer time.`,
       onConfirm: async () => {
         setPopup((p) => ({ ...p, visible: false }));
         await handleAddBufferTime(eventId);
@@ -91,46 +222,28 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
   // (removed unused) previously used helper to check same-day past stop time
 
-  // Show Add Buffer Time button only within 1 hour before voting ends
+  // Show Add Buffer Time button only within 1 hour before the current voting end time
   const shouldShowAddBufferButton = (event) => {
     try {
       const now = new Date();
-      const todayKey = getLocalDateKey(now);
-      const eventDateKey = getLocalDateKey(event?.date);
-      const originalEnd = event?.votingWindow?.originalEndDateTime
-        ? new Date(event.votingWindow.originalEndDateTime)
-        : event?.stopTime && event?.date
-          ? new Date(`${event.date}T${event.stopTime}`)
-          : null;
-      if (
-        !originalEnd ||
-        Number.isNaN(originalEnd.getTime()) ||
-        !todayKey ||
-        todayKey !== eventDateKey
-      ) {
-        return false;
-      }
+      const effectiveEnd = getVotingEndDateTime(event);
+      if (!effectiveEnd || Number.isNaN(effectiveEnd.getTime())) return false;
 
-      // Button shows only if: now < originalEnd (voting not over yet) AND now >= (originalEnd - 60 minutes)
-      const oneHourBefore = new Date(originalEnd.getTime() - 60 * 60 * 1000);
-      return now >= oneHourBefore && now < originalEnd;
+      const oneHourBefore = new Date(effectiveEnd.getTime() - 60 * 60 * 1000);
+      return now >= oneHourBefore && now < effectiveEnd;
     } catch (e) {
       return false;
     }
   };
 
-  // Calculate time remaining until voting ends
+  // Calculate time remaining until the current voting end time
   const getTimeRemaining = (event) => {
     try {
       const now = new Date();
-      const originalEnd = event?.votingWindow?.originalEndDateTime
-        ? new Date(event.votingWindow.originalEndDateTime)
-        : event?.stopTime && event?.date
-          ? new Date(`${event.date}T${event.stopTime}`)
-          : null;
-      if (!originalEnd || Number.isNaN(originalEnd.getTime())) return null;
+      const effectiveEnd = getVotingEndDateTime(event);
+      if (!effectiveEnd || Number.isNaN(effectiveEnd.getTime())) return null;
 
-      const diffMs = originalEnd.getTime() - now.getTime();
+      const diffMs = effectiveEnd.getTime() - now.getTime();
       if (diffMs <= 0) return null;
 
       const hours = Math.floor(diffMs / (1000 * 60 * 60));
@@ -171,6 +284,8 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     setFileData([]);
     setCheckedRows([]);
     setSelectedData([]);
+    setBallots([]);
+    setActiveBallotId('');
     setShowEventForm(false);
     setEventDate('');
     setStartTime('');
@@ -189,13 +304,18 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     try {
       const token = localStorage.getItem('token');
       const res = await uploadFileToS3(file, token, 'voting-candidate-images');
-      setCandidateImages((prevImages) => ({
-        ...prevImages,
-        [index]: {
-          key: res.key,
-          url: res.proxyUrl ? `${apiUrl}${res.proxyUrl}` : res.url,
-        },
-      }));
+      const nextImage = {
+        key: res.key,
+        url: res.proxyUrl ? `${apiUrl}${res.proxyUrl}` : res.url,
+      };
+      setCandidateImages((prevImages) => {
+        const nextImages = {
+          ...prevImages,
+          [index]: nextImage,
+        };
+        syncActiveBallot({ candidateImages: nextImages });
+        return nextImages;
+      });
     } catch (err) {
       console.error('Failed to upload candidate image:', err);
       alert(err.message || 'Failed to upload image.');
@@ -224,6 +344,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
         setCandidateImages((prevImages) => {
           const newImages = { ...prevImages };
           delete newImages[index];
+          syncActiveBallot({ candidateImages: newImages });
           return newImages;
         });
       } catch (error) {
@@ -234,6 +355,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       setCandidateImages((prevImages) => {
         const newImages = { ...prevImages };
         delete newImages[index];
+        syncActiveBallot({ candidateImages: newImages });
         return newImages;
       });
     }
@@ -332,29 +454,85 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       setEventDate(eventToEdit.date);
       setStartTime(eventToEdit.startTime);
       setStopTime(eventToEdit.stopTime);
-      setEventName(eventToEdit.name);
-      setEventDescription(eventToEdit.description);
-      setSelectedData(eventToEdit.selectedData);
-      setFileData(eventToEdit.fileData || []);
+      const loadedBallots =
+        Array.isArray(eventToEdit.ballots) && eventToEdit.ballots.length > 0
+          ? eventToEdit.ballots.map((ballot, index) =>
+              normalizeBallotForForm({
+                ballotId: ballot.ballotId || ballot.id || `ballot-${index + 1}`,
+                name: ballot.name,
+                description: ballot.description,
+                selectedData: ballot.selectedData || [],
+                candidateImages: (ballot.candidateImages || []).reduce(
+                  (acc, image) => {
+                    const imageIndex =
+                      image.fileRowIndex ??
+                      image.candidateIndex ??
+                      image.selectedIndex;
+                    if (imageIndex !== undefined && imageIndex !== null) {
+                      acc[imageIndex] = image;
+                    }
+                    return acc;
+                  },
+                  {},
+                ),
+                checkedRows: (ballot.selectedData || [])
+                  .map(
+                    (candidate, selectedIndex) =>
+                      candidate?.candidateRowIndex ?? selectedIndex,
+                  )
+                  .filter((rowIndex) => rowIndex !== null),
+              }),
+            )
+          : [
+              normalizeBallotForForm({
+                ballotId: 'main',
+                name: eventToEdit.name,
+                description: eventToEdit.description,
+                selectedData: eventToEdit.selectedData || [],
+                candidateImages: (eventToEdit.candidateImages || []).reduce(
+                  (acc, image) => {
+                    const imageIndex =
+                      image.fileRowIndex ??
+                      image.candidateIndex ??
+                      image.selectedIndex;
+                    if (imageIndex !== undefined && imageIndex !== null) {
+                      acc[imageIndex] = image;
+                    }
+                    return acc;
+                  },
+                  {},
+                ),
+                checkedRows: (eventToEdit.selectedData || []).map(
+                  (_, index) => index,
+                ),
+              }),
+            ];
+      setBallots(loadedBallots);
+      loadBallotIntoForm(loadedBallots[0]);
+      const existingFileData =
+        eventToEdit.fileData || eventToEdit.ballots?.[0]?.fileData || [];
+      setFileData(existingFileData);
       setCheckedRows(
-        eventToEdit.fileData
-          ? eventToEdit.fileData
-              .map((data, index) =>
-                eventToEdit.selectedData.some((selected) =>
-                  Object.keys(data).every((key) => selected[key] === data[key]),
-                )
-                  ? index
-                  : null,
-              )
-              .filter((index) => index !== null)
-          : [],
+        existingFileData
+          .map((data, index) =>
+            eventToEdit.selectedData.some((selected) =>
+              Object.keys(data).every((key) => selected[key] === data[key]),
+            )
+              ? index
+              : null,
+          )
+          .filter((index) => index !== null),
       );
       setShowEventForm(true);
       setEditingEventId(eventId);
       setEventId(eventId);
 
       const images = {};
-      (eventToEdit.selectedData || []).forEach((candidate, index) => {
+      const candidateSource =
+        loadedBallots[0]?.selectedData?.length > 0
+          ? loadedBallots[0].selectedData
+          : eventToEdit.selectedData || [];
+      candidateSource.forEach((candidate, index) => {
         const candidateImage = candidate?.candidateImage;
         const fileRowIndex =
           candidate?.candidateRowIndex ??
@@ -405,6 +583,10 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
         setFileData(jsonData);
         setCheckedRows([]);
         setSelectedData([]);
+        setCandidateImages({});
+        const freshBallot = createBallotDraft();
+        setBallots([freshBallot]);
+        loadBallotIntoForm(freshBallot);
       };
       reader.readAsBinaryString(file);
     } else {
@@ -422,7 +604,34 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       } else {
         updatedCheckedRows = [...prevCheckedRows, index];
       }
-      setSelectedData(updatedCheckedRows.map((rowIndex) => fileData[rowIndex]));
+      const nextSelectedData = updatedCheckedRows
+        .map((rowIndex, selectedIndex) => {
+          const row = fileData[rowIndex];
+          if (!row) return null;
+          return {
+            ...row,
+            candidateImage: candidateImages[rowIndex]
+              ? {
+                  key:
+                    candidateImages[rowIndex].key ||
+                    candidateImages[rowIndex].uuid ||
+                    '',
+                  url:
+                    candidateImages[rowIndex].url ||
+                    candidateImages[rowIndex].cdnUrl ||
+                    '',
+                }
+              : null,
+            candidateRowIndex: rowIndex,
+            candidateSelectionIndex: selectedIndex,
+          };
+        })
+        .filter(Boolean);
+      setSelectedData(nextSelectedData);
+      syncActiveBallot({
+        checkedRows: updatedCheckedRows,
+        selectedData: nextSelectedData,
+      });
       return updatedCheckedRows;
     });
   };
@@ -475,8 +684,54 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       return;
     }
     const newEventId = uuidv4();
+    const initialBallot = createBallotDraft();
+    setBallots([initialBallot]);
     setShowEventForm(true);
     setEventId(newEventId);
+    loadBallotIntoForm(initialBallot);
+  };
+
+  const handleAddBallot = () => {
+    const currentSnapshot = {
+      ballotId: activeBallotId || eventId || uuidv4(),
+      name: eventName,
+      description: eventDescription,
+      checkedRows,
+      selectedData,
+      candidateImages,
+    };
+    const nextBallot = createBallotDraft();
+    setBallots((prev) => {
+      const updated = prev.map((ballot) =>
+        ballot.ballotId === currentSnapshot.ballotId
+          ? { ...ballot, ...currentSnapshot }
+          : ballot,
+      );
+      return [...updated, nextBallot];
+    });
+    loadBallotIntoForm(nextBallot);
+  };
+
+  const handleSelectBallot = (ballotId) => {
+    const currentSnapshot = {
+      ballotId: activeBallotId,
+      name: eventName,
+      description: eventDescription,
+      checkedRows,
+      selectedData,
+      candidateImages,
+    };
+    setBallots((prev) =>
+      prev.map((ballot) =>
+        ballot.ballotId === currentSnapshot.ballotId
+          ? { ...ballot, ...currentSnapshot }
+          : ballot,
+      ),
+    );
+    const nextBallot = ballots.find((ballot) => ballot.ballotId === ballotId);
+    if (nextBallot) {
+      loadBallotIntoForm(nextBallot);
+    }
   };
 
   const handleDeleteEvent = async (id) => {
@@ -539,7 +794,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
   const handleAddBufferTime = async (targetEventId) => {
     const hours = 0;
-    const minutes = 15;
+    const minutes = BUFFER_INCREMENT_MINUTES;
 
     try {
       const apiUrl = process.env.REACT_APP_API_URL;
@@ -602,34 +857,75 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
   const handleEventFormSubmit = async (e) => {
     e.preventDefault();
-    // Require at least one candidate selected (checkedRows)
-    if (!checkedRows || checkedRows.length === 0) {
+    const activeSnapshot = {
+      ballotId: activeBallotId || eventId || uuidv4(),
+      name: eventName,
+      description: eventDescription,
+      checkedRows,
+      selectedData,
+      candidateImages,
+    };
+    const ballotMap = new Map(
+      ballots.map((ballot) => [
+        ballot.ballotId,
+        ballot.ballotId === activeSnapshot.ballotId
+          ? { ...ballot, ...activeSnapshot }
+          : ballot,
+      ]),
+    );
+    if (!ballotMap.has(activeSnapshot.ballotId)) {
+      ballotMap.set(activeSnapshot.ballotId, {
+        ...createBallotDraft(activeSnapshot),
+      });
+    }
+
+    const ballotPayloads = Array.from(ballotMap.values()).map((ballot) =>
+      buildBallotPayload(ballot),
+    );
+    const primaryBallot = ballotPayloads[0];
+
+    if (!primaryBallot?.name || !primaryBallot?.description) {
+      setCandidateSelectionError(
+        'Add at least one voting post with a name and description.',
+      );
+      return;
+    }
+
+    if (
+      !primaryBallot.selectedData ||
+      primaryBallot.selectedData.length === 0
+    ) {
       setCandidateSelectionError(
         'Please select at least one candidate before submitting the event.',
       );
       return;
     }
-    setCandidateSelectionError('');
+
+    const incompleteBallot = ballotPayloads.find(
+      (ballot) =>
+        !ballot.name ||
+        !ballot.description ||
+        !Array.isArray(ballot.selectedData) ||
+        ballot.selectedData.length === 0,
+    );
+    if (incompleteBallot) {
+      setCandidateSelectionError(
+        'Every voting post must have a name, description, and at least one candidate.',
+      );
+      return;
+    }
 
     const missingFields = [];
-    if (!eventId && !editingEventId) missingFields.push('eventId');
     if (!eventDate) missingFields.push('date');
     if (!startTime) missingFields.push('startTime');
     if (!stopTime) missingFields.push('stopTime');
-    if (!eventName) missingFields.push('name');
-    if (!eventDescription) missingFields.push('description');
-    if (
-      !selectedData ||
-      !Array.isArray(selectedData) ||
-      selectedData.length === 0
-    )
-      missingFields.push('selectedData');
     if (
       !eventDate ||
       !stopTime ||
       !new Date(`${eventDate}T${stopTime}`).getTime()
-    )
+    ) {
       missingFields.push('expiry');
+    }
     if (!window.location.origin) missingFields.push('link');
 
     if (missingFields.length > 0) {
@@ -637,8 +933,10 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       return;
     }
 
-    if (!editingEventId && availableCredits <= 0) {
-      alert('No voting credits available. Redirecting to purchase page.');
+    if (!editingEventId && availableCredits < ballotPayloads.length) {
+      alert(
+        `You need ${ballotPayloads.length} voting credits for ${ballotPayloads.length} voting posts.`,
+      );
       navigate('/planspage');
       return;
     }
@@ -653,28 +951,16 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     const expiryTime = new Date(`${eventDate}T${stopTime}`).getTime();
     const currentEventId = editingEventId || eventId;
 
-    const selectedCandidates = buildSelectedCandidates();
-
-    const serializedCandidateImages = checkedRows
-      .map((rowIndex, selectedIndex) => {
-        const image = candidateImages[rowIndex];
-        return {
-          candidateIndex: rowIndex,
-          fileRowIndex: rowIndex,
-          selectedIndex,
-          key: image ? image.key || image.uuid : null,
-          url: image ? image.url || image.cdnUrl : null,
-        };
-      })
-      .filter((img) => img.key && img.url);
+    const serializedCandidateImages = primaryBallot.candidateImages;
+    const selectedCandidates = primaryBallot.selectedData;
 
     const formData = new FormData();
     formData.append('id', currentEventId);
     formData.append('date', eventDate);
     formData.append('startTime', startTime);
     formData.append('stopTime', stopTime);
-    formData.append('name', eventName);
-    formData.append('description', eventDescription);
+    formData.append('name', primaryBallot.name);
+    formData.append('description', primaryBallot.description);
     formData.append('selectedData', JSON.stringify(selectedCandidates));
     formData.append('fileData', JSON.stringify(fileData));
     formData.append('expiry', expiryTime.toString());
@@ -686,6 +972,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       'candidateImages',
       JSON.stringify(serializedCandidateImages),
     );
+    formData.append('ballots', JSON.stringify(ballotPayloads));
 
     try {
       const isEditing = !!editingEventId;
@@ -718,14 +1005,15 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
         date: eventDate,
         startTime,
         stopTime,
-        name: eventName,
-        description: eventDescription,
+        name: primaryBallot.name,
+        description: primaryBallot.description,
         selectedData: selectedCandidates,
         fileData,
         expiry: expiryTime,
         link:
           result.link || `${window.location.origin}/voting/${currentEventId}`,
         candidateImages: serializedCandidateImages,
+        ballots: ballotPayloads,
       };
 
       setActiveEvents((prev) => {
@@ -747,7 +1035,9 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       setGeneratedLink(result.link || eventDetails.link);
       setEventCreated(true);
       if (!editingEventId) {
-        setAvailableCredits((prev) => Math.max(0, prev - 1));
+        setAvailableCredits((prev) =>
+          Math.max(0, prev - ballotPayloads.length),
+        );
       }
       fetchUserSubscription();
       resetForm();
@@ -976,7 +1266,10 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                     <input
                       type='text'
                       value={eventName}
-                      onChange={(e) => setEventName(e.target.value)}
+                      onChange={(e) => {
+                        setEventName(e.target.value);
+                        syncActiveBallot({ name: e.target.value });
+                      }}
                       required
                     />
                   </label>
@@ -984,7 +1277,10 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                     <span>Description</span>
                     <textarea
                       value={eventDescription}
-                      onChange={(e) => setEventDescription(e.target.value)}
+                      onChange={(e) => {
+                        setEventDescription(e.target.value);
+                        syncActiveBallot({ description: e.target.value });
+                      }}
                       required
                     />
                   </label>
@@ -1013,11 +1309,109 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                   </a>
                 </div>
 
+                <div
+                  className='work-ballot-controls'
+                  style={{
+                    marginBottom: 16,
+                    display: 'flex',
+                    gap: 8,
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <label
+                    className='work-field'
+                    style={{ maxWidth: 420, flex: 1 }}
+                  >
+                    <span>Voting Post</span>
+                    <select
+                      value={activeBallotId}
+                      onChange={(e) => handleSelectBallot(e.target.value)}
+                      disabled={ballots.length === 0}
+                    >
+                      {ballots.map((ballot, index) => (
+                        <option key={ballot.ballotId} value={ballot.ballotId}>
+                          {index + 1}. {ballot.name || 'Untitled voting'}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type='button'
+                    className='work-button work-button--accent'
+                    onClick={handleAddBallot}
+                  >
+                    <FiPlus /> Add Voting
+                  </button>
+                </div>
+
+                {ballots.length > 0 && (
+                  <div className='work-empty' style={{ marginBottom: 16 }}>
+                    <strong>Voting Posts</strong>
+                    <div style={{ marginTop: 8, display: 'grid', gap: 8 }}>
+                      {ballots.map((ballot, index) => (
+                        <button
+                          key={ballot.ballotId}
+                          type='button'
+                          className='work-link'
+                          style={{
+                            justifyContent: 'space-between',
+                            textAlign: 'left',
+                            padding: '8px 12px',
+                            border:
+                              ballot.ballotId === activeBallotId
+                                ? '1px solid #1a7f5a'
+                                : '1px solid rgba(0,0,0,0.08)',
+                          }}
+                          onClick={() => handleSelectBallot(ballot.ballotId)}
+                        >
+                          <span>
+                            {index + 1}. {ballot.name || 'Untitled voting'}
+                          </span>
+                          <span>
+                            {ballot.selectedData?.length || 0} candidates
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    <p style={{ marginTop: 8 }}>
+                      Each voting post uses 1 credit. The first post is the
+                      default ballot shown to voters.
+                    </p>
+                  </div>
+                )}
+
+                {/* <div className='work-upload-box'>
+                  <div>
+                    <span>
+                      <FiUploadCloud /> Upload Voters Excel File
+                    </span>
+                    <p>File uploaded: {fileName || 'No file selected'}</p>
+                  </div>
+                  <input
+                    type='file'
+                    accept='.xlsx'
+                    onChange={handleFileUpload}
+                  />
+                  <a
+                    className='work-link'
+                    href='https://ucarecdn.com/fc73b582-f0fa-4069-aec3-d262bcae3236/'
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    download='AllDetailsFile.xlsm'
+                  >
+                    <FiDownload /> Download sample file
+                  </a>
+                </div> */}
+
                 {fileData.length > 0 && (
                   <div className='work-table-wrap work-table-wrap--builder'>
                     <div className='work-panel__header'>
                       <span className='work-kicker'>Candidates</span>
-                      <h2>Selected Candidates</h2>
+                      <h2>
+                        Selected Candidates
+                        {eventName ? ` for ${eventName}` : ''}
+                      </h2>
                     </div>
                     <div style={{ margin: '8px 0 12px' }}>
                       <input

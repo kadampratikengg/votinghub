@@ -190,6 +190,11 @@
   border-radius: 30px;
 }
 
+.vote-card-list {
+  display: grid;
+  gap: 22px;
+}
+
 .vote-card-header {
   display: flex;
   justify-content: space-between;

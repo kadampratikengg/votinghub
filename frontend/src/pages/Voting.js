@@ -19,6 +19,21 @@ const getDisplayHeaders = (candidate) =>
     (key) => !hiddenCandidateKeys.has(key) && !key.startsWith('__'),
   );
 
+const getBallots = (event) =>
+  Array.isArray(event?.ballots) && event.ballots.length > 0
+    ? event.ballots
+    : event?.selectedData && event.selectedData.length > 0
+      ? [
+          {
+            ballotId: 'main',
+            name: event.name || 'Voting',
+            description: event.description || '',
+            selectedData: event.selectedData,
+            candidateImages: event.candidateImages || [],
+          },
+        ]
+      : [];
+
 const Voting = () => {
   const { eventId } = useParams();
   const navigate = useNavigate();
@@ -101,6 +116,8 @@ const Voting = () => {
         : [],
     [event],
   );
+
+  const ballots = useMemo(() => getBallots(event), [event]);
 
   const getCandidateImage = (candidate, images, index) => {
     if (candidate?.candidateImage?.key || candidate?.candidateImage?.url) {
@@ -215,8 +232,8 @@ const Voting = () => {
       <section className='vote-summary-grid'>
         <div className='vote-summary-card'>
           <FiUsers />
-          <span>Candidates</span>
-          <strong>{event.selectedData?.length || 0}</strong>
+          <span>Voting Posts</span>
+          <strong>{ballots.length || 0}</strong>
         </div>
         <div className='vote-summary-card'>
           <FiCalendar />
@@ -289,55 +306,81 @@ const Voting = () => {
           <div className='vote-state-card'>Voting time is over.</div>
         )}
 
-        {event.selectedData && event.selectedData.length > 0 ? (
-          <div className='vote-table-wrap'>
-            <table className='vote-table'>
-              <thead>
-                <tr>
-                  {headers.map((header) => (
-                    <th key={header}>{header}</th>
-                  ))}
-                  <th>Image</th>
-                </tr>
-              </thead>
-              <tbody>
-                {event.selectedData.map((candidate, index) => {
-                  const image = getCandidateImage(
-                    candidate,
-                    event.candidateImages,
-                    index,
-                  );
-                  const imageUrl = resolveStoredImageUrl(
-                    image,
-                    s3BucketUrl,
-                    process.env.REACT_APP_API_URL,
-                  );
-                  return (
-                    <tr key={index}>
-                      {headers.map((header) => (
-                        <td key={header}>{candidate[header]}</td>
-                      ))}
-                      <td>
-                        {imageUrl ? (
-                          <img
-                            src={imageUrl}
-                            alt={`Candidate ${index + 1}`}
-                            className='vote-candidate-image'
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                            }}
-                          />
-                        ) : (
-                          <span className='vote-no-image'>
-                            <FiImage /> No image
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        {ballots.length > 0 ? (
+          <div className='vote-card-list'>
+            {ballots.map((ballot, ballotIndex) => {
+              const ballotHeaders =
+                ballot?.selectedData && ballot.selectedData.length > 0
+                  ? getDisplayHeaders(ballot.selectedData[0])
+                  : headers;
+              return (
+                <article className='vote-card' key={ballot.ballotId || ballotIndex}>
+                  <div className='vote-card-header'>
+                    <div>
+                      <span className='vote-kicker'>Voting Post {ballotIndex + 1}</span>
+                      <h3>{ballot.name || `Voting Post ${ballotIndex + 1}`}</h3>
+                      <p>{ballot.description}</p>
+                    </div>
+                    <strong>{ballot.selectedData?.length || 0} candidates</strong>
+                  </div>
+                  {ballot.selectedData && ballot.selectedData.length > 0 ? (
+                    <div className='vote-table-wrap'>
+                      <table className='vote-table'>
+                        <thead>
+                          <tr>
+                            {ballotHeaders.map((header) => (
+                              <th key={header}>{header}</th>
+                            ))}
+                            <th>Image</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {ballot.selectedData.map((candidate, index) => {
+                            const image = getCandidateImage(
+                              candidate,
+                              ballot.candidateImages,
+                              index,
+                            );
+                            const imageUrl = resolveStoredImageUrl(
+                              image,
+                              s3BucketUrl,
+                              process.env.REACT_APP_API_URL,
+                            );
+                            return (
+                              <tr key={index}>
+                                {ballotHeaders.map((header) => (
+                                  <td key={header}>{candidate[header]}</td>
+                                ))}
+                                <td>
+                                  {imageUrl ? (
+                                    <img
+                                      src={imageUrl}
+                                      alt={`Candidate ${index + 1}`}
+                                      className='vote-candidate-image'
+                                      onError={(e) => {
+                                        e.target.style.display = 'none';
+                                      }}
+                                    />
+                                  ) : (
+                                    <span className='vote-no-image'>
+                                      <FiImage /> No image
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className='vote-state-card'>
+                      No candidates configured for this voting post.
+                    </div>
+                  )}
+                </article>
+              );
+            })}
           </div>
         ) : (
           <div className='vote-state-card'>

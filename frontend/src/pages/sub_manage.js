@@ -18,6 +18,20 @@ import {
 } from 'react-icons/fi';
 
 const Manage = ({ setIsAuthenticated }) => {
+  const BUFFER_INCREMENT_MINUTES = 15;
+
+  const getVotingEndDateTime = (event) => {
+    const endTimeSource =
+      event?.votingWindow?.effectiveEndDateTimeISO ||
+      event?.votingWindow?.effectiveEndDateTime ||
+      (event?.stopTime && event?.date ? `${event.date}T${event.stopTime}` : null);
+
+    if (!endTimeSource) return null;
+
+    const parsed = new Date(endTimeSource);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+
   const [activeEvents, setActiveEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -66,29 +80,19 @@ const Manage = ({ setIsAuthenticated }) => {
     }
   };
 
-  // Show Add Buffer Time button only within 1 hour before voting ends
+  // Show Add Buffer Time button only within 1 hour before the latest voting end time.
   const shouldShowAddBufferButton = (event) => {
     try {
       const now = new Date();
-      const todayKey = getLocalDateKey(now);
-      const eventDateKey = getLocalDateKey(event?.date);
-      const originalEnd = event?.votingWindow?.originalEndDateTime
-        ? new Date(event.votingWindow.originalEndDateTime)
-        : event?.stopTime && event?.date
-          ? new Date(`${event.date}T${event.stopTime}`)
-          : null;
-      if (
-        !originalEnd ||
-        Number.isNaN(originalEnd.getTime()) ||
-        !todayKey ||
-        todayKey !== eventDateKey
-      ) {
+      const effectiveEnd = getVotingEndDateTime(event);
+      if (!effectiveEnd || Number.isNaN(effectiveEnd.getTime())) {
         return false;
       }
 
-      // Button shows only if: now < originalEnd (voting not over yet) AND now >= (originalEnd - 60 minutes)
-      const oneHourBefore = new Date(originalEnd.getTime() - 60 * 60 * 1000);
-      return now >= oneHourBefore && now < originalEnd;
+      // Button shows only if: now < effectiveEnd (voting not over yet)
+      // and now is within the 1-hour window before that latest stop time.
+      const oneHourBefore = new Date(effectiveEnd.getTime() - 60 * 60 * 1000);
+      return now >= oneHourBefore && now < effectiveEnd;
     } catch (e) {
       return false;
     }
@@ -229,7 +233,7 @@ const Manage = ({ setIsAuthenticated }) => {
 
   const handleAddBufferTime = async (eventId) => {
     const hours = 0;
-    const minutes = 15;
+    const minutes = BUFFER_INCREMENT_MINUTES;
     try {
       const token = localStorage.getItem('token');
       const payload = { hours, minutes };

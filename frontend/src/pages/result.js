@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -40,6 +40,37 @@ const getCandidateName = (candidate, index) =>
   candidate.candidate ||
   `Candidate ${index + 1}`;
 
+const getBallots = (event) =>
+  Array.isArray(event?.ballots) && event.ballots.length > 0
+    ? event.ballots
+    : event?.selectedData && event.selectedData.length > 0
+      ? [
+          {
+            ballotId: 'main',
+            name: event.name || 'Voting',
+            description: event.description || '',
+            selectedData: event.selectedData,
+            candidateImages: event.candidateImages || [],
+          },
+        ]
+      : [];
+
+const getVoteEntries = (vote) => {
+  if (Array.isArray(vote?.ballots) && vote.ballots.length > 0) {
+    return vote.ballots.filter((entry) => entry && entry.ballotId);
+  }
+  if (vote?.candidate) {
+    return [
+      {
+        ballotId: 'main',
+        candidate: vote.candidate,
+        timestamp: vote.timestamp || null,
+      },
+    ];
+  }
+  return [];
+};
+
 const formatPercent = (value) =>
   Number.isFinite(value) ? `${value.toFixed(value >= 10 ? 1 : 2)}%` : '0%';
 
@@ -51,6 +82,12 @@ const chartColors = [
   '#7c5fb3',
   '#2d8b8b',
 ];
+
+const getBallotKey = (ballot, index) =>
+  String(ballot?.ballotId || ballot?.id || `ballot-${index + 1}`);
+
+const getBallotLabel = (ballot, index) =>
+  ballot?.name || `Voting Post ${index + 1}`;
 
 const Result = () => {
   const { eventId } = useParams();
@@ -64,6 +101,117 @@ const Result = () => {
   const [bufferHistory, setBufferHistory] = useState([]);
   const apiUrl = process.env.REACT_APP_API_URL;
   const s3BucketUrl = process.env.REACT_APP_S3_BUCKET_URL;
+  const ballots = useMemo(() => getBallots(event), [event]);
+  const voteEntries = useMemo(
+    () => (Array.isArray(votes) ? votes.flatMap(getVoteEntries) : []),
+    [votes],
+  );
+  const totalVotes = Array.isArray(votes)
+    ? voteEntries.length
+    : votes?.totalVotes || 0;
+  const eligibleVoters = Array.isArray(event?.fileData)
+    ? event.fileData.length
+    : Array.isArray(event?.ballots?.[0]?.fileData)
+      ? event.ballots[0].fileData.length
+      : 0;
+  const overallTurnoutPercent =
+    eligibleVoters > 0 && ballots.length > 0
+      ? (totalVotes / (eligibleVoters * ballots.length)) * 100
+      : 0;
+  const ballotResults = useMemo(
+    () =>
+      ballots.map((ballot, ballotIndex) => {
+        const ballotKey = getBallotKey(ballot, ballotIndex);
+        const ballotVoteEntries = voteEntries.filter(
+          (entry) => String(entry.ballotId || 'main') === ballotKey,
+        );
+        const fallbackCounts =
+          !Array.isArray(votes) && ballotIndex === 0 ? votes?.candidateCounts || {} : {};
+        const counts =
+          ballotVoteEntries.length > 0
+            ? ballotVoteEntries.reduce((acc, entry) => {
+                acc[entry.candidate] = (acc[entry.candidate] || 0) + 1;
+                return acc;
+              }, {})
+            : fallbackCounts;
+        const total = ballotVoteEntries.length > 0
+          ? ballotVoteEntries.length
+          : !Array.isArray(votes) && ballotIndex === 0
+            ? totalVotes
+            : 0;
+        const ballotEligibleVoters = Array.isArray(ballot?.fileData)
+          ? ballot.fileData.length
+          : eligibleVoters;
+
+        const candidateResults = (ballot?.selectedData || [])
+          .map((candidate, index) => {
+            const candidateName = getCandidateName(candidate, index);
+            const candidateVotes = counts[candidateName] || 0;
+            return {
+              name: candidateName,
+              votes: candidateVotes,
+              image: resolveStoredImageUrl(
+                getCandidateDirectImage(candidate) ||
+                  getCandidateImage(ballot?.candidateImages, index),
+                s3BucketUrl,
+                apiUrl,
+              ),
+            };
+          })
+          .map((candidate) => ({
+            ...candidate,
+            percent: total > 0 ? (candidate.votes / total) * 100 : 0,
+          }))
+          .sort((a, b) => b.votes - a.votes || a.name.localeCompare(b.name));
+
+        const topVotes = candidateResults[0]?.votes || 0;
+        const leadingCandidates =
+          topVotes > 0
+            ? candidateResults.filter((candidate) => candidate.votes === topVotes)
+            : [];
+        const hasTieForLead = leadingCandidates.length > 1;
+        const winner =
+          candidateResults.length > 0 && !hasTieForLead
+            ? candidateResults.find((candidate) => candidate.votes === topVotes) || null
+            : null;
+        const topPercent = total > 0 ? (topVotes / total) * 100 : 0;
+        const leadingCandidateLabel =
+          total === 0
+            ? 'No votes yet'
+            : hasTieForLead
+              ? `Tie between ${leadingCandidates.length} candidates`
+              : winner?.name || 'No votes yet';
+        const donutSegments =
+          candidateResults.length > 0 && total > 0
+            ? candidateResults
+                .map((candidate, index) => {
+                  const start = candidateResults
+                    .slice(0, index)
+                    .reduce((sum, item) => sum + item.percent, 0);
+                  const end = start + candidate.percent;
+                  return `${chartColors[index % chartColors.length]} ${start}% ${end}%`;
+                })
+                .join(', ')
+            : '#e5e0d6 0% 100%';
+
+        return {
+          ballotKey,
+          ballotIndex,
+          name: getBallotLabel(ballot, ballotIndex),
+          description: ballot?.description || '',
+          totalVotes: total,
+          eligibleVoters: ballotEligibleVoters,
+          turnoutPercent:
+            ballotEligibleVoters > 0 ? (total / ballotEligibleVoters) * 100 : 0,
+          candidateResults,
+          topVotes,
+          topPercent,
+          leadingCandidateLabel,
+          donutSegments,
+        };
+      }),
+    [apiUrl, ballots, eligibleVoters, s3BucketUrl, totalVotes, voteEntries, votes],
+  );
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -136,72 +284,6 @@ const Result = () => {
     fetchData();
   }, [fetchData]);
 
-  const voteCounts = Array.isArray(votes)
-    ? votes.reduce((acc, vote) => {
-        acc[vote.candidate] = (acc[vote.candidate] || 0) + 1;
-        return acc;
-      }, {})
-    : votes?.candidateCounts || {};
-
-  const totalVotes = Array.isArray(votes)
-    ? votes.length
-    : votes?.totalVotes || 0;
-  const eligibleVoters = Array.isArray(event?.fileData)
-    ? event.fileData.length
-    : 0;
-  const turnoutPercent =
-    eligibleVoters > 0 ? (totalVotes / eligibleVoters) * 100 : 0;
-
-  const candidateResults =
-    (
-      event?.selectedData?.map((candidate, index) => ({
-        name: getCandidateName(candidate, index),
-        votes: voteCounts[getCandidateName(candidate, index)] || 0,
-        image: resolveStoredImageUrl(
-          getCandidateDirectImage(candidate) ||
-            getCandidateImage(event?.candidateImages, index),
-          s3BucketUrl,
-          apiUrl,
-        ),
-      })) || []
-    )
-      .map((candidate) => ({
-        ...candidate,
-        percent: totalVotes > 0 ? (candidate.votes / totalVotes) * 100 : 0,
-      }))
-      .sort((a, b) => b.percent - a.percent) || [];
-
-  const topVotes = candidateResults[0]?.votes || 0;
-  const leadingCandidates =
-    topVotes > 0
-      ? candidateResults.filter((candidate) => candidate.votes === topVotes)
-      : [];
-  const hasTieForLead = leadingCandidates.length > 1;
-  const winner =
-    candidateResults.length > 0 && !hasTieForLead
-      ? candidateResults.find((candidate) => candidate.votes === topVotes) ||
-        null
-      : null;
-  const topPercent = totalVotes > 0 ? (topVotes / totalVotes) * 100 : 0;
-  const leadingCandidateLabel =
-    totalVotes === 0
-      ? 'No votes yet'
-      : hasTieForLead
-        ? `Tie between ${leadingCandidates.length} candidates`
-        : winner?.name || 'No votes yet';
-  const donutSegments =
-    candidateResults.length > 0 && totalVotes > 0
-      ? candidateResults
-          .map((candidate, index) => {
-            const start = candidateResults
-              .slice(0, index)
-              .reduce((sum, item) => sum + item.percent, 0);
-            const end = start + candidate.percent;
-            return `${chartColors[index % chartColors.length]} ${start}% ${end}%`;
-          })
-          .join(', ')
-      : '#e5e0d6 0% 100%';
-
   const handlePrint = () => {
     window.print();
   };
@@ -211,16 +293,6 @@ const Result = () => {
 
     setIsDownloading(true);
     try {
-      const canvas = await html2canvas(resultRef.current, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#f8f5ec',
-        onclone: (clonedDocument) => {
-          const clonedResult = clonedDocument.querySelector('.result-shell');
-          clonedResult?.classList.add('result-pdf-mode');
-        },
-      });
-
       const pdf = new jsPDF({
         orientation: 'landscape',
         unit: 'mm',
@@ -231,24 +303,51 @@ const Result = () => {
       const margin = 4;
       const printableWidth = pageWidth - margin * 2;
       const printableHeight = pageHeight - margin * 2;
-      const imageRatio = canvas.width / canvas.height;
-      let imageWidth = printableWidth;
-      let imageHeight = imageWidth / imageRatio;
-
-      if (imageHeight > printableHeight) {
-        imageHeight = printableHeight;
-        imageWidth = imageHeight * imageRatio;
-      }
-
-      const imageX = (pageWidth - imageWidth) / 2;
-      const imageY = (pageHeight - imageHeight) / 2;
-      const imageData = canvas.toDataURL('image/jpeg', 0.96);
       const safeName = event.name
         .replace(/[^a-z0-9]+/gi, '-')
         .replace(/^-|-$/g, '')
         .toLowerCase();
 
-      pdf.addImage(imageData, 'JPEG', imageX, imageY, imageWidth, imageHeight);
+      const exportSections = Array.from(
+        resultRef.current.querySelectorAll("[data-result-export-section='ballot']"),
+      );
+      const sectionsToExport =
+        exportSections.length > 0
+          ? exportSections
+          : [resultRef.current.querySelector("[data-result-export-section='overview']")].filter(
+              Boolean,
+            );
+
+      for (let index = 0; index < sectionsToExport.length; index += 1) {
+        const section = sectionsToExport[index];
+        const canvas = await html2canvas(section, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#f8f5ec',
+          onclone: (clonedDocument) => {
+            clonedDocument.querySelector('.result-shell')?.classList.add('result-pdf-mode');
+          },
+        });
+
+        const imageRatio = canvas.width / canvas.height;
+        let imageWidth = printableWidth;
+        let imageHeight = imageWidth / imageRatio;
+
+        if (imageHeight > printableHeight) {
+          imageHeight = printableHeight;
+          imageWidth = imageHeight * imageRatio;
+        }
+
+        const imageX = (pageWidth - imageWidth) / 2;
+        const imageY = (pageHeight - imageHeight) / 2;
+        const imageData = canvas.toDataURL('image/jpeg', 0.96);
+
+        if (index > 0) {
+          pdf.addPage();
+        }
+        pdf.addImage(imageData, 'JPEG', imageX, imageY, imageWidth, imageHeight);
+      }
+
       pdf.save(`${safeName || 'voting'}-result.pdf`);
     } catch (err) {
       console.error('Failed to download result PDF:', err);
@@ -299,7 +398,7 @@ const Result = () => {
 
   return (
     <main className='result-shell' ref={resultRef}>
-      <section className='result-hero'>
+      <section className='result-hero' data-result-export-section='overview'>
         <div>
           <span className='result-kicker'>
             <FiTrendingUp /> Voting Results
@@ -331,31 +430,34 @@ const Result = () => {
         </div>
       </section>
 
-      <section className='result-summary-grid'>
+      <section className='result-summary-grid' data-result-export-section='overview'>
+        <div className='result-summary-card'>
+          <FiUsers />
+          <span>Voting Posts</span>
+          <strong>{ballots.length}</strong>
+        </div>
         <div className='result-summary-card'>
           <FiPercent />
           <span>Voting Done</span>
-          <strong>{formatPercent(turnoutPercent)}</strong>
+          <strong>{formatPercent(overallTurnoutPercent)}</strong>
         </div>
         <div className='result-summary-card'>
-          <FiUsers />
+          <FiBarChart2 />
           <span>Total Votes Received</span>
           <strong>{totalVotes}</strong>
         </div>
         <div className='result-summary-card'>
-          <FiAward />
-          <span>Leading Candidate</span>
-          <strong>{leadingCandidateLabel}</strong>
-        </div>
-        <div className='result-summary-card'>
-          <FiTrendingUp />
-          <span>Lead Share</span>
-          <strong>{formatPercent(topPercent)}</strong>
+          <FiUsers />
+          <span>Eligible Voters</span>
+          <strong>{eligibleVoters}</strong>
         </div>
       </section>
 
       {bufferHistory && bufferHistory.length > 0 && (
-        <section className='result-card result-buffer-section'>
+        <section
+          className='result-card result-buffer-section'
+          data-result-export-section='overview'
+        >
           <div className='result-card-header'>
             <span className='result-kicker'>
               <FiClock /> Buffer Extensions
@@ -389,116 +491,178 @@ const Result = () => {
         </section>
       )}
 
-      <section className='result-visual-grid'>
-        <div className='result-card result-donut-card'>
-          <div className='result-card-header'>
-            <span className='result-kicker'>
-              <FiPieChart /> Overall Share
-            </span>
-            <h2>Result Distribution</h2>
-          </div>
-          <div className='result-donut-wrap'>
-            <div
-              className='result-donut'
-              style={{ background: `conic-gradient(${donutSegments})` }}
-              aria-label='Candidate result distribution'
+      <section className='result-ballot-sections'>
+        {ballotResults.length > 0 ? (
+          ballotResults.map((ballotResult) => (
+            <section
+              className='result-ballot-section'
+              key={ballotResult.ballotKey}
+              data-result-export-section='ballot'
             >
-              <div>
-                <strong>{formatPercent(topPercent)}</strong>
-                <span>Top share</span>
-              </div>
-            </div>
-            <div className='result-distribution-list'>
-              {candidateResults.map((candidate, index) => (
-                <div className='result-distribution-item' key={candidate.name}>
-                  <span
-                    className='result-distribution-dot'
-                    style={{
-                      backgroundColor: chartColors[index % chartColors.length],
-                    }}
-                  />
-                  <strong>{candidate.name}</strong>
-                  <span>{candidate.votes} votes</span>
-                  <b>{formatPercent(candidate.percent)}</b>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className='result-card result-progress-card'>
-          <div className='result-card-header'>
-            <span className='result-kicker'>
-              <FiUsers /> Participation
-            </span>
-            <h2>Voting Completion</h2>
-          </div>
-          <div className='result-turnout-meter'>
-            <div style={{ width: `${Math.min(turnoutPercent, 100)}%` }} />
-          </div>
-          <strong>{formatPercent(turnoutPercent)}</strong>
-          <p>
-            Based on completed voting against the uploaded eligible voter list.
-          </p>
-        </div>
-      </section>
-
-      <section className='result-card'>
-        <div className='result-card-header'>
-          <span className='result-kicker'>
-            <FiBarChart2 /> Candidate Graph
-          </span>
-          <h2>Candidate Results</h2>
-        </div>
-
-        {candidateResults.length > 0 ? (
-          <div className='result-candidate-list'>
-            {candidateResults.map((candidate, index) => (
-              <article className='result-candidate-row' key={candidate.name}>
-                <div className='result-candidate-identity'>
-                  {candidate.image ? (
-                    <img
-                      src={candidate.image}
-                      alt={`Candidate ${candidate.name}`}
-                      className='result-candidate-image'
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    <span className='result-image-placeholder'>
-                      <FiImage />
-                    </span>
-                  )}
+              <section className='result-card'>
+                <div className='result-card-header'>
                   <div>
-                    <strong>{candidate.name}</strong>
-                    <span>
-                      {index === 0 && totalVotes > 0
-                        ? 'Leading'
-                        : 'Final result share'}
+                    <span className='result-kicker'>
+                      <FiUsers /> Voting Post {ballotResult.ballotIndex + 1}
                     </span>
+                    <h2>{ballotResult.name}</h2>
+                    {ballotResult.description ? <p>{ballotResult.description}</p> : null}
+                  </div>
+                  <strong>{ballotResult.totalVotes} votes</strong>
+                </div>
+
+                <div className='result-summary-grid result-ballot-summary-grid'>
+                  <div className='result-summary-card'>
+                    <FiUsers />
+                    <span>Total Votes</span>
+                    <strong>{ballotResult.totalVotes}</strong>
+                  </div>
+                  <div className='result-summary-card'>
+                    <FiPercent />
+                    <span>Voting Done</span>
+                    <strong>{formatPercent(ballotResult.turnoutPercent)}</strong>
+                  </div>
+                  <div className='result-summary-card'>
+                    <FiAward />
+                    <span>Leading Candidate</span>
+                    <strong>{ballotResult.leadingCandidateLabel}</strong>
+                  </div>
+                  <div className='result-summary-card'>
+                    <FiTrendingUp />
+                    <span>Top Share</span>
+                    <strong>{formatPercent(ballotResult.topPercent)}</strong>
                   </div>
                 </div>
-                <div className='result-candidate-graph'>
-                  <span className='result-vote-count'>
-                    {candidate.votes} votes received
-                  </span>
-                  <div className='result-bar-track'>
-                    <div
-                      style={{ width: `${Math.min(candidate.percent, 100)}%` }}
-                    />
+
+                <div className='result-visual-grid'>
+                  <div className='result-card result-donut-card'>
+                    <div className='result-card-header'>
+                      <span className='result-kicker'>
+                        <FiPieChart /> Result Share
+                      </span>
+                      <h2>Result Distribution</h2>
+                    </div>
+                    {ballotResult.candidateResults.length > 0 ? (
+                      <div className='result-donut-wrap'>
+                        <div
+                          className='result-donut'
+                          style={{ background: `conic-gradient(${ballotResult.donutSegments})` }}
+                          aria-label={`Candidate result distribution for ${ballotResult.name}`}
+                        >
+                          <div>
+                            <strong>{formatPercent(ballotResult.topPercent)}</strong>
+                            <span>Top share</span>
+                          </div>
+                        </div>
+                        <div className='result-distribution-list'>
+                          {ballotResult.candidateResults.map((candidate, index) => (
+                            <div className='result-distribution-item' key={candidate.name}>
+                              <span
+                                className='result-distribution-dot'
+                                style={{
+                                  backgroundColor:
+                                    chartColors[index % chartColors.length],
+                                }}
+                              />
+                              <strong>{candidate.name}</strong>
+                              <span>{candidate.votes} votes</span>
+                              <b>{formatPercent(candidate.percent)}</b>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className='result-state-card'>
+                        No candidates found for this voting post.
+                      </div>
+                    )}
                   </div>
-                  <strong>{formatPercent(candidate.percent)}</strong>
+
+                  <div className='result-card result-progress-card'>
+                    <div className='result-card-header'>
+                      <span className='result-kicker'>
+                        <FiUsers /> Participation
+                      </span>
+                      <h2>Voting Completion</h2>
+                    </div>
+                    <div className='result-turnout-meter'>
+                      <div style={{ width: `${Math.min(ballotResult.turnoutPercent, 100)}%` }} />
+                    </div>
+                    <strong>{formatPercent(ballotResult.turnoutPercent)}</strong>
+                    <p>
+                      Based on completed voting against the uploaded eligible voter list.
+                    </p>
+                  </div>
                 </div>
-              </article>
-            ))}
-          </div>
+
+                <section className='result-card'>
+                  <div className='result-card-header'>
+                    <span className='result-kicker'>
+                      <FiBarChart2 /> Candidate Graph
+                    </span>
+                    <h2>Candidate Results</h2>
+                  </div>
+
+                  {ballotResult.candidateResults.length > 0 ? (
+                    <div className='result-candidate-list'>
+                      {ballotResult.candidateResults.map((candidate, index) => (
+                        <article className='result-candidate-row' key={candidate.name}>
+                          <div className='result-candidate-identity'>
+                            {candidate.image ? (
+                              <img
+                                src={candidate.image}
+                                alt={`Candidate ${candidate.name}`}
+                                className='result-candidate-image'
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                }}
+                              />
+                            ) : (
+                              <span className='result-image-placeholder'>
+                                <FiImage />
+                              </span>
+                            )}
+                            <div>
+                              <strong>{candidate.name}</strong>
+                              <span>
+                                {index === 0 && ballotResult.totalVotes > 0
+                                  ? 'Leading'
+                                  : 'Final result share'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className='result-candidate-graph'>
+                            <span className='result-vote-count'>
+                              {candidate.votes} votes received
+                            </span>
+                            <div className='result-bar-track'>
+                              <div
+                                style={{
+                                  width: `${Math.min(candidate.percent, 100)}%`,
+                                }}
+                              />
+                            </div>
+                            <strong>{formatPercent(candidate.percent)}</strong>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className='result-state-card'>
+                      No candidates found for this voting post.
+                    </div>
+                  )}
+                </section>
+              </section>
+            </section>
+          ))
         ) : (
-          <div className='result-state-card'>
-            No candidates found for this voting event.
-          </div>
+          <section className='result-card'>
+            <div className='result-state-card'>No voting posts found for this event.</div>
+          </section>
         )}
       </section>
+
     </main>
   );
 };

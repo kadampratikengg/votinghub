@@ -6,3 +6,4 @@ data:
   PORT: '5000'
   FRONTEND_URL: 'http://example.com'
   ALLOWED_ORIGINS: 'http://localhost:3000'
+  EVENT_TIME_ZONE: 'UTC'

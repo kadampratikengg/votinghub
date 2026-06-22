@@ -112,13 +112,14 @@ const getStartDateTime = (event = {}) => {
 };
 
 const getOriginalEndDateTime = (event = {}) => {
-  const fromComponents = parseLocalDateTime(event.date, event.stopTime);
-  if (fromComponents) return fromComponents;
-
   if (event.originalEndDateTime) {
     const parsed = new Date(event.originalEndDateTime);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
+
+  // Legacy fallback for older records that only stored date + stopTime.
+  const fromComponents = parseLocalDateTime(event.date, event.stopTime);
+  if (fromComponents) return fromComponents;
 
   return null;
 };
@@ -190,9 +191,9 @@ const getVotingWindow = (event = {}, now = new Date()) => {
 const canAddBufferTime = (event = {}, now = new Date()) => {
   const current = now instanceof Date ? now : new Date(now);
   const votingWindow = getVotingWindow(event, current);
-  const originalEndDateTime = votingWindow.originalEndDateTime;
+  const currentEndDateTime = votingWindow.effectiveEndDateTime;
 
-  if (!originalEndDateTime || Number.isNaN(current.getTime())) {
+  if (!currentEndDateTime || Number.isNaN(current.getTime())) {
     return {
       allowed: false,
       message: 'Voting time is over.',
@@ -206,23 +207,22 @@ const canAddBufferTime = (event = {}, now = new Date()) => {
     };
   }
 
-  if (!isSameCalendarDay(current, originalEndDateTime)) {
+  if (!isSameCalendarDay(current, currentEndDateTime)) {
     return {
       allowed: false,
       message:
-        'Buffer time can only be added on the same calendar day as the original voting end date.',
+        'Buffer time can only be added on the same calendar day as the current voting end date.',
     };
   }
-  // Allow adding buffer only within the 1 hour window before the original end time
-  // and not after the original end time. Frontend displays the Add button in the
-  // same 1-hour window; keep backend validation consistent.
+  // Allow adding buffer only within the 1 hour window before the current stop time.
+  // Frontend displays the Add button in the same 1-hour window; keep backend validation consistent.
   try {
-    const oneHourBefore = new Date(originalEndDateTime.getTime() - 60 * MINUTE);
-    if (current < oneHourBefore || current >= originalEndDateTime) {
+    const oneHourBefore = new Date(currentEndDateTime.getTime() - 60 * MINUTE);
+    if (current < oneHourBefore || current >= currentEndDateTime) {
       return {
         allowed: false,
         message:
-          'Buffer time may only be added within the 1 hour before the original end time (on the same day).',
+          'Buffer time may only be added within the 1 hour before the stop time (on the same day).',
       };
     }
   } catch (e) {

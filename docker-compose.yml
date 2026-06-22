@@ -15,6 +15,7 @@ services:
     environment:
       - NODE_ENV=development
       - MONGODB_URI=mongodb://mongo:27017/votinghub
+      - EVENT_TIME_ZONE=UTC
     depends_on:
       - mongo
 

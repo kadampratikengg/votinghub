@@ -19,6 +19,21 @@ const getCandidateDirectImage = (candidate) =>
       ? candidate.__candidateImage
       : null;
 
+const getBallots = (event) =>
+  Array.isArray(event?.ballots) && event.ballots.length > 0
+    ? event.ballots
+    : event?.selectedData && event.selectedData.length > 0
+      ? [
+          {
+            ballotId: 'main',
+            name: event.name || 'Voting',
+            description: event.description || '',
+            selectedData: event.selectedData,
+            candidateImages: event.candidateImages || [],
+          },
+        ]
+      : [];
+
 const getPreferredEntries = (record) => {
   if (!record || typeof record !== 'object') return [];
 
@@ -50,6 +65,8 @@ const Start = () => {
   const [eventData, setEventData] = useState(null);
   const [showVoterDetails, setShowVoterDetails] = useState(true);
   const [highlightedCandidate, setHighlightedCandidate] = useState(null);
+  const [completedBallotIds, setCompletedBallotIds] = useState([]);
+  const [currentBallotId, setCurrentBallotId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showVotePopup, setShowVotePopup] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -88,6 +105,26 @@ const Start = () => {
     [eventData],
   );
 
+  const ballots = useMemo(() => getBallots(eventData), [eventData]);
+  const pendingBallots = useMemo(
+    () =>
+      ballots.filter(
+        (ballot) =>
+          !completedBallotIds.includes(String(ballot.ballotId || ballot.id || 'main')),
+      ),
+    [ballots, completedBallotIds],
+  );
+  const activeBallot = useMemo(() => {
+    if (currentBallotId) {
+      return (
+        ballots.find(
+          (ballot) => String(ballot.ballotId || ballot.id || 'main') === currentBallotId,
+        ) || pendingBallots[0] || ballots[0] || null
+      );
+    }
+    return pendingBallots[0] || ballots[0] || null;
+  }, [ballots, currentBallotId, pendingBallots]);
+
   const votingMessage = useMemo(() => {
     if (!eventData) return error;
     if (eventData.votingWindow?.phase === 'before-start') {
@@ -117,6 +154,8 @@ const Start = () => {
     setVoteSubmitted(false);
     setSelectedCandidate('');
     setHighlightedCandidate(null);
+    setCompletedBallotIds([]);
+    setCurrentBallotId('');
     setIsSubmitting(false);
     setShowVoterDetails(true);
     setShowVotePopup(false);
@@ -141,6 +180,22 @@ const Start = () => {
       }
 
       setVerificationResult(data);
+      setCompletedBallotIds(
+        Array.isArray(data.completedBallots)
+          ? data.completedBallots.map((ballotId) => String(ballotId))
+          : [],
+      );
+      const nextBallot =
+        getBallots(eventData).find(
+          (ballot) =>
+            !(
+              Array.isArray(data.completedBallots) &&
+              data.completedBallots
+                .map((ballotId) => String(ballotId))
+                .includes(String(ballot.ballotId || ballot.id || 'main'))
+            ),
+        ) || null;
+      setCurrentBallotId(nextBallot?.ballotId || nextBallot?.id || '');
 
       if (data.verified && !data.hasVoted) {
         await fetchEventData();
@@ -151,11 +206,12 @@ const Start = () => {
   };
 
   const handleCandidateSelect = async (candidateName, index) => {
-    if (isSubmitting || voteSubmitted || !canVote) return;
+    if (isSubmitting || voteSubmitted || !canVote || !activeBallot) return;
 
     setIsSubmitting(true);
     setSelectedCandidate(candidateName);
     setHighlightedCandidate(index);
+    const ballotId = String(activeBallot.ballotId || activeBallot.id || 'main');
 
     const handleVoteSubmission = async () => {
       try {
@@ -171,6 +227,7 @@ const Start = () => {
             body: JSON.stringify({
               voterId: idInput,
               candidate: candidateName,
+              ballotId,
             }),
           },
         );
@@ -181,7 +238,28 @@ const Start = () => {
         }
 
         setVoteSubmitted(true);
+        const completedAfterVote = Array.from(
+          new Set([...completedBallotIds, ballotId]),
+        );
+        setCompletedBallotIds(completedAfterVote);
         setError('');
+
+        const nextBallot = ballots.find(
+          (ballot) =>
+            !completedAfterVote.includes(
+              String(ballot.ballotId || ballot.id || 'main'),
+            ),
+        );
+
+        if (nextBallot) {
+          setCurrentBallotId(String(nextBallot.ballotId || nextBallot.id || 'main'));
+          setSelectedCandidate('');
+          setHighlightedCandidate(null);
+          setIsSubmitting(false);
+          setVoteSubmitted(false);
+          setShowVotePopup(true);
+          return;
+        }
 
         setTimeout(() => {
           setIdInput('');
@@ -191,6 +269,8 @@ const Start = () => {
           setHighlightedCandidate(null);
           setShowVoterDetails(true);
           setShowVotePopup(false);
+          setCurrentBallotId('');
+          setCompletedBallotIds([]);
           setIsSubmitting(false);
         }, 1000);
       } catch (err) {
@@ -236,9 +316,10 @@ const Start = () => {
   };
 
   const handleGoForVote = () => {
-    if (verificationResult?.hasVoted || !canVote) {
+    if ((!pendingBallots || pendingBallots.length === 0) || !canVote) {
       return;
     }
+    setCurrentBallotId(String(pendingBallots[0].ballotId || pendingBallots[0].id || 'main'));
     setShowVoterDetails(false);
     setShowVotePopup(true);
   };
@@ -310,8 +391,10 @@ const Start = () => {
                     Verification Status:{' '}
                     {verificationResult.verified ? 'Verified' : 'Not Verified'}
                   </h3>
-                  {verificationResult.verified && verificationResult.hasVoted && (
-                    <p className='already-voted-message'>Already voted</p>
+                  {verificationResult.verified && (
+                    <p className='already-voted-message'>
+                      Completed {completedBallotIds.length} of {ballots.length || 1} voting posts
+                    </p>
                   )}
                   {verificationResult.verified && verificationResult.rowData ? (
                     <div className='row-details'>
@@ -337,9 +420,14 @@ const Start = () => {
                         </tbody>
                       </table>
                       {verificationResult.verified &&
-                        !verificationResult.hasVoted && (
-                          <button onClick={handleGoForVote} className='go-vote-button'>
-                            Go for Vote
+                        pendingBallots.length > 0 && (
+                          <button
+                            onClick={handleGoForVote}
+                            className='go-vote-button'
+                          >
+                            {completedBallotIds.length > 0
+                              ? 'Continue Voting'
+                              : 'Go for Vote'}
                           </button>
                         )}
                     </div>
@@ -353,16 +441,19 @@ const Start = () => {
 
           {showVotePopup &&
             verificationResult?.verified &&
-            !verificationResult.hasVoted &&
-            eventData?.selectedData && (
+            activeBallot?.selectedData && (
               <div className='vote-popup'>
                 <div className='vote-popup-content'>
                   <h3>Select a Candidate to Vote</h3>
+                  <p>
+                    {activeBallot?.name || 'Voting post'}
+                    {activeBallot?.description ? ` - ${activeBallot.description}` : ''}
+                  </p>
                   <div className='candidates-list-horizontal'>
-                    {eventData.selectedData.map((candidate, index) => {
+                    {activeBallot.selectedData.map((candidate, index) => {
                       const image =
                         getCandidateDirectImage(candidate) ||
-                        getCandidateImage(eventData.candidateImages, index);
+                        getCandidateImage(activeBallot.candidateImages, index);
                       const imageUrl = resolveStoredImageUrl(
                         image,
                         s3BucketUrl,

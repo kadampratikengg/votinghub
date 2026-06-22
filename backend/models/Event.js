@@ -26,7 +26,7 @@ const eventSchema = new mongoose.Schema(
         required: true,
       },
     ],
-    fileData: { type: Array, required: false },
+    fileData: { type: Array, required: false, default: [] },
     candidateImages: [
       {
         candidateIndex: Number,
@@ -34,6 +34,29 @@ const eventSchema = new mongoose.Schema(
         selectedIndex: Number,
         key: String, // S3 object key
         url: String, // public URL for the object
+      },
+    ],
+    ballots: [
+      {
+        ballotId: { type: String, required: true },
+        name: { type: String, required: true },
+        description: { type: String, required: true },
+        selectedData: [
+          {
+            type: mongoose.Schema.Types.Mixed,
+            required: true,
+          },
+        ],
+        fileData: { type: Array, required: false, default: [] },
+        candidateImages: [
+          {
+            candidateIndex: Number,
+            fileRowIndex: Number,
+            selectedIndex: Number,
+            key: String,
+            url: String,
+          },
+        ],
       },
     ],
     expiry: { type: Number, required: true },

@@ -48,6 +48,8 @@ const parseForwardedHeaderIp = (value) => {
   return normalizeIp(firstSegment);
 };
 
+const isMongoObjectId = (value) => /^[a-f\d]{24}$/i.test(String(value || ''));
+
 const getRequestIp = (req) => {
   // Check a list of common headers that may contain the client's IP when
   // the app is behind proxies, load balancers, or CDNs.
@@ -194,9 +196,20 @@ const getVotingAccess = async (event, req, now = new Date()) => {
     };
   }
 
-  const owner = await User.findById(event.userId)
-    .select('ipRestrictionEnabled allowedIp')
-    .lean();
+  let owner = null;
+  if (isMongoObjectId(event.userId)) {
+    try {
+      owner = await User.findById(event.userId)
+        .select('ipRestrictionEnabled allowedIp')
+        .lean();
+    } catch (error) {
+      console.warn('Failed to resolve event owner for IP restriction:', {
+        eventId: event.id,
+        userId: event.userId,
+        error: error.message,
+      });
+    }
+  }
 
   const persistedIpSettings = await getIpRestrictionSettings(event.userId);
   const resolvedOwner = persistedIpSettings
@@ -321,7 +334,23 @@ const getResultDate = (event) => {
 };
 
 const getVoteSummary = (votes = []) => {
-  const counts = votes.reduce((acc, vote) => {
+  const flattenedVotes = votes.flatMap((vote) => {
+    if (Array.isArray(vote?.ballots) && vote.ballots.length > 0) {
+      return vote.ballots.filter((entry) => entry && entry.candidate);
+    }
+    if (vote?.candidate) {
+      return [
+        {
+          ballotId: 'main',
+          candidate: vote.candidate,
+          timestamp: vote.timestamp || null,
+        },
+      ];
+    }
+    return [];
+  });
+
+  const counts = flattenedVotes.reduce((acc, vote) => {
     acc[vote.candidate] = (acc[vote.candidate] || 0) + 1;
     return acc;
   }, {});
@@ -329,10 +358,146 @@ const getVoteSummary = (votes = []) => {
   const winnerEntry = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
 
   return {
-    totalVotes: votes.length,
+    totalVotes: flattenedVotes.length,
     winner: winnerEntry ? winnerEntry[0] : 'No votes yet',
     winnerVotes: winnerEntry ? winnerEntry[1] : 0,
   };
+};
+
+const buildLegacyBallot = (event = {}) => ({
+  ballotId: 'main',
+  name: event.name || 'Voting',
+  description: event.description || '',
+  selectedData: normalizeArrayField(event.selectedData, []),
+  fileData: normalizeArrayField(event.fileData, []),
+  candidateImages: normalizeArrayField(event.candidateImages, []),
+});
+
+const normalizeBallot = (ballot = {}, fallbackId = 'main') => ({
+  ballotId: String(ballot.ballotId || ballot.id || fallbackId),
+  name: String(ballot.name || ballot.title || 'Voting').trim(),
+  description: String(ballot.description || '').trim(),
+  selectedData: normalizeArrayField(ballot.selectedData, []),
+  fileData: normalizeArrayField(ballot.fileData, []),
+  candidateImages: normalizeArrayField(ballot.candidateImages, []),
+});
+
+const normalizeEventBallots = (event = {}) => {
+  const ballots = Array.isArray(event.ballots) && event.ballots.length > 0
+    ? event.ballots.map((ballot, index) =>
+        normalizeBallot(ballot, `ballot-${index + 1}`),
+      )
+    : [buildLegacyBallot(event)];
+
+  return ballots.map((ballot, index) => normalizeBallot(ballot, `ballot-${index + 1}`));
+};
+
+const getPrimaryBallot = (event = {}) => normalizeEventBallots(event)[0];
+
+const getVoteEntries = (vote = {}) => {
+  if (!vote || typeof vote !== 'object') return [];
+
+  if (Array.isArray(vote.ballots) && vote.ballots.length > 0) {
+    return vote.ballots.filter((entry) => entry && entry.ballotId);
+  }
+
+  if (vote.candidate) {
+    return [
+      {
+        ballotId: 'main',
+        candidate: vote.candidate,
+        timestamp: vote.timestamp || new Date().toISOString(),
+      },
+    ];
+  }
+
+  return [];
+};
+
+const getVoteEntryMap = (vote = {}) =>
+  getVoteEntries(vote).reduce((acc, entry) => {
+    acc[String(entry.ballotId)] = entry;
+    return acc;
+  }, {});
+
+const getEventVoteCount = (votes = []) =>
+  votes.reduce((total, vote) => total + getVoteEntries(vote).length, 0);
+
+const parseJsonArrayField = (value, fallback = []) => {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (Array.isArray(value)) return value;
+  if (typeof value !== 'string') return fallback;
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : fallback;
+  } catch (error) {
+    return fallback;
+  }
+};
+
+const normalizeArrayField = (value, fallback = []) => {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : fallback;
+    } catch (error) {
+      return fallback;
+    }
+  }
+  return fallback;
+};
+
+const normalizeBallotPayload = (ballot = {}, fallbackId = 'main') => {
+  const selectedData = Array.isArray(ballot.selectedData)
+    ? ballot.selectedData
+    : [];
+  const fileData = Array.isArray(ballot.fileData) ? ballot.fileData : [];
+  const candidateImages = Array.isArray(ballot.candidateImages)
+    ? ballot.candidateImages
+    : [];
+  return {
+    ballotId: String(ballot.ballotId || ballot.id || fallbackId).trim(),
+    name: String(ballot.name || ballot.title || '').trim(),
+    description: String(ballot.description || '').trim(),
+    selectedData,
+    fileData,
+    candidateImages,
+  };
+};
+
+const buildBallotPayloads = (reqBody = {}) => {
+  const parsedBallots = parseJsonArrayField(reqBody.ballots, []);
+  const fileData = parseJsonArrayField(reqBody.fileData, []);
+  if (parsedBallots.length > 0) {
+    return parsedBallots.map((ballot, index) =>
+      normalizeBallotPayload(
+        {
+          ...ballot,
+          fileData: Array.isArray(ballot.fileData) && ballot.fileData.length > 0
+            ? ballot.fileData
+            : fileData,
+        },
+        `ballot-${index + 1}`,
+      ),
+    );
+  }
+
+  const selectedData = parseJsonArrayField(reqBody.selectedData, []);
+  const candidateImages = parseJsonArrayField(reqBody.candidateImages, []);
+  return [
+    normalizeBallotPayload(
+      {
+        ballotId: 'main',
+        name: reqBody.name,
+        description: reqBody.description,
+        selectedData,
+        fileData,
+        candidateImages,
+      },
+      'main',
+    ),
+  ];
 };
 
 const resolveActor = async (requestUser = {}) => {
@@ -390,10 +555,27 @@ const toHistoryRecord = (event, votes, fallbackActor = null) => {
 
 const serializeEventForResponse = (event, req = null) => {
   const normalizedEvent = normalizeCandidateImages(event);
+  const ballots = normalizeEventBallots(normalizedEvent);
+  const primaryBallot = ballots[0] || buildLegacyBallot(normalizedEvent);
+  const fileData =
+    Array.isArray(normalizedEvent.fileData) && normalizedEvent.fileData.length > 0
+      ? normalizedEvent.fileData
+      : Array.isArray(primaryBallot.fileData)
+        ? primaryBallot.fileData
+        : [];
   const votingWindow = getVotingWindow(normalizedEvent);
 
   return {
     ...normalizedEvent,
+    name: primaryBallot.name || normalizedEvent.name,
+    description: primaryBallot.description || normalizedEvent.description,
+    selectedData: primaryBallot.selectedData || normalizedEvent.selectedData || [],
+    fileData,
+    candidateImages:
+      primaryBallot.candidateImages ||
+      normalizedEvent.candidateImages ||
+      [],
+    ballots,
     votingWindow: {
       phase: votingWindow.phase,
       isOpen: votingWindow.isOpen,
@@ -622,13 +804,18 @@ router.post('/verify-id/:eventId', upload.none(), async (req, res) => {
       });
     }
 
-    if (!event.fileData) {
+    const fileData = normalizeArrayField(
+      event.fileData && event.fileData.length ? event.fileData : event.ballots?.[0]?.fileData,
+      [],
+    );
+
+    if (!Array.isArray(fileData) || fileData.length === 0) {
       return res
         .status(404)
-        .json({ message: 'No Excel data found for this event' });
+        .json({ message: 'No voter list found for this event' });
     }
 
-    const rowData = event.fileData.find((row) => {
+    const rowData = fileData.find((row) => {
       const values = Object.values(row);
       return values.length >= 2 && String(values[1]).trim() === id;
     });
@@ -640,10 +827,22 @@ router.post('/verify-id/:eventId', upload.none(), async (req, res) => {
       });
     }
 
-    const existingVote = await Vote.findOne({ eventId, voterId: id });
-    const hasVoted = !!existingVote;
+    const existingVote = await Vote.findOne({ eventId, voterId: id }).lean();
+    const completedBallots = getVoteEntries(existingVote).map((entry) =>
+      String(entry.ballotId),
+    );
+    const ballots = normalizeEventBallots(event);
 
-    res.status(200).json({ verified: true, rowData, hasVoted });
+    res.status(200).json({
+      verified: true,
+      rowData,
+      hasVoted: completedBallots.length > 0,
+      completedBallots,
+      totalBallots: ballots.length,
+      pendingBallots: ballots.filter(
+        (ballot) => !completedBallots.includes(String(ballot.ballotId)),
+      ),
+    });
   } catch (error) {
     console.error('❌ Error verifying ID:', error);
     res
@@ -662,6 +861,7 @@ router.post('/vote/:eventId', upload.none(), async (req, res) => {
   );
   const voterId = String(req.body.voterId || '').trim();
   const candidate = String(req.body.candidate || '').trim();
+  const ballotId = String(req.body.ballotId || 'main').trim() || 'main';
   const eventId = req.params.eventId;
 
   if (!voterId || !candidate) {
@@ -684,21 +884,61 @@ router.post('/vote/:eventId', upload.none(), async (req, res) => {
       });
     }
 
-    const existingVote = await Vote.findOne({ eventId, voterId });
-    if (existingVote) {
-      return res.status(400).json({ message: 'This ID has already voted' });
+    const ballots = normalizeEventBallots(event);
+    const ballot = ballots.find(
+      (entry) => String(entry.ballotId) === ballotId,
+    );
+    if (!ballot) {
+      return res.status(400).json({ message: 'Voting post not found' });
     }
 
-    const vote = new Vote({
-      eventId,
-      voterId,
-      candidate,
-      timestamp: new Date().toISOString(),
-    });
+    const candidateExists = Array.isArray(ballot.selectedData)
+      ? ballot.selectedData.some((item) => {
+          const label =
+            item.Name ||
+            item.name ||
+            item.Candidate ||
+            item.candidate ||
+            '';
+          return String(label).trim() === candidate;
+        })
+      : false;
+    if (!candidateExists) {
+      return res
+        .status(400)
+        .json({ message: 'Candidate is not part of this voting post' });
+    }
 
-    await vote.save();
-    console.log('Vote saved successfully:', vote);
-    res.status(201).json({ message: 'Vote submitted successfully' });
+    const existingVote = await Vote.findOne({ eventId, voterId });
+    const existingEntries = getVoteEntryMap(existingVote || {});
+    if (existingEntries[ballotId]) {
+      return res
+        .status(400)
+        .json({ message: 'This ID has already voted in this post' });
+    }
+
+    const voteTimestamp = new Date().toISOString();
+    const votePayload = existingVote || new Vote({ eventId, voterId, ballots: [] });
+    votePayload.ballots = Array.isArray(votePayload.ballots)
+      ? votePayload.ballots
+      : [];
+    votePayload.ballots.push({
+      ballotId,
+      candidate,
+      timestamp: voteTimestamp,
+    });
+    votePayload.candidate = votePayload.ballots[0]?.candidate || candidate;
+    votePayload.timestamp = votePayload.ballots[0]?.timestamp || voteTimestamp;
+
+    await votePayload.save();
+    console.log('Vote saved successfully:', votePayload);
+    res.status(201).json({
+      message: 'Vote submitted successfully',
+      ballotId,
+      completedBallots: getVoteEntries(votePayload).map((entry) =>
+        String(entry.ballotId),
+      ),
+    });
   } catch (error) {
     console.error('Error saving vote:', error);
     if (error && error.code === 11000) {
@@ -886,6 +1126,7 @@ router.post(
       expiry,
       link,
       fileData,
+      ballots,
     } = req.body;
 
     const missingFields = [];
@@ -893,9 +1134,6 @@ router.post(
     if (!date) missingFields.push('date');
     if (!startTime) missingFields.push('startTime');
     if (!stopTime) missingFields.push('stopTime');
-    if (!name) missingFields.push('name');
-    if (!description) missingFields.push('description');
-    if (!selectedData) missingFields.push('selectedData');
     if (!expiry) missingFields.push('expiry');
     if (!link) missingFields.push('link');
 
@@ -921,33 +1159,43 @@ router.post(
       const availableVotingCredits = getActiveRemainingCredits(
         user.subscription,
       );
-      if (!user.subscription?.isValid || availableVotingCredits <= 0) {
+      const parsedFileData = parseJsonArrayField(fileData, []);
+      const ballotPayloads = buildBallotPayloads({
+        ballots,
+        selectedData,
+        candidateImages,
+        fileData: parsedFileData,
+        name,
+        description,
+      });
+      const primaryBallot = ballotPayloads[0] || {
+        ballotId: 'main',
+        name,
+        description,
+        selectedData: [],
+        candidateImages: [],
+      };
+      const creditsNeeded = Math.max(1, ballotPayloads.length);
+
+      if (!user.subscription?.isValid || availableVotingCredits < creditsNeeded) {
         return res.status(402).json({
           message:
-            'No voting credits available. Please buy voting credits to create a new voting event.',
+            'Not enough voting credits available. Please buy more voting credits to create these voting posts.',
         });
       }
 
-      let parsedSelectedData, parsedCandidateImages, parsedFileData;
-      try {
-        parsedSelectedData = JSON.parse(selectedData);
-        parsedCandidateImages = candidateImages
-          ? JSON.parse(candidateImages)
-          : [];
-        parsedFileData = fileData ? JSON.parse(fileData) : [];
-      } catch (error) {
-        console.error('❌ JSON parsing error:', error);
-        return res.status(400).json({
-          message:
-            'Invalid JSON format in selectedData, candidateImages, or fileData',
-        });
+      if (!primaryBallot.name || !primaryBallot.description) {
+        console.error('❌ Invalid ballot metadata:', primaryBallot);
+        return res
+          .status(400)
+          .json({ message: 'Voting name and description are required' });
       }
 
       if (
-        !Array.isArray(parsedSelectedData) ||
-        parsedSelectedData.length === 0
+        !Array.isArray(primaryBallot.selectedData) ||
+        primaryBallot.selectedData.length === 0
       ) {
-        console.error('❌ Invalid selectedData:', parsedSelectedData);
+        console.error('❌ Invalid selectedData:', primaryBallot.selectedData);
         return res
           .status(400)
           .json({ message: 'selectedData must be a non-empty array' });
@@ -974,15 +1222,18 @@ router.post(
         date,
         startTime,
         stopTime,
-        name,
-        description,
+        name: primaryBallot.name,
+        description: primaryBallot.description,
         startDateTime,
         endDateTime: originalEndDateTime,
         originalEndDateTime,
         bufferMinutes: 0,
-        selectedData: parsedSelectedData,
+        selectedData: primaryBallot.selectedData,
         fileData: parsedFileData,
-        candidateImages: parsedCandidateImages,
+        candidateImages: primaryBallot.candidateImages,
+        ballots: ballotPayloads.map((ballot, index) =>
+          normalizeBallotPayload(ballot, `ballot-${index + 1}`),
+        ),
         expiry: originalEndDateTime.getTime(),
         link,
         createdBy: actor,
@@ -990,9 +1241,9 @@ router.post(
 
       await event.validate();
       await event.save();
-      user.subscription.votingCredits = availableVotingCredits - 1;
+      user.subscription.votingCredits = availableVotingCredits - creditsNeeded;
       user.subscription.usedVotingCredits =
-        (user.subscription.usedVotingCredits || 0) + 1;
+        (user.subscription.usedVotingCredits || 0) + creditsNeeded;
       user.subscription.isValid = user.subscription.votingCredits > 0;
       try {
         await user.save();
@@ -1027,6 +1278,7 @@ router.post(
         message: 'Event created successfully',
         link: event.link,
         remainingVotingCredits: user.subscription.votingCredits,
+        ballotsCreated: ballotPayloads.length,
       });
     } catch (error) {
       console.error('❌ Error saving event:', error);
@@ -1093,6 +1345,7 @@ router.put(
       expiry,
       link,
       fileData,
+      ballots,
     } = req.body;
 
     const missingFields = [];
@@ -1113,19 +1366,44 @@ router.put(
     }
 
     try {
-      let parsedSelectedData, parsedCandidateImages, parsedFileData;
+      let parsedSelectedData, parsedCandidateImages, parsedFileData, parsedBallots;
       try {
         parsedSelectedData = JSON.parse(selectedData);
         parsedCandidateImages = candidateImages
           ? JSON.parse(candidateImages)
           : [];
-        parsedFileData = fileData ? JSON.parse(fileData) : [];
+        parsedFileData = parseJsonArrayField(fileData, []);
+        parsedBallots = ballots ? JSON.parse(ballots) : [];
       } catch (error) {
         console.error('❌ JSON parsing error:', error);
         return res.status(400).json({
           message:
-            'Invalid JSON format in selectedData, candidateImages, or fileData',
+            'Invalid JSON format in selectedData, candidateImages, fileData, or ballots',
         });
+      }
+
+      let updateName = name;
+      let updateDescription = description;
+      if (Array.isArray(parsedBallots) && parsedBallots.length > 0) {
+        const primaryBallot = normalizeBallotPayload(
+          {
+            ...parsedBallots[0],
+            fileData:
+              Array.isArray(parsedBallots[0].fileData) &&
+              parsedBallots[0].fileData.length > 0
+                ? parsedBallots[0].fileData
+                : parsedFileData,
+          },
+          'main',
+        );
+        parsedSelectedData = primaryBallot.selectedData;
+        parsedCandidateImages = primaryBallot.candidateImages;
+        parsedFileData =
+          Array.isArray(parsedFileData) && parsedFileData.length > 0
+            ? parsedFileData
+            : primaryBallot.fileData || [];
+        updateName = primaryBallot.name || name;
+        updateDescription = primaryBallot.description || description;
       }
 
       if (
@@ -1249,8 +1527,8 @@ router.put(
           date,
           startTime,
           stopTime,
-          name,
-          description,
+          name: updateName,
+          description: updateDescription,
           startDateTime: nextStartDateTime,
           endDateTime: effectiveEndDateTime,
           originalEndDateTime: nextEndDateTime,
@@ -1258,6 +1536,21 @@ router.put(
           selectedData: parsedSelectedData,
           fileData: parsedFileData,
           candidateImages: parsedCandidateImages,
+          ballots: Array.isArray(parsedBallots)
+            ? parsedBallots.map((ballot, index) =>
+                normalizeBallotPayload(
+                  {
+                    ...ballot,
+                    fileData:
+                      Array.isArray(ballot.fileData) &&
+                      ballot.fileData.length > 0
+                        ? ballot.fileData
+                        : parsedFileData,
+                  },
+                  `ballot-${index + 1}`,
+                ),
+              )
+            : [],
           expiry: effectiveEndDateTime.getTime(),
           link,
         },
@@ -1317,22 +1610,18 @@ router.patch(
         return res.status(400).json({ message: bufferCheck.message });
       }
 
-      const originalEndDateTime =
-        getOriginalEndDateTime(event) || getEffectiveEndDateTime(event);
-      if (!originalEndDateTime) {
+      const currentEndDateTime = getEffectiveEndDateTime(event);
+      if (!currentEndDateTime) {
         return res.status(400).json({
           message: 'Unable to determine the voting end time',
         });
       }
 
-      // accumulate existing buffer minutes (if any)
-      const existingBuffer = Number(event.bufferMinutes || 0);
-      const newBufferMinutes = existingBuffer + totalBufferMinutes;
-
       const effectiveEndDateTime = new Date(
-        originalEndDateTime.getTime() + newBufferMinutes * 60 * 1000,
+        currentEndDateTime.getTime() + totalBufferMinutes * 60 * 1000,
       );
       const now = new Date();
+      const newBufferMinutes = Number(event.bufferMinutes || 0) + totalBufferMinutes;
 
       // Validate that the resulting time is in the future
       if (now >= effectiveEndDateTime) {
@@ -1343,7 +1632,7 @@ router.patch(
       }
 
       // Ensure the effective end time is on the same calendar day as the original event
-      if (!isSameCalendarDay(effectiveEndDateTime, originalEndDateTime)) {
+      if (!isSameCalendarDay(effectiveEndDateTime, currentEndDateTime)) {
         return res.status(400).json({
           message:
             'Buffer time cannot extend voting beyond the current calendar day. Please choose a smaller duration.',
