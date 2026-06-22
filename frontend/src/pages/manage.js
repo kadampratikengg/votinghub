@@ -629,15 +629,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     });
   };
 
-  const getCandidateImagePayload = (rowIndex) => {
-    const image = candidateImages[rowIndex];
-    if (!image) return null;
-
-    return {
-      key: image.key || image.uuid || '',
-      url: image.url || image.cdnUrl || '',
-    };
-  };
+  // Removed unused `getCandidateImagePayload` function (was causing ESLint no-unused-vars in CI)
 
   const filteredFileData = useMemo(() => {
     if (!candidateSearch || candidateSearch.trim() === '') return fileData;
