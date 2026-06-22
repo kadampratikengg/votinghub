@@ -63,20 +63,6 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const [deleteReason, setDeleteReason] = useState('');
 
   const isSuperAdmin = role === 'admin';
-  const BUFFER_INCREMENT_MINUTES = 15;
-
-  const getVotingEndDateTime = (event) => {
-    const endTimeSource =
-      event?.votingWindow?.effectiveEndDateTimeISO ||
-      event?.votingWindow?.effectiveEndDateTime ||
-      (event?.stopTime && event?.date ? `${event.date}T${event.stopTime}` : null);
-
-    if (!endTimeSource) return null;
-
-    const parsed = new Date(endTimeSource);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  };
-
   const createBallotDraft = (overrides = {}) => ({
     ballotId: uuidv4(),
     name: '',
@@ -123,7 +109,6 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       name: normalized.name,
       description: normalized.description,
       selectedData: selected,
-      fileData,
       candidateImages: rows
         .map((rowIndex, selectedIndex) => {
           const image = normalized.candidateImages[rowIndex];
@@ -206,7 +191,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       visible: true,
       title: 'Add Buffer Time',
       message:
-        `Are you sure you want to add ${BUFFER_INCREMENT_MINUTES} minutes buffer time? Please ensure you have sufficient permission to add buffer time.`,
+        'Are you sure you want to add 15 minutes buffer time? Please ensure you have sufficient permission to add buffer time.',
       onConfirm: async () => {
         setPopup((p) => ({ ...p, visible: false }));
         await handleAddBufferTime(eventId);
@@ -226,7 +211,11 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const shouldShowAddBufferButton = (event) => {
     try {
       const now = new Date();
-      const effectiveEnd = getVotingEndDateTime(event);
+      const effectiveEnd = event?.votingWindow?.effectiveEndDateTime
+        ? new Date(event.votingWindow.effectiveEndDateTime)
+        : event?.stopTime && event?.date
+          ? new Date(`${event.date}T${event.stopTime}`)
+          : null;
       if (!effectiveEnd || Number.isNaN(effectiveEnd.getTime())) return false;
 
       const oneHourBefore = new Date(effectiveEnd.getTime() - 60 * 60 * 1000);
@@ -240,7 +229,11 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const getTimeRemaining = (event) => {
     try {
       const now = new Date();
-      const effectiveEnd = getVotingEndDateTime(event);
+      const effectiveEnd = event?.votingWindow?.effectiveEndDateTime
+        ? new Date(event.votingWindow.effectiveEndDateTime)
+        : event?.stopTime && event?.date
+          ? new Date(`${event.date}T${event.stopTime}`)
+          : null;
       if (!effectiveEnd || Number.isNaN(effectiveEnd.getTime())) return null;
 
       const diffMs = effectiveEnd.getTime() - now.getTime();
@@ -509,19 +502,19 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
             ];
       setBallots(loadedBallots);
       loadBallotIntoForm(loadedBallots[0]);
-      const existingFileData =
-        eventToEdit.fileData || eventToEdit.ballots?.[0]?.fileData || [];
-      setFileData(existingFileData);
+      setFileData(eventToEdit.fileData || []);
       setCheckedRows(
-        existingFileData
-          .map((data, index) =>
-            eventToEdit.selectedData.some((selected) =>
-              Object.keys(data).every((key) => selected[key] === data[key]),
-            )
-              ? index
-              : null,
-          )
-          .filter((index) => index !== null),
+        eventToEdit.fileData
+          ? eventToEdit.fileData
+              .map((data, index) =>
+                eventToEdit.selectedData.some((selected) =>
+                  Object.keys(data).every((key) => selected[key] === data[key]),
+                )
+                  ? index
+                  : null,
+              )
+              .filter((index) => index !== null)
+          : [],
       );
       setShowEventForm(true);
       setEditingEventId(eventId);
@@ -645,21 +638,6 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       url: image.url || image.cdnUrl || '',
     };
   };
-
-  const buildSelectedCandidates = () =>
-    checkedRows
-      .map((rowIndex, selectedIndex) => {
-        const row = fileData[rowIndex];
-        if (!row) return null;
-
-        return {
-          ...row,
-          candidateImage: getCandidateImagePayload(rowIndex),
-          candidateRowIndex: rowIndex,
-          candidateSelectionIndex: selectedIndex,
-        };
-      })
-      .filter(Boolean);
 
   const filteredFileData = useMemo(() => {
     if (!candidateSearch || candidateSearch.trim() === '') return fileData;
@@ -794,8 +772,9 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
   const handleAddBufferTime = async (targetEventId) => {
     const hours = 0;
-    const minutes = BUFFER_INCREMENT_MINUTES;
-
+    const minutes = 15;
+    // mark this event as loading to prevent duplicate requests
+    setBufferLoadingId(targetEventId);
     try {
       const apiUrl = process.env.REACT_APP_API_URL;
       const token = localStorage.getItem('token');
@@ -852,6 +831,8 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
         onConfirm: () => setPopup((p) => ({ ...p, visible: false })),
         hideCancel: true,
       });
+    } finally {
+      setBufferLoadingId(null);
     }
   };
 
@@ -1186,8 +1167,11 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                           className='work-button work-button--accent'
                           onClick={() => handleConfirmAddBuffer(event.id)}
                           title='Add 15 minutes to voting time'
+                          disabled={bufferLoadingId === event.id}
                         >
-                          Add Buffer Time ({getTimeRemaining(event)})
+                          {bufferLoadingId === event.id
+                            ? `Adding... (${getTimeRemaining(event) || ''})`
+                            : `Add Buffer Time (${getTimeRemaining(event)})`}
                         </button>
                       )}
                       <button
