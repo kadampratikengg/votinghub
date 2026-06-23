@@ -246,6 +246,23 @@
   min-width: 126px;
 }
 
+.work-ballot-controls {
+  margin-bottom: 16px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.work-ballot-controls__field {
+  max-width: 420px;
+  flex: 1 1 0%;
+}
+
+.work-ballot-list {
+  margin-bottom: 16px;
+}
+
 .work-history-collapsed {
   min-height: 72px;
   display: grid;
@@ -787,6 +804,20 @@
 
   .work-button,
   .work-upload-box input[type='file'] {
+    width: 100%;
+  }
+
+  .work-ballot-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .work-ballot-controls__field {
+    max-width: none;
+    width: 100%;
+  }
+
+  .work-ballot-controls .work-button {
     width: 100%;
   }
 }

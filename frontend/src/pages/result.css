@@ -393,6 +393,39 @@
   flex: 0 0 auto;
 }
 
+/* Organization identity in hero */
+.result-hero-identity {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.result-org-logo {
+  width: 92px;
+  height: 92px;
+  object-fit: cover;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  flex: 0 0 auto;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.result-org-name {
+  margin: 4px 0 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(255, 250, 240, 0.9);
+}
+
+.result-org-debug {
+  margin-top: 6px;
+  font-size: 11px;
+  color: rgba(255, 250, 240, 0.78);
+  max-width: 320px;
+  word-break: break-all;
+  opacity: 0.9;
+}
+
 .result-candidate-identity strong {
   display: block;
   overflow-wrap: anywhere;

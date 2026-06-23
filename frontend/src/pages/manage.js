@@ -1208,8 +1208,35 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                 </button>
               </div>
             ) : (
+              
               <form onSubmit={handleEventFormSubmit} className='work-form'>
+              <div className='work-upload-box'>
+                  <div>
+                    <span>
+                      <FiUploadCloud /> Upload Voters Excel File
+                    </span>
+                    <p>File uploaded: {fileName || 'No file selected'}</p>
+                  </div>
+                  <input
+                    type='file'
+                    accept='.xlsx'
+                    onChange={handleFileUpload}
+                  />
+                  <a
+                    className='work-link'
+                    href='https://ucarecdn.com/fc73b582-f0fa-4069-aec3-d262bcae3236/'
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    download='AllDetailsFile.xlsm'
+                  >
+                    <FiDownload /> Download sample file
+                  </a>
+                </div>
                 <div className='work-form-grid'>
+
+
+
+
                   <label className='work-field'>
                     <span>Voting Date</span>
                     <input
@@ -1262,7 +1289,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                   </label>
                 </div>
 
-                <div className='work-upload-box'>
+                {/* <div className='work-upload-box'>
                   <div>
                     <span>
                       <FiUploadCloud /> Upload Voters Excel File
@@ -1283,22 +1310,10 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                   >
                     <FiDownload /> Download sample file
                   </a>
-                </div>
+                </div> */}
 
-                <div
-                  className='work-ballot-controls'
-                  style={{
-                    marginBottom: 16,
-                    display: 'flex',
-                    gap: 8,
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <label
-                    className='work-field'
-                    style={{ maxWidth: 420, flex: 1 }}
-                  >
+                <div className='work-ballot-controls'>
+                  <label className='work-field work-ballot-controls__field'>
                     <span>Voting Post</span>
                     <select
                       value={activeBallotId}
@@ -1322,7 +1337,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                 </div>
 
                 {ballots.length > 0 && (
-                  <div className='work-empty' style={{ marginBottom: 16 }}>
+                  <div className='work-empty work-ballot-list'>
                     <strong>Voting Posts</strong>
                     <div style={{ marginTop: 8, display: 'grid', gap: 8 }}>
                       {ballots.map((ballot, index) => (

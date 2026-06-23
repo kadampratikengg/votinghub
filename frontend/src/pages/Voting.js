@@ -349,9 +349,11 @@ const Voting = () => {
                             return (
                               <tr key={index}>
                                 {ballotHeaders.map((header) => (
-                                  <td key={header}>{candidate[header]}</td>
+                                  <td key={header} data-label={header}>
+                                    {candidate[header]}
+                                  </td>
                                 ))}
-                                <td>
+                                <td data-label='Image'>
                                   {imageUrl ? (
                                     <img
                                       src={imageUrl}

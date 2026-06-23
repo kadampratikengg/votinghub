@@ -16,7 +16,10 @@ import {
   FiUsers,
 } from 'react-icons/fi';
 import './result.css';
-import { resolveStoredImageUrl } from '../utils/imageUrl';
+import {
+  resolveStoredImageUrl,
+  resolveStoredAssetUrl,
+} from '../utils/imageUrl';
 
 const getCandidateImage = (images, index) =>
   images?.find(
@@ -89,6 +92,43 @@ const getBallotKey = (ballot, index) =>
 const getBallotLabel = (ballot, index) =>
   ballot?.name || `Voting Post ${index + 1}`;
 
+const getOrganizationDetails = (event, currentUser, apiUrl, s3BucketUrl) => {
+  const orgObjectSource =
+    event?.profile ||
+    event?.owner ||
+    event?.createdBy ||
+    event?.user ||
+    currentUser ||
+    null;
+
+  const orgName =
+    event?.organizationName ||
+    event?.orgName ||
+    event?.ownerName ||
+    (typeof event?.organization === 'string' ? event.organization : '') ||
+    orgObjectSource?.organization ||
+    orgObjectSource?.organisation ||
+    orgObjectSource?.name ||
+    currentUser?.organization ||
+    currentUser?.name ||
+    '';
+
+  const orgLogoSource =
+    orgObjectSource?.logo ||
+    orgObjectSource?.organizationLogo ||
+    orgObjectSource?.logoPreview ||
+    orgObjectSource?.logoPreviewUrl ||
+    event?.organizationLogo ||
+    event?.logo ||
+    currentUser?.logo ||
+    null;
+
+  return {
+    orgName,
+    orgLogo: resolveStoredAssetUrl(orgLogoSource, s3BucketUrl, apiUrl),
+  };
+};
+
 const Result = () => {
   const { eventId } = useParams();
   const resultRef = useRef(null);
@@ -99,6 +139,7 @@ const Result = () => {
   const [isVotingComplete, setIsVotingComplete] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [bufferHistory, setBufferHistory] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
   const apiUrl = process.env.REACT_APP_API_URL;
   const s3BucketUrl = process.env.REACT_APP_S3_BUCKET_URL;
   const ballots = useMemo(() => getBallots(event), [event]);
@@ -126,7 +167,9 @@ const Result = () => {
           (entry) => String(entry.ballotId || 'main') === ballotKey,
         );
         const fallbackCounts =
-          !Array.isArray(votes) && ballotIndex === 0 ? votes?.candidateCounts || {} : {};
+          !Array.isArray(votes) && ballotIndex === 0
+            ? votes?.candidateCounts || {}
+            : {};
         const counts =
           ballotVoteEntries.length > 0
             ? ballotVoteEntries.reduce((acc, entry) => {
@@ -134,11 +177,12 @@ const Result = () => {
                 return acc;
               }, {})
             : fallbackCounts;
-        const total = ballotVoteEntries.length > 0
-          ? ballotVoteEntries.length
-          : !Array.isArray(votes) && ballotIndex === 0
-            ? totalVotes
-            : 0;
+        const total =
+          ballotVoteEntries.length > 0
+            ? ballotVoteEntries.length
+            : !Array.isArray(votes) && ballotIndex === 0
+              ? totalVotes
+              : 0;
         const ballotEligibleVoters = Array.isArray(ballot?.fileData)
           ? ballot.fileData.length
           : eligibleVoters;
@@ -167,12 +211,16 @@ const Result = () => {
         const topVotes = candidateResults[0]?.votes || 0;
         const leadingCandidates =
           topVotes > 0
-            ? candidateResults.filter((candidate) => candidate.votes === topVotes)
+            ? candidateResults.filter(
+                (candidate) => candidate.votes === topVotes,
+              )
             : [];
         const hasTieForLead = leadingCandidates.length > 1;
         const winner =
           candidateResults.length > 0 && !hasTieForLead
-            ? candidateResults.find((candidate) => candidate.votes === topVotes) || null
+            ? candidateResults.find(
+                (candidate) => candidate.votes === topVotes,
+              ) || null
             : null;
         const topPercent = total > 0 ? (topVotes / total) * 100 : 0;
         const leadingCandidateLabel =
@@ -210,7 +258,19 @@ const Result = () => {
           donutSegments,
         };
       }),
-    [apiUrl, ballots, eligibleVoters, s3BucketUrl, totalVotes, voteEntries, votes],
+    [
+      apiUrl,
+      ballots,
+      eligibleVoters,
+      s3BucketUrl,
+      totalVotes,
+      voteEntries,
+      votes,
+    ],
+  );
+  const { orgName, orgLogo } = useMemo(
+    () => getOrganizationDetails(event, currentUser, apiUrl, s3BucketUrl),
+    [apiUrl, currentUser, event, s3BucketUrl],
   );
 
   const fetchData = useCallback(async () => {
@@ -254,6 +314,23 @@ const Result = () => {
 
       const votesData = await votesResponse.json();
       setVotes(votesData);
+
+      // fetch current user profile so we can show organization/logo from profile
+      try {
+        const profileResp = await fetch(`${apiUrl}/api/users`, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (profileResp.ok) {
+          const profileData = await profileResp.json().catch(() => null);
+          if (profileData) setCurrentUser(profileData);
+        }
+      } catch (err) {
+        // non-fatal
+        console.warn('Failed to fetch current user for result header', err);
+      }
 
       // fetch authenticated history for this event (owner/admin)
       try {
@@ -309,14 +386,18 @@ const Result = () => {
         .toLowerCase();
 
       const exportSections = Array.from(
-        resultRef.current.querySelectorAll("[data-result-export-section='ballot']"),
+        resultRef.current.querySelectorAll(
+          "[data-result-export-section='ballot']",
+        ),
       );
       const sectionsToExport =
         exportSections.length > 0
           ? exportSections
-          : [resultRef.current.querySelector("[data-result-export-section='overview']")].filter(
-              Boolean,
-            );
+          : [
+              resultRef.current.querySelector(
+                "[data-result-export-section='overview']",
+              ),
+            ].filter(Boolean);
 
       for (let index = 0; index < sectionsToExport.length; index += 1) {
         const section = sectionsToExport[index];
@@ -325,7 +406,9 @@ const Result = () => {
           useCORS: true,
           backgroundColor: '#f8f5ec',
           onclone: (clonedDocument) => {
-            clonedDocument.querySelector('.result-shell')?.classList.add('result-pdf-mode');
+            clonedDocument
+              .querySelector('.result-shell')
+              ?.classList.add('result-pdf-mode');
           },
         });
 
@@ -345,7 +428,14 @@ const Result = () => {
         if (index > 0) {
           pdf.addPage();
         }
-        pdf.addImage(imageData, 'JPEG', imageX, imageY, imageWidth, imageHeight);
+        pdf.addImage(
+          imageData,
+          'JPEG',
+          imageX,
+          imageY,
+          imageWidth,
+          imageHeight,
+        );
       }
 
       pdf.save(`${safeName || 'voting'}-result.pdf`);
@@ -400,11 +490,28 @@ const Result = () => {
     <main className='result-shell' ref={resultRef}>
       <section className='result-hero' data-result-export-section='overview'>
         <div>
-          <span className='result-kicker'>
-            <FiTrendingUp /> Voting Results
-          </span>
-          <h1>{event.name}</h1>
-          <p>{event.description}</p>
+          <div className='result-hero-identity'>
+            {orgLogo ? (
+              <img
+                src={orgLogo}
+                alt={orgName || 'Organization logo'}
+                className='result-org-logo'
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+            ) : (
+              <span className='result-image-placeholder'>
+                <FiImage />
+              </span>
+            )}
+            <div>
+              <span className='result-kicker'>
+                <FiTrendingUp /> Voting Results
+              </span>
+              <h1>{orgName || event.name}</h1>
+            </div>
+          </div>
         </div>
         <div className='result-hero-panel'>
           <div className='result-hero-card'>
@@ -430,7 +537,10 @@ const Result = () => {
         </div>
       </section>
 
-      <section className='result-summary-grid' data-result-export-section='overview'>
+      <section
+        className='result-summary-grid'
+        data-result-export-section='overview'
+      >
         <div className='result-summary-card'>
           <FiUsers />
           <span>Voting Posts</span>
@@ -506,7 +616,9 @@ const Result = () => {
                       <FiUsers /> Voting Post {ballotResult.ballotIndex + 1}
                     </span>
                     <h2>{ballotResult.name}</h2>
-                    {ballotResult.description ? <p>{ballotResult.description}</p> : null}
+                    {ballotResult.description ? (
+                      <p>{ballotResult.description}</p>
+                    ) : null}
                   </div>
                   <strong>{ballotResult.totalVotes} votes</strong>
                 </div>
@@ -520,7 +632,9 @@ const Result = () => {
                   <div className='result-summary-card'>
                     <FiPercent />
                     <span>Voting Done</span>
-                    <strong>{formatPercent(ballotResult.turnoutPercent)}</strong>
+                    <strong>
+                      {formatPercent(ballotResult.turnoutPercent)}
+                    </strong>
                   </div>
                   <div className='result-summary-card'>
                     <FiAward />
@@ -546,29 +660,38 @@ const Result = () => {
                       <div className='result-donut-wrap'>
                         <div
                           className='result-donut'
-                          style={{ background: `conic-gradient(${ballotResult.donutSegments})` }}
+                          style={{
+                            background: `conic-gradient(${ballotResult.donutSegments})`,
+                          }}
                           aria-label={`Candidate result distribution for ${ballotResult.name}`}
                         >
                           <div>
-                            <strong>{formatPercent(ballotResult.topPercent)}</strong>
+                            <strong>
+                              {formatPercent(ballotResult.topPercent)}
+                            </strong>
                             <span>Top share</span>
                           </div>
                         </div>
                         <div className='result-distribution-list'>
-                          {ballotResult.candidateResults.map((candidate, index) => (
-                            <div className='result-distribution-item' key={candidate.name}>
-                              <span
-                                className='result-distribution-dot'
-                                style={{
-                                  backgroundColor:
-                                    chartColors[index % chartColors.length],
-                                }}
-                              />
-                              <strong>{candidate.name}</strong>
-                              <span>{candidate.votes} votes</span>
-                              <b>{formatPercent(candidate.percent)}</b>
-                            </div>
-                          ))}
+                          {ballotResult.candidateResults.map(
+                            (candidate, index) => (
+                              <div
+                                className='result-distribution-item'
+                                key={candidate.name}
+                              >
+                                <span
+                                  className='result-distribution-dot'
+                                  style={{
+                                    backgroundColor:
+                                      chartColors[index % chartColors.length],
+                                  }}
+                                />
+                                <strong>{candidate.name}</strong>
+                                <span>{candidate.votes} votes</span>
+                                <b>{formatPercent(candidate.percent)}</b>
+                              </div>
+                            ),
+                          )}
                         </div>
                       </div>
                     ) : (
@@ -586,11 +709,18 @@ const Result = () => {
                       <h2>Voting Completion</h2>
                     </div>
                     <div className='result-turnout-meter'>
-                      <div style={{ width: `${Math.min(ballotResult.turnoutPercent, 100)}%` }} />
+                      <div
+                        style={{
+                          width: `${Math.min(ballotResult.turnoutPercent, 100)}%`,
+                        }}
+                      />
                     </div>
-                    <strong>{formatPercent(ballotResult.turnoutPercent)}</strong>
+                    <strong>
+                      {formatPercent(ballotResult.turnoutPercent)}
+                    </strong>
                     <p>
-                      Based on completed voting against the uploaded eligible voter list.
+                      Based on completed voting against the uploaded eligible
+                      voter list.
                     </p>
                   </div>
                 </div>
@@ -606,7 +736,10 @@ const Result = () => {
                   {ballotResult.candidateResults.length > 0 ? (
                     <div className='result-candidate-list'>
                       {ballotResult.candidateResults.map((candidate, index) => (
-                        <article className='result-candidate-row' key={candidate.name}>
+                        <article
+                          className='result-candidate-row'
+                          key={candidate.name}
+                        >
                           <div className='result-candidate-identity'>
                             {candidate.image ? (
                               <img
@@ -658,11 +791,12 @@ const Result = () => {
           ))
         ) : (
           <section className='result-card'>
-            <div className='result-state-card'>No voting posts found for this event.</div>
+            <div className='result-state-card'>
+              No voting posts found for this event.
+            </div>
           </section>
         )}
       </section>
-
     </main>
   );
 };
