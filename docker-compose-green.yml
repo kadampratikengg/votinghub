@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  backend-green:
+    build:
+      context: ./backend
+    image: votinghub-backend:v2
+    container_name: backend-green
+    expose:
+      - '5000'
+    restart: always
+    env_file:
+      - ./backend/.env
+    networks:
+      - votinghub-network
+
+  frontend-green:
+    build:
+      context: ./frontend
+    image: votinghub-frontend:v2
+    container_name: frontend-green
+    expose:
+      - '80'
+    restart: always
+    depends_on:
+      - backend-green
+    networks:
+      - votinghub-network
+
+networks:
+  votinghub-network:
+    driver: bridge

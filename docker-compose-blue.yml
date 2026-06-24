@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  backend-blue:
+    build:
+      context: ./backend
+    image: votinghub-backend:v1
+    container_name: backend-blue
+    expose:
+      - '5000'
+    restart: always
+    env_file:
+      - ./backend/.env
+    networks:
+      - votinghub-network
+
+  frontend-blue:
+    build:
+      context: ./frontend
+    image: votinghub-frontend:v1
+    container_name: frontend-blue
+    expose:
+      - '80'
+    restart: always
+    depends_on:
+      - backend-blue
+    networks:
+      - votinghub-network
+
+networks:
+  votinghub-network:
+    driver: bridge

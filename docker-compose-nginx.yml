@@ -1,0 +1,24 @@
+services:
+
+  nginx:
+    image: nginx:1.27-alpine
+
+    container_name: votinghub-nginx
+
+    ports:
+      - "80:80"
+
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+
+    networks:
+      - votinghub_votinghub-network
+
+    restart: always
+
+
+networks:
+
+  votinghub_votinghub-network:
+
+    external: true

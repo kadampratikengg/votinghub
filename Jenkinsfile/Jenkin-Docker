@@ -1,0 +1,263 @@
+pipeline {
+
+    agent any
+
+    environment {
+
+        APP_NAME = "votinghub"
+
+        BLUE_COMPOSE = "docker-compose-blue.yml"
+        GREEN_COMPOSE = "docker-compose-green.yml"
+
+        NGINX_CONTAINER = "votinghub-nginx"
+
+    }
+
+
+    stages {
+
+
+        stage('Checkout Code') {
+
+            steps {
+
+                git branch: 'main',
+                    url: 'https://github.com/kadampratikengg/votinghub.git',
+                    credentialsId: 'git'
+
+            }
+        }
+
+
+
+        stage('Create Environment Files') {
+
+            steps {
+
+                withCredentials([
+                    file(credentialsId: 'frontend-env', variable: 'FRONTEND_ENV'),
+                    file(credentialsId: 'backend-env', variable: 'BACKEND_ENV')
+                ]) {
+
+
+                    sh '''
+
+                    echo "Creating env files"
+
+                    rm -f frontend/.env
+                    rm -f backend/.env
+
+
+                    cp "$FRONTEND_ENV" frontend/.env
+                    cp "$BACKEND_ENV" backend/.env
+
+
+                    chmod 644 frontend/.env
+                    chmod 644 backend/.env
+
+
+                    echo "env created"
+
+                    '''
+
+                }
+            }
+        }
+
+
+
+
+        stage('Build Green Images') {
+
+            steps {
+
+                sh '''
+
+                echo "Building green version"
+
+
+                docker compose \
+                -f docker-compose-green.yml \
+                build
+
+
+                '''
+
+            }
+        }
+
+
+
+
+
+        stage('Deploy Green') {
+
+            steps {
+
+
+                sh '''
+
+                echo "Starting green containers"
+
+
+                docker compose \
+                -f docker-compose-green.yml \
+                up -d
+
+
+                '''
+
+            }
+        }
+
+
+
+
+
+        stage('Health Check') {
+
+            steps {
+
+
+                sh '''
+
+                echo "Waiting for containers..."
+
+                sleep 20
+
+
+                docker ps
+
+
+                echo "Checking backend"
+
+
+                docker exec backend-green \
+                wget -qO- http://localhost:5000/ || exit 1
+
+
+                echo "Green is healthy"
+
+
+                '''
+
+            }
+
+        }
+
+
+
+
+
+
+        stage('Switch Traffic To Green') {
+
+            steps {
+
+
+                sh '''
+
+                echo "Switch nginx to green"
+
+
+                sed -i \
+                's/frontend-blue/frontend-green/g;
+                 s/backend-blue/backend-green/g' \
+                 nginx/default.conf
+
+
+
+                docker exec $NGINX_CONTAINER \
+                nginx -s reload
+
+
+
+                echo "Traffic switched"
+
+                '''
+
+            }
+        }
+
+
+
+
+
+
+        stage('Remove Blue') {
+
+
+            steps {
+
+
+                sh '''
+
+                echo "Removing old blue containers"
+
+
+                docker compose \
+                -f docker-compose-blue.yml \
+                down || true
+
+
+
+                '''
+
+            }
+        }
+
+
+
+    }
+
+
+
+    post {
+
+
+        success {
+
+            echo "=============================="
+
+            echo " BLUE GREEN DEPLOY SUCCESS "
+
+            echo "=============================="
+
+        }
+
+
+
+        failure {
+
+
+            echo "Deployment failed"
+
+            echo "Rollback required"
+
+
+        }
+
+
+
+        always {
+
+
+            sh '''
+
+            echo "Containers"
+
+            docker ps
+
+
+            echo "Nginx"
+
+            docker exec votinghub-nginx nginx -t || true
+
+
+            '''
+
+        }
+
+    }
+
+}

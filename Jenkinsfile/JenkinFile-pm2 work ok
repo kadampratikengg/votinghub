@@ -1,0 +1,266 @@
+pipeline {
+    agent any
+
+    tools {
+        nodejs 'Node 20'
+    }
+
+    environment {
+        NODE_ENV = 'development'
+        PATH = "${tool 'Node 20'}/bin:${env.PATH}"
+    }
+
+
+    stages {
+
+
+        stage('Checkout Code') {
+            steps {
+                git branch: 'main',
+                    url: 'https://github.com/kadampratikengg/votinghub.git',
+                    credentialsId: 'git'
+            }
+        }
+
+
+
+        stage('Fix Workspace Permission') {
+            steps {
+                sh '''
+                    echo "Fixing Jenkins workspace permission..."
+
+                    sudo chown -R jenkins:jenkins $WORKSPACE || true
+                    sudo chmod -R 755 $WORKSPACE || true
+
+                    echo "Workspace permission fixed"
+                '''
+            }
+        }
+
+
+
+
+        stage('Create .env Files') {
+            steps {
+
+                withCredentials([
+                    file(credentialsId: 'frontend-env', variable: 'FRONTEND_ENV'),
+                    file(credentialsId: 'backend-env', variable: 'BACKEND_ENV')
+                ]) {
+
+                    sh '''
+                        echo "Cleaning old env files..."
+
+                        rm -f frontend/.env
+                        rm -f backend/.env
+
+
+                        echo "Creating new env files..."
+
+                        mkdir -p frontend backend
+
+
+                        cp "$FRONTEND_ENV" frontend/.env
+                        cp "$BACKEND_ENV" backend/.env
+
+
+                        chmod 644 frontend/.env
+                        chmod 644 backend/.env
+
+
+                        echo "========== FRONTEND ENV =========="
+                        cat frontend/.env
+
+
+                        echo "========== BACKEND ENV CREATED =========="
+
+                    '''
+                }
+            }
+        }
+
+
+
+
+
+        stage('Verify Node') {
+            steps {
+                sh '''
+                    node -v
+                    npm -v
+                '''
+            }
+        }
+
+
+
+
+
+        // ---------------- FRONTEND ----------------
+
+
+        stage('Install Frontend Dependencies') {
+
+            steps {
+
+                dir('frontend') {
+
+                    sh '''
+                        echo "Installing frontend packages..."
+
+                        npm ci
+
+                    '''
+                }
+            }
+        }
+
+
+
+
+        stage('Build Frontend') {
+
+            steps {
+
+                dir('frontend') {
+
+                    sh '''
+                        echo "Cleaning old frontend build..."
+
+                        rm -rf build
+                        rm -rf dist
+
+
+                        echo "Building frontend..."
+
+                        npm run build
+
+
+                        echo "Checking old Render URL..."
+
+                        grep -R "votinghub-7mjo.onrender.com" build dist || true
+
+
+                        echo "Frontend build completed"
+                    '''
+                }
+            }
+        }
+
+        // ---------------- BACKEND ----------------
+
+
+        stage('Install Backend Dependencies') {
+
+            steps {
+
+                dir('backend') {
+
+                    sh '''
+
+                        echo "Installing backend packages..."
+
+                        npm ci
+
+                    '''
+                }
+            }
+        }
+
+        stage('Run Backend Tests') {
+
+            steps {
+
+                dir('backend') {
+
+                    sh '''
+
+                        echo "Running backend tests..."
+
+                        npm test || true
+
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy Backend with PM2') {
+
+            steps {
+
+
+                dir('backend') {
+
+
+                    sh '''
+
+                        echo "Deploying backend using PM2..."
+
+
+
+                        pm2 reload server || pm2 start npm \
+                        --name server \
+                        -- start
+
+
+
+                        pm2 save
+
+
+                        echo "Backend deployed successfully"
+
+                    '''
+                }
+            }
+        }
+
+
+
+    }
+
+
+
+
+
+
+    post {
+
+
+        success {
+
+            echo 'Frontend build + Backend PM2 deployment successful!'
+        }
+
+
+
+        failure {
+
+            echo 'Pipeline failed. Check Jenkins console output.'
+        }
+
+
+
+
+
+        always {
+
+
+            sh '''
+
+                echo "============ PM2 STATUS ============"
+
+                pm2 status || true
+
+
+
+                echo "============ PM2 LOGS ============"
+
+                pm2 logs server --lines 20 --nostream || true
+
+
+            '''
+        }
+
+    }
+
+}
