@@ -4,6 +4,7 @@ import { FiCalendar, FiClock, FiImage, FiPlay, FiUsers } from 'react-icons/fi';
 import './Voting.css';
 import { resolveStoredAssetUrl, resolveStoredImageUrl } from '../utils/imageUrl';
 import { buildClientIpHeaders } from '../utils/clientIp';
+import { enterFullscreen } from '../utils/fullscreen';
 
 const hiddenCandidateKeys = new Set([
   'candidateImage',
@@ -185,6 +186,10 @@ const Voting = () => {
   );
 
   const ballots = useMemo(() => getBallots(event), [event]);
+  const handleStartVoting = useCallback(async () => {
+    await enterFullscreen();
+    navigate(`/voting/${eventId}/start`);
+  }, [eventId, navigate]);
 
   const getCandidateImage = (candidate, images, index) => {
     if (candidate?.candidateImage?.key || candidate?.candidateImage?.url) {
@@ -375,7 +380,7 @@ const Voting = () => {
           {hiddenState.open && accessInfo?.allowed !== false && (
             <button
               className='vote-primary-button'
-              onClick={() => navigate(`/voting/${eventId}/start`)}
+              onClick={handleStartVoting}
             >
               <FiPlay /> Start Voting
             </button>

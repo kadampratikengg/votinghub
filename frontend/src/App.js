@@ -182,14 +182,7 @@ const AppRoutes = ({ isAuthenticated, setIsAuthenticated, handleLogin }) => {
       />
       <Route
         path='/voting/:eventId/start'
-        element={
-          <ProtectedRoute
-            allowedRoles={['admin', 'subuser']}
-            requiredPermissions={['/voting/:eventId']}
-          >
-            <Start setIsAuthenticated={setIsAuthenticated} />
-          </ProtectedRoute>
-        }
+        element={<Start setIsAuthenticated={setIsAuthenticated} />}
       />
     </Routes>
   );

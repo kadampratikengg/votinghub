@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import './start.css';
 import { resolveStoredImageUrl } from '../utils/imageUrl';
 import { buildClientIpHeaders } from '../utils/clientIp';
+import { enterFullscreen, exitFullscreen } from '../utils/fullscreen';
 
 const getCandidateImage = (images, index) =>
   images?.find(
@@ -39,9 +40,11 @@ const getPreferredEntries = (record) => {
 
   const entries = Object.entries(record).filter(
     ([key]) =>
-      !['candidateImage', 'candidateRowIndex', 'candidateSelectionIndex'].includes(
-        key,
-      ) && !key.startsWith('__'),
+      ![
+        'candidateImage',
+        'candidateRowIndex',
+        'candidateSelectionIndex',
+      ].includes(key) && !key.startsWith('__'),
   );
   const findEntry = (patterns) =>
     entries.find(([key]) =>
@@ -101,7 +104,9 @@ const Start = () => {
   }, [eventId]);
 
   const canVote = useMemo(
-    () => !!eventData?.votingWindow?.isOpen && eventData?.votingAccess?.allowed !== false,
+    () =>
+      !!eventData?.votingWindow?.isOpen &&
+      eventData?.votingAccess?.allowed !== false,
     [eventData],
   );
 
@@ -110,7 +115,9 @@ const Start = () => {
     () =>
       ballots.filter(
         (ballot) =>
-          !completedBallotIds.includes(String(ballot.ballotId || ballot.id || 'main')),
+          !completedBallotIds.includes(
+            String(ballot.ballotId || ballot.id || 'main'),
+          ),
       ),
     [ballots, completedBallotIds],
   );
@@ -118,7 +125,8 @@ const Start = () => {
     if (currentBallotId) {
       return (
         ballots.find(
-          (ballot) => String(ballot.ballotId || ballot.id || 'main') === currentBallotId,
+          (ballot) =>
+            String(ballot.ballotId || ballot.id || 'main') === currentBallotId,
         ) || pendingBallots[0] || ballots[0] || null
       );
     }
@@ -142,6 +150,12 @@ const Start = () => {
   useEffect(() => {
     fetchEventData();
   }, [fetchEventData]);
+
+  useEffect(() => {
+    return () => {
+      void exitFullscreen();
+    };
+  }, []);
 
   const handleVerifyId = async () => {
     if (!canVote) {
@@ -252,12 +266,15 @@ const Start = () => {
         );
 
         if (nextBallot) {
-          setCurrentBallotId(String(nextBallot.ballotId || nextBallot.id || 'main'));
+          setCurrentBallotId(
+            String(nextBallot.ballotId || nextBallot.id || 'main'),
+          );
           setSelectedCandidate('');
           setHighlightedCandidate(null);
           setIsSubmitting(false);
           setVoteSubmitted(false);
           setShowVotePopup(true);
+          await enterFullscreen();
           return;
         }
 
@@ -272,6 +289,7 @@ const Start = () => {
           setCurrentBallotId('');
           setCompletedBallotIds([]);
           setIsSubmitting(false);
+          void exitFullscreen();
         }, 1000);
       } catch (err) {
         setError(err.message || 'Failed to submit vote');
@@ -280,18 +298,22 @@ const Start = () => {
       }
     };
 
-    // Try to play a beep sound, but don't block voting if it fails
     const playBeepAndContinue = async () => {
       try {
-        // Use Web Audio API for better cross-browser support
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextCtor) {
+          await handleVoteSubmission();
+          return;
+        }
+
+        const audioContext = new AudioContextCtor();
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
 
         oscillator.connect(gainNode);
         gainNode.connect(audioContext.destination);
 
-        oscillator.frequency.value = 800; // 800 Hz beep
+        oscillator.frequency.value = 800;
         oscillator.type = 'sine';
 
         gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
@@ -303,11 +325,12 @@ const Start = () => {
         oscillator.start(audioContext.currentTime);
         oscillator.stop(audioContext.currentTime + 0.1);
 
-        // Wait for beep to finish before submitting vote
         setTimeout(() => handleVoteSubmission(), 100);
       } catch (beepError) {
-        console.warn('Beep sound unavailable, proceeding with vote submission:', beepError);
-        // Continue with vote submission even if beep fails
+        console.warn(
+          'Beep sound unavailable, proceeding with vote submission:',
+          beepError,
+        );
         await handleVoteSubmission();
       }
     };
@@ -315,13 +338,16 @@ const Start = () => {
     playBeepAndContinue();
   };
 
-  const handleGoForVote = () => {
+  const handleGoForVote = async () => {
     if ((!pendingBallots || pendingBallots.length === 0) || !canVote) {
       return;
     }
-    setCurrentBallotId(String(pendingBallots[0].ballotId || pendingBallots[0].id || 'main'));
+    setCurrentBallotId(
+      String(pendingBallots[0].ballotId || pendingBallots[0].id || 'main'),
+    );
     setShowVoterDetails(false);
     setShowVotePopup(true);
+    await enterFullscreen();
   };
 
   if (loading) {
@@ -393,7 +419,8 @@ const Start = () => {
                   </h3>
                   {verificationResult.verified && (
                     <p className='already-voted-message'>
-                      Completed {completedBallotIds.length} of {ballots.length || 1} voting posts
+                      Completed {completedBallotIds.length} of {ballots.length || 1}{' '}
+                      voting posts
                     </p>
                   )}
                   {verificationResult.verified && verificationResult.rowData ? (
@@ -419,17 +446,13 @@ const Start = () => {
                           </tr>
                         </tbody>
                       </table>
-                      {verificationResult.verified &&
-                        pendingBallots.length > 0 && (
-                          <button
-                            onClick={handleGoForVote}
-                            className='go-vote-button'
-                          >
-                            {completedBallotIds.length > 0
-                              ? 'Continue Voting'
-                              : 'Go for Vote'}
-                          </button>
-                        )}
+                      {verificationResult.verified && pendingBallots.length > 0 && (
+                        <button onClick={handleGoForVote} className='go-vote-button'>
+                          {completedBallotIds.length > 0
+                            ? 'Continue Voting'
+                            : 'Go for Vote'}
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <p>No matching ID found in the Excel data.</p>
