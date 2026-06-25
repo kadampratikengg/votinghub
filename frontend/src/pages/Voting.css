@@ -65,6 +65,43 @@
   z-index: 1;
 }
 
+.vote-hero-identity {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.vote-org-logo {
+  width: 92px;
+  height: 92px;
+  object-fit: cover;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  flex: 0 0 auto;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.vote-image-placeholder {
+  width: 92px;
+  height: 92px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  color: rgba(255, 250, 240, 0.72);
+  background: rgba(255, 255, 255, 0.08);
+  flex: 0 0 auto;
+}
+
+.vote-org-name {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 250, 240, 0.9);
+}
+
 .vote-kicker {
   display: inline-flex;
   align-items: center;

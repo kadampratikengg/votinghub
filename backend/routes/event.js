@@ -1457,6 +1457,50 @@ router.put(
       const effectiveEndDateTime = new Date(
         nextEndDateTime.getTime() + currentBufferMinutes * 60 * 1000,
       );
+      const existingBallotCount = Math.max(
+        1,
+        Array.isArray(existingEvent.ballots) ? existingEvent.ballots.length : 0,
+      );
+      const updatedBallotCount = Math.max(
+        1,
+        Array.isArray(parsedBallots) ? parsedBallots.length : 0,
+      );
+      const creditsToDeduct = Math.max(
+        0,
+        updatedBallotCount - existingBallotCount,
+      );
+      const restoreEventData = existingEvent.toObject();
+      delete restoreEventData._id;
+      delete restoreEventData.__v;
+      let creditUser = null;
+      let availableVotingCredits = 0;
+      if (creditsToDeduct > 0) {
+        creditUser = await User.findById(req.user.userId);
+        if (!creditUser) {
+          return res.status(404).json({ message: 'User not found' });
+        }
+
+        const subscriptionExpired = normalizeSubscriptionForExpiry(
+          creditUser.subscription,
+          new Date(),
+        );
+        if (subscriptionExpired) {
+          await creditUser.save();
+        }
+
+        availableVotingCredits = getActiveRemainingCredits(
+          creditUser.subscription,
+        );
+        if (
+          !creditUser.subscription?.isValid ||
+          availableVotingCredits < creditsToDeduct
+        ) {
+          return res.status(402).json({
+            message:
+              'Not enough voting credits available to add more voting posts.',
+          });
+        }
+      }
 
       // Identify images to delete (supports S3 keys or legacy UUID fields)
       const existingImageKeys = new Set(
@@ -1563,9 +1607,38 @@ router.put(
       }
 
       console.log('✅ Event updated successfully:', event);
+      if (creditsToDeduct > 0 && creditUser) {
+        creditUser.subscription.votingCredits =
+          availableVotingCredits - creditsToDeduct;
+        creditUser.subscription.usedVotingCredits =
+          (creditUser.subscription.usedVotingCredits || 0) + creditsToDeduct;
+        creditUser.subscription.isValid =
+          creditUser.subscription.votingCredits > 0;
+
+        try {
+          await creditUser.save();
+        } catch (saveError) {
+          console.error(
+            'Failed to deduct voting credits after updating event, rolling back event:',
+            saveError,
+          );
+          await Event.updateOne(
+            { id: req.params.id, userId: req.user.userId },
+            { $set: restoreEventData },
+          );
+          return res.status(500).json({
+            message: 'Failed to deduct voting credits after event update',
+            error: saveError.message,
+          });
+        }
+      }
       res
         .status(200)
-        .json({ message: 'Event updated successfully', link: event.link });
+        .json({
+          message: 'Event updated successfully',
+          link: event.link,
+          creditsDeducted: creditsToDeduct,
+        });
     } catch (error) {
       console.error('❌ Error updating event:', error);
       res
@@ -1721,6 +1794,10 @@ router.delete(
       const currentTime = new Date();
       const shouldRestoreCredit =
         eventStartTime instanceof Date && currentTime < eventStartTime;
+      const creditsToRestore = Math.max(
+        1,
+        Array.isArray(event.ballots) ? event.ballots.length : 0,
+      );
       let restoredCredit = false;
       const votes = await Vote.find({ eventId: req.params.id }).lean();
       const voteSummary = getVoteSummary(votes);
@@ -1821,10 +1898,10 @@ router.delete(
             await user.save();
           } else {
             user.subscription.votingCredits =
-              (user.subscription.votingCredits || 0) + 1;
+              (user.subscription.votingCredits || 0) + creditsToRestore;
             user.subscription.usedVotingCredits = Math.max(
               0,
-              (user.subscription.usedVotingCredits || 0) - 1,
+              (user.subscription.usedVotingCredits || 0) - creditsToRestore,
             );
             user.subscription.isValid = user.subscription.votingCredits > 0;
             await user.save();
@@ -1837,6 +1914,7 @@ router.delete(
       res.status(200).json({
         message: 'Event deleted successfully',
         creditRestored: restoredCredit,
+        restoredCredits: restoredCredit ? creditsToRestore : 0,
       });
     } catch (error) {
       console.error('❌ Error deleting event:', error);

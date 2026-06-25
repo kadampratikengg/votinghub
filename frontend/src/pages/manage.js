@@ -36,6 +36,8 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const [eventCreated, setEventCreated] = useState(false);
   const [activeEvents, setActiveEvents] = useState([]);
   const [editingEventId, setEditingEventId] = useState(null);
+  const [editingOriginalBallotCount, setEditingOriginalBallotCount] =
+    useState(0);
   const [candidateImages, setCandidateImages] = useState({});
   const [eventId, setEventId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -308,6 +310,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
     setGeneratedLink('');
     setEventCreated(false);
     setEditingEventId(null);
+    setEditingOriginalBallotCount(0);
     setCandidateImages({});
     setEventId(null);
   };
@@ -538,6 +541,11 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       );
       setShowEventForm(true);
       setEditingEventId(eventId);
+      setEditingOriginalBallotCount(
+        Array.isArray(eventToEdit.ballots) && eventToEdit.ballots.length > 0
+          ? eventToEdit.ballots.length
+          : 1,
+      );
       setEventId(eventId);
 
       const images = {};
@@ -926,9 +934,16 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       return;
     }
 
-    if (!editingEventId && availableCredits < ballotPayloads.length) {
+    const originalBallotCount = editingEventId
+      ? Math.max(1, editingOriginalBallotCount || 1)
+      : 0;
+    const creditsNeeded = editingEventId
+      ? Math.max(0, ballotPayloads.length - originalBallotCount)
+      : ballotPayloads.length;
+
+    if (availableCredits < creditsNeeded) {
       alert(
-        `You need ${ballotPayloads.length} voting credits for ${ballotPayloads.length} voting posts.`,
+        `You need ${creditsNeeded} voting credits for ${creditsNeeded} additional voting posts.`,
       );
       navigate('/planspage');
       return;
@@ -1043,9 +1058,9 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
       setGeneratedLink(result.link || eventDetails.link);
       setEventCreated(true);
-      if (!editingEventId) {
+      if (creditsNeeded > 0) {
         setAvailableCredits((prev) =>
-          Math.max(0, prev - ballotPayloads.length),
+          Math.max(0, prev - creditsNeeded),
         );
       }
       fetchUserSubscription();

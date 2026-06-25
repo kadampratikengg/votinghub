@@ -472,15 +472,35 @@ const Result = () => {
   if (!isVotingComplete) {
     return (
       <main className='result-shell'>
-        <section className='result-hero'>
-          <span className='result-kicker'>
-            <FiClock /> Results Pending
-          </span>
-          <h1>{event.name}</h1>
-          <p>
-            Voting is still running. Results will be available after{' '}
-            {event.stopTime} on {event.date}.
-          </p>
+        <section className='result-hero' data-result-export-section='overview'>
+          <div>
+            <div className='result-hero-identity'>
+              {orgLogo ? (
+                <img
+                  src={orgLogo}
+                  alt={orgName || 'Organization logo'}
+                  className='result-org-logo'
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                  }}
+                />
+              ) : (
+                <span className='result-image-placeholder'>
+                  <FiImage />
+                </span>
+              )}
+              <div>
+                <span className='result-kicker'>
+                  <FiClock /> Results Pending
+                </span>
+                <h1>{orgName || event.name}</h1>
+              </div>
+            </div>
+            <p>
+              Voting is still running. Results will be available after{' '}
+              {event.stopTime} on {event.date}.
+            </p>
+          </div>
         </section>
       </main>
     );

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { FiCalendar, FiClock, FiImage, FiPlay, FiUsers } from 'react-icons/fi';
 import './Voting.css';
-import { resolveStoredImageUrl } from '../utils/imageUrl';
+import { resolveStoredAssetUrl, resolveStoredImageUrl } from '../utils/imageUrl';
 import { buildClientIpHeaders } from '../utils/clientIp';
 
 const hiddenCandidateKeys = new Set([
@@ -34,6 +34,41 @@ const getBallots = (event) =>
         ]
       : [];
 
+const getOrganizationDetails = (event, currentUser, apiUrl, s3BucketUrl) => {
+  const orgObjectSource =
+    event?.profile ||
+    event?.owner ||
+    event?.createdBy ||
+    event?.user ||
+    currentUser ||
+    null;
+
+  const orgName =
+    event?.organizationName ||
+    event?.orgName ||
+    event?.ownerName ||
+    (typeof event?.organization === 'string' ? event.organization : '') ||
+    orgObjectSource?.organization ||
+    orgObjectSource?.organisation ||
+    orgObjectSource?.name ||
+    '';
+
+  const orgLogoSource =
+    orgObjectSource?.logo ||
+    orgObjectSource?.organizationLogo ||
+    orgObjectSource?.logoPreview ||
+    orgObjectSource?.logoPreviewUrl ||
+    event?.organizationLogo ||
+    event?.logo ||
+    currentUser?.logo ||
+    null;
+
+  return {
+    orgName,
+    orgLogo: resolveStoredAssetUrl(orgLogoSource, s3BucketUrl, apiUrl),
+  };
+};
+
 const Voting = () => {
   const { eventId } = useParams();
   const navigate = useNavigate();
@@ -42,7 +77,18 @@ const Voting = () => {
   const [error, setError] = useState(null);
   const [accessInfo, setAccessInfo] = useState(null);
   const [bufferHistory, setBufferHistory] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
   const s3BucketUrl = process.env.REACT_APP_S3_BUCKET_URL;
+  const { orgName, orgLogo } = useMemo(
+    () =>
+      getOrganizationDetails(
+        event,
+        currentUser,
+        process.env.REACT_APP_API_URL,
+        s3BucketUrl,
+      ),
+    [currentUser, event, s3BucketUrl],
+  );
 
   const fetchEvent = useCallback(async () => {
     try {
@@ -66,6 +112,27 @@ const Voting = () => {
 
       setEvent(data);
       setAccessInfo(data.votingAccess || null);
+
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          const profileResp = await fetch(
+            `${process.env.REACT_APP_API_URL}/api/users`,
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+            },
+          );
+          if (profileResp.ok) {
+            const profileData = await profileResp.json().catch(() => null);
+            if (profileData) setCurrentUser(profileData);
+          }
+        } catch (err) {
+          console.warn('Failed to fetch current user for voting header', err);
+        }
+      }
 
       // fetch public buffer history for this event
       try {
@@ -176,11 +243,28 @@ const Voting = () => {
     <main className='vote-public-shell'>
       <section className='vote-hero'>
         <div>
-          <span className='vote-kicker'>
-            <FiUsers /> Voting Event
-          </span>
-          <h1>{event.name}</h1>
-          <p>{event.description}</p>
+          <div className='vote-hero-identity'>
+            {orgLogo ? (
+              <img
+                src={orgLogo}
+                alt={orgName || 'Organization logo'}
+                className='vote-org-logo'
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+            ) : (
+              <span className='vote-image-placeholder'>
+                <FiImage />
+              </span>
+            )}
+            <div>
+              <span className='vote-kicker'>
+                <FiUsers /> Voting Event
+              </span>
+              <h1>{orgName || event.name}</h1>
+            </div>
+          </div>
         </div>
         <div className='vote-hero-card'>
           <span>
