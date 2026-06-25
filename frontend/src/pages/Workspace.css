@@ -387,6 +387,17 @@
   font-weight: 900;
 }
 
+.work-event-status {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.work-event-status strong,
+.work-event-status span {
+  display: block;
+}
+
 .work-link {
   display: inline-flex;
   align-items: center;
@@ -501,6 +512,8 @@
 .work-table-wrap--builder {
   margin-top: 4px;
   padding: 14px;
+  max-height: 48vh;
+  overflow: auto;
 }
 
 .work-table {

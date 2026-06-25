@@ -47,6 +47,26 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
   const navigate = useNavigate();
   const role = localStorage.getItem('role') || 'admin';
 
+  const getTodayDate = () => {
+    const now = new Date();
+    return now.toISOString().slice(0, 10);
+  };
+
+  const getCurrentTime = () => {
+    const now = new Date();
+    const pad = (value) => String(value).padStart(2, '0');
+    return `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  };
+
+  const isDateToday = (dateValue) => dateValue === getTodayDate();
+
+  const minStartTime = isDateToday(eventDate) ? getCurrentTime() : undefined;
+  const minStopTime = isDateToday(eventDate)
+    ? startTime && startTime > getCurrentTime()
+      ? startTime
+      : getCurrentTime()
+    : startTime || undefined;
+
   const [popup, setPopup] = useState({
     visible: false,
     title: '',
@@ -916,6 +936,22 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
     const start = new Date(`${eventDate}T${startTime}`);
     const stop = new Date(`${eventDate}T${stopTime}`);
+    const now = new Date();
+    const selectedStart = new Date(`${eventDate}T${startTime}`);
+    const selectedStop = new Date(`${eventDate}T${stopTime}`);
+
+    if (selectedStart < now) {
+      alert(
+        'Start time must be in the future. Please choose a valid date and time.',
+      );
+      return;
+    }
+    if (selectedStop < now) {
+      alert(
+        'Stop time must be in the future. Please choose a valid date and time.',
+      );
+      return;
+    }
 
     if (stop <= start) {
       alert('Stop time must be greater than Start time.');
@@ -1208,9 +1244,8 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                 </button>
               </div>
             ) : (
-              
               <form onSubmit={handleEventFormSubmit} className='work-form'>
-              <div className='work-upload-box'>
+                <div className='work-upload-box'>
                   <div>
                     <span>
                       <FiUploadCloud /> Upload Voters Excel File
@@ -1233,16 +1268,13 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                   </a>
                 </div>
                 <div className='work-form-grid'>
-
-
-
-
                   <label className='work-field'>
                     <span>Voting Date</span>
                     <input
                       type='date'
                       value={eventDate}
                       onChange={(e) => setEventDate(e.target.value)}
+                      min={getTodayDate()}
                       required
                     />
                   </label>
@@ -1252,6 +1284,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                       type='time'
                       value={startTime}
                       onChange={(e) => setStartTime(e.target.value)}
+                      min={minStartTime}
                       required
                     />
                   </label>
@@ -1261,6 +1294,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                       type='time'
                       value={stopTime}
                       onChange={(e) => setStopTime(e.target.value)}
+                      min={minStopTime}
                       required
                     />
                   </label>
