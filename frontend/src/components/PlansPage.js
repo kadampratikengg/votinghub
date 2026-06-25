@@ -193,8 +193,11 @@ const PlansPage = () => {
 
       {/* WhatsApp floating button (only on PlansPage) */}
       {(() => {
-        const waNumber = process.env.REACT_APP_WA_NUMBER;
+        const waNumber = process.env.REACT_APP_WA_NUMBER || '';
         const sanitized = waNumber.replace(/[^0-9]/g, '');
+        if (!sanitized) {
+          return null;
+        }
         const waUrl = `https://wa.me/${sanitized}`;
         return (
           <a
