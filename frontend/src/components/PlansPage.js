@@ -7,6 +7,7 @@ import {
   FiTrendingDown,
   FiZap,
 } from 'react-icons/fi';
+import { FaWhatsapp } from 'react-icons/fa';
 import { initiatePayment } from './razorpay';
 import './PlansPage.css';
 
@@ -108,17 +109,16 @@ const PlansPage = () => {
           <span className='plans-kicker'>
             <FiShield /> Voting Credit Plans
           </span>
-          <h1>Pay per voting event, not per month.</h1>
+          <h1>Pay per voting Post, not per month.</h1>
           <p>
-            Every new account includes <strong>2 free voting credits</strong>.
-            After that, buy voting credits as needed. One credit creates one
-            voting event with government-standard workflow support.
+            Buy voting credits as needed. One credit creates one voting Post
+            with government-standard workflow support.
           </p>
         </div>
         <div className='plans-free-card'>
           <FiZap />
-          <strong>2 Free Voting Credits</strong>
-          <span>Included for every new user account.</span>
+          <strong>Flexible Credits</strong>
+          <span>Buy credits as needed: 1 credit = 1 voting Post.</span>
         </div>
       </section>
 
@@ -164,14 +164,14 @@ const PlansPage = () => {
                   <strong>{formatCurrency(pricedPlan.total)}</strong>
                 </div>
                 <div>
-                  <span>Effective per voting</span>
+                  <span>Effective per voting Post</span>
                   <strong>{formatCurrency(pricePerVoting)}</strong>
                 </div>
               </div>
 
               <ul className='plan-features'>
                 <li>
-                  <FiCheckCircle /> 1 credit = 1 voting event
+                  <FiCheckCircle /> 1 credit = 1 voting Post
                 </li>
                 <li>
                   <FiCheckCircle /> Credits valid for 365 days
@@ -190,6 +190,39 @@ const PlansPage = () => {
       </section>
 
       {errorMessage && <p className='plans-error'>{errorMessage}</p>}
+
+      {/* WhatsApp floating button (only on PlansPage) */}
+      {(() => {
+        const waNumber = process.env.REACT_APP_WA_NUMBER;
+        const sanitized = waNumber.replace(/[^0-9]/g, '');
+        const waUrl = `https://wa.me/${sanitized}`;
+        return (
+          <a
+            href={waUrl}
+            target='_blank'
+            rel='noopener noreferrer'
+            aria-label='Contact on WhatsApp'
+            style={{
+              position: 'fixed',
+              right: 18,
+              bottom: 18,
+              backgroundColor: '#25D366',
+              color: '#fff',
+              width: 56,
+              height: 56,
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 6px 18px rgba(37,211,102,0.24)',
+              zIndex: 9999,
+              textDecoration: 'none',
+            }}
+          >
+            <FaWhatsapp size={24} />
+          </a>
+        );
+      })()}
     </main>
   );
 };
