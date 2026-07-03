@@ -1,9 +1,9 @@
 // server.js
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const connectDB = require('./config/db');
@@ -48,11 +48,10 @@ if (!fs.existsSync(uploadPath)) {
 // Middleware
 // Use DEFAULT_ALLOWED_ORIGINS from .env if configured, otherwise fall back to the local/production app origins.
 const defaultAllowedOrigins = process.env.DEFAULT_ALLOWED_ORIGINS
-  ? process.env.DEFAULT_ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
-  : [
-      'http://localhost:3000',
-      'https://votinghub-sigma.vercel.app',
-    ];
+  ? process.env.DEFAULT_ALLOWED_ORIGINS.split(',')
+      .map((o) => o.trim())
+      .filter(Boolean)
+  : ['http://localhost:3000', 'https://votinghub-sigma.vercel.app'];
 
 const configuredAllowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',')
@@ -166,5 +165,10 @@ app.listen(PORT, () => {
     GOOGLE_CLIENT_SECRET: !!process.env.GOOGLE_CLIENT_SECRET,
     JWT_SECRET: !!process.env.JWT_SECRET,
     FRONTEND_URL: !!process.env.FRONTEND_URL,
+    RAZORPAY_KEY_ID: !!process.env.RAZORPAY_KEY_ID,
+    RAZORPAY_KEY_SECRET: !!process.env.RAZORPAY_KEY_SECRET,
+    CASHFREE_APP_ID: !!process.env.CASHFREE_APP_ID,
+    CASHFREE_SECRET_KEY: !!process.env.CASHFREE_SECRET_KEY,
+    CASHFREE_ENV: !!process.env.CASHFREE_ENV,
   });
 });

@@ -31,6 +31,9 @@ const userSchema = new mongoose.Schema({
     amount: { type: Number },
     paymentId: { type: String },
     orderId: { type: String },
+    paymentStatus: { type: String, default: 'pending' },
+    paymentProvider: { type: String },
+    verifiedAt: { type: Date },
   },
   subscriptionHistory: [
     {
@@ -46,6 +49,9 @@ const userSchema = new mongoose.Schema({
       amount: { type: Number },
       paymentId: { type: String },
       orderId: { type: String },
+      paymentStatus: { type: String, default: 'pending' },
+      paymentProvider: { type: String },
+      verifiedAt: { type: Date },
     },
   ],
   subUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'SubUser' }], // Reference to SubUser model

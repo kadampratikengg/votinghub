@@ -3,7 +3,7 @@ import axios from 'axios';
 import Sidebar from './Sidebar';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   FiBriefcase,
   FiCalendar,
@@ -21,6 +21,11 @@ import {
 } from 'react-icons/fi';
 import './Profile.css';
 import { resolveStoredAssetUrl } from '../utils/imageUrl';
+import {
+  finalizeCashfreePayment,
+  finalizeRazorpayPayment,
+  getPendingPaymentSession,
+} from '../components/razorpay';
 
 const Profile = ({ setIsAuthenticated }) => {
   const [userData, setUserData] = useState({
@@ -51,8 +56,12 @@ const Profile = ({ setIsAuthenticated }) => {
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [updatingLogo, setUpdatingLogo] = useState(false);
+  const [paymentNotice, setPaymentNotice] = useState(null);
   const apiUrl = process.env.REACT_APP_API_URL;
   const s3BucketUrl = process.env.REACT_APP_S3_BUCKET_URL;
+  const location = useLocation();
+  const paymentNoticeHandledRef = useRef(false);
+  const paymentVerificationHandledRef = useRef(false);
   const ipRestrictionDraftRef = useRef({
     ipRestrictionEnabled: false,
     allowedIp: '',
@@ -194,6 +203,112 @@ const Profile = ({ setIsAuthenticated }) => {
     };
     fetchUserData();
   }, [navigate]);
+
+  useEffect(() => {
+    const paymentState = location.state || null;
+    if (!paymentState || paymentNoticeHandledRef.current) {
+      return;
+    }
+
+    const { paymentStatus, paymentMessage } = paymentState;
+    if (!paymentStatus || !paymentMessage) {
+      return;
+    }
+
+    paymentNoticeHandledRef.current = true;
+    const nextNotice = {
+      type: paymentStatus,
+      text: paymentMessage,
+    };
+    setPaymentNotice(nextNotice);
+
+    if (paymentStatus === 'success') {
+      toast.success(paymentMessage);
+    } else if (paymentStatus === 'pending') {
+      toast.info(paymentMessage);
+    } else {
+      toast.error(paymentMessage);
+    }
+  }, [location.state]);
+
+  useEffect(() => {
+    const pendingPayment = getPendingPaymentSession();
+    const queryParams = new URLSearchParams(location.search || '');
+    const paymentProvider =
+      queryParams.get('paymentProvider') || queryParams.get('provider') || '';
+    const orderId =
+      queryParams.get('order_id') ||
+      queryParams.get('orderId') ||
+      pendingPayment.orderId ||
+      '';
+    const normalizedProvider =
+      (paymentProvider || pendingPayment.provider || 'razorpay').toLowerCase();
+
+    if (!orderId || paymentVerificationHandledRef.current) {
+      return;
+    }
+
+    paymentVerificationHandledRef.current = true;
+
+    const handleResult = ({ paymentStatus, paymentMessage }) => {
+      const nextNotice = {
+        type: paymentStatus,
+        text: paymentMessage,
+      };
+      setPaymentNotice(nextNotice);
+
+      if (paymentStatus === 'success') {
+        toast.success(paymentMessage);
+      } else if (paymentStatus === 'pending') {
+        toast.info(paymentMessage);
+      } else {
+        toast.error(paymentMessage);
+      }
+    };
+
+    const paymentResponse =
+      normalizedProvider === 'cashfree'
+        ? {
+            order_id: orderId,
+            payment_status:
+              queryParams.get('payment_status') ||
+              queryParams.get('order_status') ||
+              '',
+            order_status:
+              queryParams.get('order_status') ||
+              queryParams.get('payment_status') ||
+              '',
+            payment_id:
+              queryParams.get('payment_id') ||
+              queryParams.get('cf_payment_id') ||
+              '',
+            signature:
+              queryParams.get('signature') ||
+              queryParams.get('cf_signature') ||
+              '',
+          }
+        : null;
+
+    if (normalizedProvider === 'cashfree') {
+      finalizeCashfreePayment(
+        orderId,
+        setMessage,
+        setLoading,
+        navigate,
+        handleResult,
+        paymentResponse,
+      );
+      return;
+    }
+
+    finalizeRazorpayPayment(
+      orderId,
+      setMessage,
+      setLoading,
+      navigate,
+      handleResult,
+    );
+  }, [location.search, navigate]);
 
   const detectIpAddress = async () => {
     // Require the user to enable IP restriction before detecting
@@ -479,6 +594,16 @@ const Profile = ({ setIsAuthenticated }) => {
       : []),
     ...(userData.subscriptionHistory || []),
   ];
+  const sortedSubscriptions = [...allSubscriptions].sort((a, b) => {
+    const aDate = new Date(a.startDate || a.endDate || 0).getTime();
+    const bDate = new Date(b.startDate || b.endDate || 0).getTime();
+    return bDate - aDate;
+  });
+  const paymentNoticeClass = paymentNotice
+    ? paymentNotice.type === 'failed'
+      ? 'profile-alert--error'
+      : `profile-alert--${paymentNotice.type}`
+    : '';
 
   return (
     <div className='work-shell profile-shell'>
@@ -522,6 +647,11 @@ const Profile = ({ setIsAuthenticated }) => {
         {loading && (
           <div className='profile-alert profile-alert--info'>
             Loading profile...
+          </div>
+        )}
+        {paymentNotice && (
+          <div className={`profile-alert ${paymentNoticeClass}`}>
+            {paymentNotice.text}
           </div>
         )}
         {message && (
@@ -914,7 +1044,7 @@ const Profile = ({ setIsAuthenticated }) => {
             </div>
           </div>
         </section>
-{/*  */}
+        {/*  */}
         <section className='profile-card profile-history-card'>
           <div className='profile-card__header'>
             <div>
@@ -922,66 +1052,65 @@ const Profile = ({ setIsAuthenticated }) => {
               <h2>Subscription History</h2>
             </div>
           </div>
-          <div className='profile-history-grid'>
-            {allSubscriptions.length > 0 ? (
-              allSubscriptions.map((sub, index) => (
-                <article
-                  key={`${sub.paymentId || 'subscription'}-${index}`}
-                  className='profile-subscription-item'
-                >
-                  <div className='profile-subscription-item__top'>
-                    <span>{sub.planDuration || 'Subscription'}</span>
-                    <strong
-                      className={
-                        !isExpiredByDate(sub.endDate)
-                          ? 'is-active'
-                          : 'is-expired'
-                      }
+          <div className='profile-history-table-wrapper'>
+            {sortedSubscriptions.length > 0 ? (
+              <table className='profile-history-table'>
+                <thead>
+                  <tr>
+                    <th>Plan</th>
+                    <th>Status</th>
+                    <th>Start</th>
+                    <th>End</th>
+                    <th>Amount</th>
+                    <th>Credits</th>
+                    <th>Used</th>
+                    <th>Order ID</th>
+                    <th>Invoice</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedSubscriptions.map((sub, index) => (
+                    <tr
+                      key={`${sub.paymentId || 'subscription'}-${index}`}
+                      className='profile-history-row'
                     >
-                      {getSubscriptionStatus(
-                        sub,
-                        sub === userData.subscription,
-                      )}
-                    </strong>
-                  </div>
-                  <dl>
-                    <div>
-                      <dt>Start</dt>
-                      <dd>{formatDate(sub.startDate)}</dd>
-                    </div>
-                    <div>
-                      <dt>End</dt>
-                      <dd>{formatDate(sub.endDate)}</dd>
-                    </div>
-                    <div>
-                      <dt>Amount</dt>
-                      <dd>{formatAmount(sub.amount)}</dd>
-                    </div>
-                    <div>
-                      <dt>Credits</dt>
-                      <dd>{sub.votingCredits || 0}</dd>
-                    </div>
-                    <div>
-                      <dt>Used</dt>
-                      <dd>{sub.usedVotingCredits || 0}</dd>
-                    </div>
-                    <div>
-                      <dt>Payment ID</dt>
-                      <dd>{sub.paymentId || 'Not set'}</dd>
-                    </div>
-                    <div>
-                      <dt>Order ID</dt>
-                      <dd>{sub.orderId || 'Not set'}</dd>
-                    </div>
-                  </dl>
-                  <button
-                    onClick={() => handleDownloadInvoice(sub)}
-                    className='profile-icon-button profile-icon-button--ghost'
-                  >
-                    <FiDownload /> Download Invoice
-                  </button>
-                </article>
-              ))
+                      <td data-label='Plan'>
+                        {sub.planDuration || 'Subscription'}
+                      </td>
+                      <td data-label='Status'>
+                        <span
+                          className={`profile-history-status ${
+                            !isExpiredByDate(sub.endDate)
+                              ? 'is-active'
+                              : 'is-expired'
+                          }`}
+                        >
+                          {getSubscriptionStatus(
+                            sub,
+                            sub === userData.subscription,
+                          )}
+                        </span>
+                      </td>
+                      <td data-label='Start'>{formatDate(sub.startDate)}</td>
+                      <td data-label='End'>{formatDate(sub.endDate)}</td>
+                      <td data-label='Amount'>{formatAmount(sub.amount)}</td>
+                      <td data-label='Credits'>{sub.votingCredits || 0}</td>
+                      <td data-label='Used'>{sub.usedVotingCredits || 0}</td>
+                      <td data-label='Order ID'>{sub.orderId || 'Not set'}</td>
+                      <td data-label='Invoice'>
+                        <button
+                          type='button'
+                          onClick={() => handleDownloadInvoice(sub)}
+                          className='profile-icon-button profile-icon-button--ghost profile-history-invoice-button'
+                          title='Download invoice'
+                        >
+                          <FiDownload />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             ) : (
               <div className='profile-empty-state'>
                 No subscription history available.

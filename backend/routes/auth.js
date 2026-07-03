@@ -23,6 +23,14 @@ const router = express.Router();
 // Configure multer for FormData
 const upload = multer();
 
+const hasVerifiedOrder = (user, orderId) => {
+  if (!user || !orderId) return false;
+  if (user.subscription?.orderId === orderId) return true;
+  return (user.subscriptionHistory || []).some(
+    (subscription) => subscription.orderId === orderId,
+  );
+};
+
 let razorpay;
 try {
   razorpay = new Razorpay({
@@ -32,6 +40,22 @@ try {
 } catch (error) {
   console.error('❌ Razorpay initialization failed:', error.message);
 }
+
+const getRazorpayErrorData = (error) => {
+  if (!error) return {};
+  const responseData = error.response?.data || error.error || {};
+  const description =
+    responseData.description ||
+    responseData.error_description ||
+    responseData.message ||
+    responseData.error ||
+    error.message ||
+    '';
+  return {
+    message: description,
+    raw: responseData,
+  };
+};
 
 // Helper function to generate a unique username
 const generateUniqueUsername = async (baseUsername) => {
@@ -47,15 +71,57 @@ const generateUniqueUsername = async (baseUsername) => {
 const DEFAULT_FRONTEND_URL = 'http://localhost:3000';
 const GOOGLE_OAUTH_SCOPE = 'openid email profile';
 
+const firstUrlValue = (value) => {
+  if (!value) return '';
+  return String(value)
+    .split(',')
+    .map((entry) => entry.trim())
+    .find(Boolean);
+};
+
 const getGoogleClientId = () =>
   process.env.GOOGLE_CLIENT_ID || process.env.REACT_APP_GOOGLE_CLIENT_ID;
 
 const getGoogleClientSecret = () =>
-  process.env.GOOGLE_CLIENT_SECRET || process.env.REACT_APP_GOOGLE_CLIENT_SECRET;
+  process.env.GOOGLE_CLIENT_SECRET ||
+  process.env.REACT_APP_GOOGLE_CLIENT_SECRET;
+
+const getCashfreeBaseUrl = () =>
+  (
+    process.env.CASHFREE_BASE_URL ||
+    (String(process.env.CASHFREE_ENV || '').toLowerCase() === 'sandbox'
+      ? 'https://sandbox.cashfree.com'
+      : 'https://api.cashfree.com')
+  ).replace(/\/$/, '');
+
+const getCashfreeHeaders = () => ({
+  'x-client-id': process.env.CASHFREE_APP_ID || '',
+  'x-client-secret': process.env.CASHFREE_SECRET_KEY || '',
+  'x-api-version': process.env.CASHFREE_API_VERSION || '2023-08-01',
+  'Content-Type': 'application/json',
+});
+
+const fetchCashfreeOrderDetails = async (orderId) => {
+  const response = await axios.get(
+    `${getCashfreeBaseUrl()}/pg/orders/${encodeURIComponent(orderId)}`,
+    { headers: getCashfreeHeaders() },
+  );
+  return response?.data?.data || response?.data || {};
+};
+
+const isCashfreeSuccessfulStatus = (status) => {
+  const normalized = String(status || '')
+    .trim()
+    .toLowerCase();
+  return ['paid', 'success', 'successful', 'completed', 'complete'].includes(
+    normalized,
+  );
+};
 
 const getFrontendRedirect = (req) => {
   if (req.query.redirect) return req.query.redirect;
-  if (process.env.FRONTEND_URL) return process.env.FRONTEND_URL;
+  const configuredFrontendUrl = firstUrlValue(process.env.FRONTEND_URL);
+  if (configuredFrontendUrl) return configuredFrontendUrl.replace(/\/$/, '');
   if (req.get('origin')) return req.get('origin');
   if (req.get('referer')) {
     try {
@@ -80,12 +146,12 @@ const getPublicBackendBaseUrl = (req) => {
     try {
       const redirectOrigin = new URL(process.env.GOOGLE_REDIRECT_URI).origin;
       const host = req.get('x-forwarded-host') || req.get('host');
-      const isLocalRedirect = /(^localhost(:\d+)?$)|(^127\.0\.0\.1(:\d+)?$)/i.test(
-        new URL(process.env.GOOGLE_REDIRECT_URI).hostname,
-      );
-      const isLocalRequest = /(^localhost(:\d+)?$)|(^127\.0\.0\.1(:\d+)?$)/i.test(
-        host || '',
-      );
+      const isLocalRedirect =
+        /(^localhost(:\d+)?$)|(^127\.0\.0\.1(:\d+)?$)/i.test(
+          new URL(process.env.GOOGLE_REDIRECT_URI).hostname,
+        );
+      const isLocalRequest =
+        /(^localhost(:\d+)?$)|(^127\.0\.0\.1(:\d+)?$)/i.test(host || '');
 
       if (isLocalRedirect && !isLocalRequest) {
         console.warn(
@@ -104,7 +170,10 @@ const getPublicBackendBaseUrl = (req) => {
   }
 
   if (process.env.BACKEND_PUBLIC_URL) {
-    return process.env.BACKEND_PUBLIC_URL.replace(/\/$/, '');
+    const configuredBackendUrl = firstUrlValue(process.env.BACKEND_PUBLIC_URL);
+    if (configuredBackendUrl) {
+      return configuredBackendUrl.replace(/\/$/, '');
+    }
   }
 
   if (process.env.RENDER_EXTERNAL_HOSTNAME) {
@@ -117,7 +186,10 @@ const getPublicBackendBaseUrl = (req) => {
 
   if (process.env.REACT_APP_API_URL) {
     try {
-      return new URL(process.env.REACT_APP_API_URL).origin;
+      const configuredApiUrl = firstUrlValue(process.env.REACT_APP_API_URL);
+      if (configuredApiUrl) {
+        return new URL(configuredApiUrl).origin;
+      }
     } catch (error) {
       console.warn('Invalid REACT_APP_API_URL for Google redirect URI', {
         value: process.env.REACT_APP_API_URL,
@@ -133,7 +205,9 @@ const getPublicBackendBaseUrl = (req) => {
 
   const forwardedProto =
     (req.get('x-forwarded-proto') || '').split(',')[0].trim() || req.protocol;
-  const isLocalhost = /(^localhost(:\d+)?$)|(^127\.0\.0\.1(:\d+)?$)/i.test(host);
+  const isLocalhost = /(^localhost(:\d+)?$)|(^127\.0\.0\.1(:\d+)?$)/i.test(
+    host,
+  );
   const protocol =
     isLocalhost || forwardedProto === 'https' ? forwardedProto : 'https';
 
@@ -147,7 +221,6 @@ const getGoogleRedirectUri = (req) => {
       if (configured.pathname && configured.pathname !== '/') {
         return process.env.GOOGLE_REDIRECT_URI.replace(/\/$/, '');
       }
-      return `${configured.origin}/auth/google/callback`;
     } catch (error) {
       console.warn('Invalid GOOGLE_REDIRECT_URI configured', {
         value: process.env.GOOGLE_REDIRECT_URI,
@@ -523,7 +596,8 @@ router.get('/auth/google/callback', async (req, res) => {
     );
 
     // Redirect back to frontend with token in query string
-    const redirectTo = state || process.env.FRONTEND_URL || DEFAULT_FRONTEND_URL;
+    const redirectTo =
+      state || process.env.FRONTEND_URL || DEFAULT_FRONTEND_URL;
     const redirectUrl = appendQueryParams(redirectTo, {
       token,
       userId: user._id,
@@ -765,32 +839,186 @@ router.post('/create-account', upload.none(), async (req, res) => {
 
 // Create Razorpay Order
 router.post('/create-order', express.json(), async (req, res) => {
-  const { amount, currency } = req.body;
+  const { amount, currency, userId, email } = req.body;
   try {
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+      console.error(
+        '❌ Razorpay order creation failed: missing Razorpay credentials',
+      );
+      return res.status(500).json({
+        message: 'Razorpay credentials are not configured',
+      });
+    }
+
+    if (!razorpay) {
+      return res.status(500).json({
+        message: 'Razorpay is not configured on the backend',
+      });
+    }
+
+    const amountValue = Number(amount);
+    if (!Number.isFinite(amountValue) || amountValue < 1) {
+      return res.status(400).json({
+        message: 'amount must be a positive number in paise',
+      });
+    }
+
+    const user = userId ? await User.findById(userId) : null;
     const options = {
-      amount,
+      amount: Math.round(amountValue),
       currency: currency || 'INR',
       receipt: `receipt_${Date.now()}`,
       payment_capture: 1,
+      notes: {
+        userId: String(user?._id || userId || ''),
+        email: String(user?.email || email || ''),
+      },
     };
+
     const order = await razorpay.orders.create(options);
     res.status(200).json({
       order_id: order.id,
       amount: order.amount,
       currency: order.currency,
+      key_id: process.env.RAZORPAY_KEY_ID || '',
     });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to create order' });
+    const razorpayError = getRazorpayErrorData(error);
+    console.error('❌ Razorpay order creation failed:', razorpayError.message);
+    res.status(error?.response?.status || 500).json({
+      message: 'Failed to create order',
+      details: razorpayError.message || 'Razorpay order creation failed',
+      raw: razorpayError.raw,
+    });
+  }
+});
+
+// Create Cashfree Payment Link
+router.post('/create-cashfree-order', express.json(), async (req, res) => {
+  const {
+    amount,
+    currency,
+    userId,
+    email,
+    planDuration,
+    validityDays,
+    votingCredits,
+    mrp,
+    discount,
+    gst,
+    additionalData,
+  } = req.body;
+
+  try {
+    if (!process.env.CASHFREE_APP_ID || !process.env.CASHFREE_SECRET_KEY) {
+      return res.status(500).json({
+        message: 'Cashfree credentials are not configured',
+      });
+    }
+
+    const amountValue = Number(amount || 0);
+    if (!Number.isFinite(amountValue) || amountValue < 1) {
+      return res.status(400).json({
+        message: 'amount must be a positive number in paise',
+      });
+    }
+
+    const orderId = `cf_order_${Date.now()}`;
+    const user = userId ? await User.findById(userId) : null;
+    const resolvedPhone =
+      String(
+        additionalData?.phone || user?.phone || user?.contact || '',
+      ).trim() || '9999999999';
+    const frontendBase =
+      firstUrlValue(process.env.FRONTEND_URL) ||
+      req.get('origin') ||
+      DEFAULT_FRONTEND_URL;
+    const payload = {
+      order_id: orderId,
+      order_amount: (amountValue / 100).toFixed(2),
+      order_currency: currency || 'INR',
+      order_note: planDuration || 'Voting credits',
+      order_meta: {
+        return_url: `${frontendBase}/profile?paymentProvider=cashfree&order_id=${encodeURIComponent(
+          orderId,
+        )}`,
+      },
+      customer_details: {
+        customer_id: String(userId || email || orderId),
+        customer_name:
+          additionalData?.customerName ||
+          user?.name ||
+          email ||
+          'VotingHub User',
+        customer_email: email || additionalData?.email || user?.email || '',
+        customer_phone: resolvedPhone,
+      },
+    };
+
+    const response = await axios.post(
+      `${getCashfreeBaseUrl()}/pg/orders`,
+      payload,
+      {
+        headers: getCashfreeHeaders(),
+      },
+    );
+
+    const responseData = response?.data || {};
+    const paymentSessionId =
+      responseData.payment_session_id ||
+      responseData.paymentSessionId ||
+      responseData.data?.payment_session_id;
+    const createdOrderId =
+      responseData.order_id || responseData.data?.order_id || orderId;
+
+    if (!paymentSessionId) {
+      throw new Error(
+        responseData.message || 'Cashfree payment session was not returned',
+      );
+    }
+
+    res.status(200).json({
+      order_id: createdOrderId,
+      payment_session_id: paymentSessionId,
+      paymentProvider: 'cashfree',
+      environment:
+        String(process.env.CASHFREE_ENV || 'sandbox').toLowerCase() ===
+        'production'
+          ? 'production'
+          : 'sandbox',
+    });
+  } catch (error) {
+    const cashfreeError = error.response?.data || {};
+    const cashfreeMessage =
+      cashfreeError.message ||
+      cashfreeError.error ||
+      error.message ||
+      'Failed to create Cashfree payment';
+    console.error('❌ Cashfree order creation failed:', cashfreeMessage);
+    res.status(error.response?.status || 500).json({
+      message: cashfreeMessage,
+      raw: cashfreeError,
+    });
   }
 });
 
 // Verify Payment
 router.post('/verify-payment', express.json(), async (req, res) => {
   const {
-    razorpay_payment_id,
+    paymentProvider,
     razorpay_order_id,
+    razorpay_payment_id,
     razorpay_signature,
+    cashfree_order_id,
+    cashfree_payment_id,
+    cashfree_payment_status,
+    cashfree_signature,
+    order_id,
+    payment_id,
+    payment_status,
+    order_status,
     userId,
+    email,
     planDuration,
     amount,
     validityDays,
@@ -799,34 +1027,161 @@ router.post('/verify-payment', express.json(), async (req, res) => {
     discount,
     gst,
   } = req.body;
+  const frontendBase =
+    firstUrlValue(process.env.FRONTEND_URL) ||
+    req.get('origin') ||
+    DEFAULT_FRONTEND_URL;
 
   try {
-    // Ensure numeric parsing of credits/amounts
+    const normalizedProvider = String(paymentProvider || 'razorpay')
+      .trim()
+      .toLowerCase();
+    const isCashfree = normalizedProvider === 'cashfree';
+    const resolvedOrderId = isCashfree
+      ? cashfree_order_id || order_id
+      : razorpay_order_id;
+    const resolvedPaymentId = isCashfree
+      ? cashfree_payment_id || payment_id || ''
+      : razorpay_payment_id;
+
+    if (!resolvedOrderId) {
+      return res.status(400).json({
+        message: isCashfree
+          ? 'cashfree_order_id is required'
+          : 'razorpay_order_id is required',
+      });
+    }
+
+    let paymentStatus = String(
+      payment_status || order_status || '',
+    ).toLowerCase();
+
+    if (isCashfree) {
+      let paymentDetails = null;
+      try {
+        paymentDetails = await fetchCashfreeOrderDetails(resolvedOrderId);
+      } catch (paymentFetchError) {
+        console.warn('Unable to fetch Cashfree order details', {
+          orderId: resolvedOrderId,
+          error: paymentFetchError.message,
+        });
+      }
+
+      const cashfreeOrders = Array.isArray(paymentDetails?.orders)
+        ? paymentDetails.orders
+        : Array.isArray(paymentDetails)
+          ? paymentDetails
+          : [];
+      const latestCashfreeOrder = cashfreeOrders[0] || paymentDetails || {};
+
+      paymentStatus = String(
+        latestCashfreeOrder?.order_status ||
+          latestCashfreeOrder?.orderStatus ||
+          latestCashfreeOrder?.payment_status ||
+          latestCashfreeOrder?.paymentStatus ||
+          paymentDetails?.order_status ||
+          paymentDetails?.orderStatus ||
+          paymentDetails?.payment_status ||
+          paymentDetails?.paymentStatus ||
+          paymentStatus,
+      ).toLowerCase();
+
+      if (
+        !isCashfreeSuccessfulStatus(paymentStatus) &&
+        !isCashfreeSuccessfulStatus(cashfree_payment_status)
+      ) {
+        return res.status(202).json({
+          message: 'Payment is not completed yet',
+          orderStatus: (paymentStatus || 'PENDING').toUpperCase(),
+          paymentStatus: 'pending',
+        });
+      }
+    } else {
+      if (!razorpay_payment_id || !razorpay_signature) {
+        return res.status(400).json({
+          message:
+            'razorpay_order_id, razorpay_payment_id, and razorpay_signature are required',
+        });
+      }
+
+      if (!process.env.RAZORPAY_KEY_SECRET) {
+        throw new Error('Razorpay secret key is not configured');
+      }
+
+      const expectedSignature = crypto
+        .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+        .update(`${resolvedOrderId}|${resolvedPaymentId}`)
+        .digest('hex');
+
+      if (expectedSignature !== razorpay_signature) {
+        return res.status(400).json({ message: 'Invalid payment signature' });
+      }
+
+      let paymentDetails = null;
+      try {
+        paymentDetails = await razorpay.payments.fetch(resolvedPaymentId);
+      } catch (paymentFetchError) {
+        console.warn('Unable to fetch Razorpay payment details', {
+          paymentId: resolvedPaymentId,
+          error: paymentFetchError.message,
+        });
+      }
+
+      paymentStatus = String(paymentDetails?.status || '').toLowerCase();
+      const isSuccessfulPayment =
+        paymentStatus === 'captured' ||
+        paymentStatus === 'authorized' ||
+        !paymentDetails;
+
+      if (
+        paymentDetails?.order_id &&
+        paymentDetails.order_id !== resolvedOrderId
+      ) {
+        return res.status(400).json({ message: 'Payment order mismatch' });
+      }
+
+      if (!isSuccessfulPayment) {
+        return res.status(202).json({
+          message: 'Payment is not completed yet',
+          orderStatus: paymentStatus.toUpperCase(),
+          paymentStatus: 'pending',
+        });
+      }
+    }
+
     const parsedVotingCredits = Number(votingCredits ?? 0);
     const parsedAmount = Number(amount ?? 0);
 
-    // Verify signature
-    const generatedSignature = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-      .digest('hex');
-
-    if (generatedSignature !== razorpay_signature) {
-      console.warn('Invalid payment signature', {
-        razorpay_order_id,
-        razorpay_payment_id,
-        generatedSignature,
-        razorpay_signature,
-      });
-      return res.status(400).json({ message: 'Invalid payment signature' });
-    }
-
-    const user = await User.findById(userId);
+    const user = userId
+      ? await User.findById(userId)
+      : email
+        ? await User.findOne({ email })
+        : null;
     if (!user) return res.status(404).json({ message: 'User not found' });
 
+    if (hasVerifiedOrder(user, resolvedOrderId)) {
+      const token = jwt.sign(
+        { userId: user._id, role: user.role || 'admin' },
+        process.env.JWT_SECRET,
+        {
+          expiresIn: '2h',
+        },
+      );
+
+      return res.status(200).json({
+        message: 'Payment already verified and subscription updated',
+        token,
+        userId: user._id,
+        subscription: user.subscription || {},
+        votingCredits: user.subscription?.votingCredits || 0,
+        usedVotingCredits: user.subscription?.usedVotingCredits || 0,
+        redirectUrl: `${frontendBase}/profile`,
+      });
+    }
+
     console.log('🔔 verify-payment called with payload:', {
-      razorpay_payment_id,
-      razorpay_order_id,
+      paymentProvider: normalizedProvider,
+      orderId: resolvedOrderId,
       userId,
       planDuration,
       amount,
@@ -840,7 +1195,6 @@ router.post('/verify-payment', express.json(), async (req, res) => {
       today,
     );
 
-    // Move current subscription to history and drop expired remaining credits.
     if (user.subscription?.orderId || user.subscription?.planDuration) {
       user.subscriptionHistory = user.subscriptionHistory || [];
       user.subscriptionHistory.push(
@@ -854,7 +1208,6 @@ router.post('/verify-payment', express.json(), async (req, res) => {
       subscriptionEndDate.getDate() + Number(validityDays ?? 0),
     );
 
-    // Update subscription: carry forward only unexpired credits.
     user.subscription = {
       planDuration,
       startDate,
@@ -867,8 +1220,11 @@ router.post('/verify-payment', express.json(), async (req, res) => {
       discount,
       gst,
       amount: parsedAmount,
-      paymentId: razorpay_payment_id,
-      orderId: razorpay_order_id,
+      paymentId: resolvedPaymentId || resolvedOrderId,
+      orderId: resolvedOrderId,
+      paymentStatus: 'success',
+      paymentProvider: normalizedProvider,
+      verifiedAt: new Date(),
     };
 
     console.log('ℹ️ New subscription to save:', user.subscription);
@@ -883,7 +1239,6 @@ router.post('/verify-payment', express.json(), async (req, res) => {
       },
     );
 
-    // Return updated subscription so client can immediately reflect credits.
     res.status(200).json({
       message: 'Payment verified and subscription updated',
       token,
@@ -891,6 +1246,7 @@ router.post('/verify-payment', express.json(), async (req, res) => {
       subscription: user.subscription || {},
       votingCredits: user.subscription?.votingCredits || 0,
       usedVotingCredits: user.subscription?.usedVotingCredits || 0,
+      redirectUrl: `${frontendBase}/profile`,
     });
   } catch (error) {
     console.error('❌ verify-payment error:', error);

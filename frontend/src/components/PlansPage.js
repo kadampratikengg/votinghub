@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   FiCheckCircle,
+  FiCreditCard,
   FiShield,
   FiStar,
   FiTrendingDown,
+  FiX,
   FiZap,
 } from 'react-icons/fi';
 import { FaWhatsapp } from 'react-icons/fa';
@@ -14,6 +16,7 @@ import './PlansPage.css';
 const PlansPage = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState(null);
   const navigate = useNavigate();
   const { state } = useLocation();
 
@@ -56,18 +59,7 @@ const PlansPage = () => {
     },
   ];
 
-  useEffect(() => {
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.async = true;
-    document.body.appendChild(script);
-    return () => {
-      document.body.removeChild(script);
-    };
-  }, []);
-
-  const formatCurrency = (amount) =>
-    `₹${Number(amount).toLocaleString('en-IN')}`;
+  const formatCurrency = (amount) => `INR ${Number(amount).toLocaleString('en-IN')}`;
 
   const buildPricedPlan = (plan) => {
     const discount = plan.mrp - plan.amount;
@@ -89,17 +81,27 @@ const PlansPage = () => {
     };
   };
 
-  const handlePlanSelect = (plan) => {
+  const startCheckout = (gateway) => {
+    if (!selectedPlan) return;
+
+    const pricedPlan = buildPricedPlan(selectedPlan);
+    setSelectedPlan(null);
     initiatePayment(
-      buildPricedPlan(plan),
+      pricedPlan,
       email,
       userId,
       setErrorMessage,
       setLoading,
       navigate,
-      () => navigate('/profile'),
+      null,
       { password, confirmPassword },
+      gateway,
     );
+  };
+
+  const handlePlanSelect = (plan) => {
+    setErrorMessage('');
+    setSelectedPlan(plan);
   };
 
   return (
@@ -181,17 +183,82 @@ const PlansPage = () => {
                 </li>
               </ul>
 
-              <button onClick={() => handlePlanSelect(plan)} disabled={loading}>
-                {loading ? 'Processing...' : 'Buy Voting Credits'}
+              <button
+                type='button'
+                className='plan-card__button'
+                onClick={() => handlePlanSelect(plan)}
+                disabled={loading}
+              >
+                {loading ? 'Processing...' : 'Choose Payment Method'}
               </button>
             </article>
           );
         })}
       </section>
 
+      {selectedPlan && (
+        <div className='gateway-modal__backdrop' role='dialog' aria-modal='true'>
+          <section className='gateway-modal'>
+            <div className='gateway-modal__header'>
+              <div>
+                <p className='gateway-modal__eyebrow'>Select Gateway</p>
+                <h3>{selectedPlan.name}</h3>
+              </div>
+              <button
+                type='button'
+                className='gateway-modal__close'
+                onClick={() => setSelectedPlan(null)}
+                aria-label='Close payment gateway modal'
+                disabled={loading}
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <div className='gateway-modal__price'>
+              <span>Total payable</span>
+              <strong>{formatCurrency(buildPricedPlan(selectedPlan).total)}</strong>
+            </div>
+
+            <div className='gateway-modal__actions'>
+              <button
+                type='button'
+                className='gateway-modal__button'
+                onClick={() => startCheckout('razorpay')}
+                disabled={loading}
+              >
+                <FiCreditCard /> Pay with Razorpay
+              </button>
+              <button
+                type='button'
+                className='gateway-modal__button gateway-modal__button--secondary'
+                onClick={() => startCheckout('cashfree')}
+                disabled={loading}
+              >
+                <FiShield /> Pay with Cashfree
+              </button>
+            </div>
+
+            <p className='gateway-modal__note'>
+              Razorpay is recommended for instant card and UPI checkout. Cashfree
+              is available for customers who prefer its hosted payment page.
+            </p>
+          </section>
+        </div>
+      )}
+
       {errorMessage && <p className='plans-error'>{errorMessage}</p>}
 
-      {/* WhatsApp floating button (only on PlansPage) */}
+      {loading && (
+        <div className='gateway-loading-overlay'>
+          <div className='gateway-loading-card'>
+            <div className='gateway-loading-spinner' />
+            <strong>Opening payment gateway</strong>
+            <p>Wait while the checkout page loads.</p>
+          </div>
+        </div>
+      )}
+
       {(() => {
         const waNumber = process.env.REACT_APP_WA_NUMBER || '';
         const sanitized = waNumber.replace(/[^0-9]/g, '');
@@ -205,22 +272,7 @@ const PlansPage = () => {
             target='_blank'
             rel='noopener noreferrer'
             aria-label='Contact on WhatsApp'
-            style={{
-              position: 'fixed',
-              right: 18,
-              bottom: 18,
-              backgroundColor: '#25D366',
-              color: '#fff',
-              width: 56,
-              height: 56,
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 6px 18px rgba(37,211,102,0.24)',
-              zIndex: 9999,
-              textDecoration: 'none',
-            }}
+            className='whatsapp-float-button'
           >
             <FaWhatsapp size={24} />
           </a>
