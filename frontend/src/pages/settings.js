@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import './Workspace.css';
+import Footer from '../components/Footer';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import {
@@ -962,6 +963,7 @@ const Settings = ({ setIsAuthenticated }) => {
             </div>
           </div>
         )}
+        <Footer />
       </main>
     </div>
   );

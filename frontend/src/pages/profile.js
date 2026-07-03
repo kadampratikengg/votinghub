@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import Sidebar from './Sidebar';
+import Footer from '../components/Footer';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -241,8 +242,11 @@ const Profile = ({ setIsAuthenticated }) => {
       queryParams.get('orderId') ||
       pendingPayment.orderId ||
       '';
-    const normalizedProvider =
-      (paymentProvider || pendingPayment.provider || 'razorpay').toLowerCase();
+    const normalizedProvider = (
+      paymentProvider ||
+      pendingPayment.provider ||
+      'razorpay'
+    ).toLowerCase();
 
     if (!orderId || paymentVerificationHandledRef.current) {
       return;
@@ -1118,6 +1122,7 @@ const Profile = ({ setIsAuthenticated }) => {
             )}
           </div>
         </section>
+        <Footer />
       </main>
     </div>
   );

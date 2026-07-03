@@ -5,6 +5,7 @@ import * as XLSX from 'xlsx';
 import { v4 as uuidv4 } from 'uuid';
 import Sidebar from './Sidebar';
 import Popup from '../components/Popup';
+import Footer from '../components/Footer';
 import {
   FiCalendar,
   FiCheckSquare,
@@ -1059,9 +1060,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       setGeneratedLink(result.link || eventDetails.link);
       setEventCreated(true);
       if (creditsNeeded > 0) {
-        setAvailableCredits((prev) =>
-          Math.max(0, prev - creditsNeeded),
-        );
+        setAvailableCredits((prev) => Math.max(0, prev - creditsNeeded));
       }
       fetchUserSubscription();
       resetForm();
@@ -1631,6 +1630,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
             </label>
           </div>
         </Popup>
+        <Footer />
       </main>
     </div>
   );

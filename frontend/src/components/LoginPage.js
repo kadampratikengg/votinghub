@@ -138,8 +138,10 @@ const LoginPage = ({ onLogin }) => {
       localStorage.setItem('token', serverToken);
       if (serverUserId) localStorage.setItem('userId', serverUserId);
       localStorage.setItem('role', serverRole || 'admin');
-      if (serverSubUserRole) localStorage.setItem('subUserRole', serverSubUserRole);
-      if (serverPermissions) localStorage.setItem('permissions', serverPermissions);
+      if (serverSubUserRole)
+        localStorage.setItem('subUserRole', serverSubUserRole);
+      if (serverPermissions)
+        localStorage.setItem('permissions', serverPermissions);
       localStorage.setItem('isAuthenticated', 'true');
       onLogin();
       // Remove token from URL
@@ -238,7 +240,7 @@ const LoginPage = ({ onLogin }) => {
 
       <section className='auth-card' aria-label='Login form'>
         <div className='auth-card__header'>
-          <span className='auth-kicker'>Welcome back</span>
+          <span className='auth-kicker'>PrivateVoting</span>
           <h2>Voting Login</h2>
           <p>Use your registered voting administrator account to continue.</p>
         </div>
@@ -323,9 +325,7 @@ const LoginPage = ({ onLogin }) => {
             <span className='auth-google__text'>Sign in with Google</span>
           </button>
           {useGoogleGsi && !googleLoaded ? (
-            <p className='auth-google__hint'>
-              Loading Google sign-in...
-            </p>
+            <p className='auth-google__hint'>Loading Google sign-in...</p>
           ) : null}
           <p className='auth-google__hint'>
             Sign in with Google. If you don't exist in our system, an account

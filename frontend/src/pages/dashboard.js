@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './Workspace.css';
 import Sidebar from './Sidebar';
 import Popup from '../components/Popup';
+import Footer from '../components/Footer';
 import { useNavigate } from 'react-router-dom';
 import {
   FiCalendar,
@@ -252,6 +253,7 @@ const Dashboard = ({ setIsAuthenticated }) => {
             style={{ width: '100%', minHeight: 80 }}
           />
         </Popup>
+        <Footer />
       </main>
     </div>
   );
