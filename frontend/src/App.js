@@ -18,8 +18,15 @@ import Voting from './pages/Voting';
 import Start from './pages/start';
 import Result from './pages/result';
 import PlansPage from './components/PlansPage';
+import Footer from './components/Footer';
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import AboutUsPage from './pages/static/AboutUsPage';
+import ContactPage from './pages/static/ContactPage';
+import SupportPage from './pages/static/SupportPage';
+import PrivacyPolicyPage from './pages/static/PrivacyPolicyPage';
+import TermsPage from './pages/static/TermsPage';
+import CookiePolicyPage from './pages/static/CookiePolicyPage';
 
 const getStoredRole = () => localStorage.getItem('role') || 'admin';
 const getStoredSubUserRole = () => localStorage.getItem('subUserRole') || '';
@@ -52,6 +59,13 @@ const AdminProtectedRoute = ({ children }) => {
 
   return children;
 };
+
+const WithFooter = ({ children }) => (
+  <>
+    {children}
+    <Footer />
+  </>
+);
 
 const ProtectedRoute = ({ children, allowedRoles, requiredPermissions }) => {
   const location = useLocation();
@@ -101,24 +115,101 @@ const AppRoutes = ({ isAuthenticated, setIsAuthenticated, handleLogin }) => {
           isAuthenticated ? (
             <Navigate to={defaultPrivateRoute} replace />
           ) : (
-            <LoginPage onLogin={handleLogin} />
+            <WithFooter>
+              <LoginPage onLogin={handleLogin} />
+            </WithFooter>
           )
         }
       />
-      <Route path='/create-account' element={<CreateAccountPage />} />
-      <Route path='/forgot-password' element={<ForgotPasswordPage />} />
-      <Route path='/admin' element={<AdminLogin />} />
+      <Route
+        path='/create-account'
+        element={
+          <WithFooter>
+            <CreateAccountPage />
+          </WithFooter>
+        }
+      />
+      <Route
+        path='/about-us'
+        element={
+          <WithFooter>
+            <AboutUsPage />
+          </WithFooter>
+        }
+      />
+      <Route
+        path='/contact'
+        element={
+          <WithFooter>
+            <ContactPage />
+          </WithFooter>
+        }
+      />
+      <Route
+        path='/support'
+        element={
+          <WithFooter>
+            <SupportPage />
+          </WithFooter>
+        }
+      />
+      <Route
+        path='/privacy-policy'
+        element={
+          <WithFooter>
+            <PrivacyPolicyPage />
+          </WithFooter>
+        }
+      />
+      <Route
+        path='/terms-of-service'
+        element={
+          <WithFooter>
+            <TermsPage />
+          </WithFooter>
+        }
+      />
+      <Route
+        path='/cookie-policy'
+        element={
+          <WithFooter>
+            <CookiePolicyPage />
+          </WithFooter>
+        }
+      />
+      <Route
+        path='/forgot-password'
+        element={
+          <WithFooter>
+            <ForgotPasswordPage />
+          </WithFooter>
+        }
+      />
+      <Route
+        path='/admin'
+        element={
+          <WithFooter>
+            <AdminLogin />
+          </WithFooter>
+        }
+      />
       <Route
         path='/admin/dashboard'
         element={
           <AdminProtectedRoute>
-            <AdminDashboard />
+            <WithFooter>
+              <AdminDashboard />
+            </WithFooter>
           </AdminProtectedRoute>
         }
       />
       <Route
         path='/planspage'
-        element={<PlansPage setIsAuthenticated={setIsAuthenticated} />}
+        element={
+          <WithFooter>
+            <PlansPage setIsAuthenticated={setIsAuthenticated} />
+          </WithFooter>
+        }
       />
 
       <Route
@@ -144,7 +235,9 @@ const AppRoutes = ({ isAuthenticated, setIsAuthenticated, handleLogin }) => {
         path='/bids'
         element={
           <ProtectedRoute allowedRoles={['admin']}>
-            <Bids setIsAuthenticated={setIsAuthenticated} />
+            <WithFooter>
+              <Bids setIsAuthenticated={setIsAuthenticated} />
+            </WithFooter>
           </ProtectedRoute>
         }
       />
@@ -171,14 +264,20 @@ const AppRoutes = ({ isAuthenticated, setIsAuthenticated, handleLogin }) => {
             allowedRoles={['admin', 'subuser']}
             requiredPermissions={['/manage']}
           >
-            <Result setIsAuthenticated={setIsAuthenticated} />
+            <WithFooter>
+              <Result setIsAuthenticated={setIsAuthenticated} />
+            </WithFooter>
           </ProtectedRoute>
         }
       />
 
       <Route
         path='/voting/:eventId'
-        element={<Voting setIsAuthenticated={setIsAuthenticated} />}
+        element={
+          <WithFooter>
+            <Voting setIsAuthenticated={setIsAuthenticated} />
+          </WithFooter>
+        }
       />
       <Route
         path='/voting/:eventId/start'
@@ -187,7 +286,9 @@ const AppRoutes = ({ isAuthenticated, setIsAuthenticated, handleLogin }) => {
             allowedRoles={['admin', 'subuser']}
             requiredPermissions={['/voting/:eventId']}
           >
-            <Start setIsAuthenticated={setIsAuthenticated} />
+            <WithFooter>
+              <Start setIsAuthenticated={setIsAuthenticated} />
+            </WithFooter>
           </ProtectedRoute>
         }
       />

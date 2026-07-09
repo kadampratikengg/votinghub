@@ -3,14 +3,17 @@ import './Footer.css';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
+  const brandName = process.env.REACT_APP_BRAND_NAME || 'PrivateVoting';
+  const supportEmail =
+    process.env.REACT_APP_SUPPORT_EMAIL || 'info@privatevoting.in';
 
   return (
     <footer className='footer'>
       <div className='footer-content'>
-        <div className='footer-section'>
-          <h4 className='footer-brand'>PrivateVoting</h4>
+        <div className='footer-section footer-section--brand'>
+          <h4 className='footer-brand'>{brandName}</h4>
           <p className='footer-description'>
-            Secure digital voting platform for democratic elections and
+            Secure digital voting platform for elections, governance, and
             organizational decisions.
           </p>
         </div>
@@ -19,16 +22,16 @@ const Footer = () => {
           <h5 className='footer-title'>Quick Links</h5>
           <ul className='footer-links'>
             <li>
-              <a href='#'>Home</a>
+              <a href='/'>Home</a>
             </li>
             <li>
-              <a href='#'>About Us</a>
+              <a href='/about-us'>About Us</a>
             </li>
             <li>
-              <a href='#'>Contact</a>
+              <a href='/contact'>Contact</a>
             </li>
             <li>
-              <a href='#'>Support</a>
+              <a href='/support'>Support</a>
             </li>
           </ul>
         </div>
@@ -37,13 +40,13 @@ const Footer = () => {
           <h5 className='footer-title'>Legal</h5>
           <ul className='footer-links'>
             <li>
-              <a href='#'>Privacy Policy</a>
+              <a href='/privacy-policy'>Privacy Policy</a>
             </li>
             <li>
-              <a href='#'>Terms of Service</a>
+              <a href='/terms-of-service'>Terms of Service</a>
             </li>
             <li>
-              <a href='#'>Cookie Policy</a>
+              <a href='/cookie-policy'>Cookie Policy</a>
             </li>
           </ul>
         </div>
@@ -51,26 +54,14 @@ const Footer = () => {
         <div className='footer-section'>
           <h5 className='footer-title'>Contact</h5>
           <p className='footer-contact'>
-            Email:{' '}
-            <a href='mailto:info@privatevoting.in'>info@privatevoting.in</a>
-          </p>
-          <p className='footer-contact'>
-            Website:{' '}
-            <a
-              href='https://privatevoting.in'
-              target='_blank'
-              rel='noopener noreferrer'
-            >
-              privatevoting.in
-            </a>
+            Email: <a href={`mailto:${supportEmail}`}>{supportEmail}</a>
           </p>
         </div>
       </div>
 
       <div className='footer-bottom'>
         <p>
-          &copy; {currentYear} PrivateVoting. All rights reserved. |{' '}
-          <a href='#'>Privacy</a> | <a href='#'>Terms</a>
+          &copy; {currentYear} {brandName}. All rights reserved.
         </p>
       </div>
     </footer>

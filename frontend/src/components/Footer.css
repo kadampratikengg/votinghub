@@ -1,271 +1,166 @@
 .footer {
-  background-color: #1a1a2e;
-  color: #e0e0e0;
-  padding: 40px 20px 20px;
-  margin-top: 60px;
-  border-top: 1px solid #444;
   width: 100%;
   box-sizing: border-box;
+  margin-top: 48px;
+  padding: 28px 20px 18px;
+  color: #f4f0e6;
+  border-top: 1px solid rgba(215, 240, 110, 0.22);
+  background:
+    linear-gradient(135deg, rgba(23, 33, 26, 0.98), rgba(31, 60, 43, 0.96)),
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.06) 0 1px,
+      transparent 1px 16px
+    );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .footer-content {
   max-width: 1200px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 30px;
-  margin-bottom: 30px;
-  padding: 0 10px;
+  grid-template-columns: minmax(240px, 1.2fr) repeat(3, minmax(180px, 1fr));
+  gap: 22px;
+  padding: 0 8px;
 }
 
 .footer-section {
-  padding: 0 10px;
   min-width: 0;
 }
 
 .footer-brand {
+  margin: 0 0 10px;
   font-size: 20px;
-  font-weight: 700;
-  color: #fff;
-  margin-bottom: 10px;
-  letter-spacing: 0.5px;
-  word-break: break-word;
+  font-weight: 800;
+  letter-spacing: 0;
+  color: #f7f4ea;
 }
 
 .footer-description {
-  font-size: 14px;
-  line-height: 1.6;
-  color: #b0b0b0;
   margin: 0;
-  word-wrap: break-word;
+  font-size: 14px;
+  line-height: 1.7;
+  color: rgba(244, 240, 230, 0.72);
+}
+
+.footer-meta {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 0;
+}
+
+.footer-meta div {
+  display: grid;
+  gap: 4px;
+}
+
+.footer-meta dt {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #d7f06e;
+}
+
+.footer-meta dd {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(244, 240, 230, 0.88);
+  word-break: break-word;
 }
 
 .footer-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #fff;
-  margin-bottom: 15px;
+  margin: 0 0 14px;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  word-break: break-word;
+  color: #d7f06e;
 }
 
 .footer-links {
   list-style: none;
   padding: 0;
   margin: 0;
+  display: grid;
+  gap: 10px;
 }
 
-.footer-links li {
-  margin-bottom: 10px;
-}
-
-.footer-links a {
-  color: #b0b0b0;
+.footer-links a,
+.footer-links__text,
+.footer-contact a {
+  color: rgba(244, 240, 230, 0.82);
   text-decoration: none;
   font-size: 13px;
-  transition: color 0.3s ease;
+  line-height: 1.5;
   word-break: break-word;
-  display: inline-block;
+  transition: color 0.2s ease;
 }
 
-.footer-links a:hover {
-  color: #fff;
+.footer-links a:hover,
+.footer-contact a:hover {
+  color: #d7f06e;
+}
+
+.footer-links__text {
+  display: inline-block;
+  color: rgba(244, 240, 230, 0.72);
 }
 
 .footer-contact {
+  margin: 0 0 10px;
   font-size: 13px;
-  margin: 8px 0;
   line-height: 1.6;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-}
-
-.footer-contact a {
-  color: #4a9eff;
-  text-decoration: none;
-  transition: color 0.3s ease;
+  color: rgba(244, 240, 230, 0.72);
   word-break: break-word;
-}
-
-.footer-contact a:hover {
-  color: #6bb3ff;
-  text-decoration: underline;
 }
 
 .footer-bottom {
-  text-align: center;
-  padding-top: 20px;
-  border-top: 1px solid #444;
+  max-width: 1200px;
+  margin: 22px auto 0;
+  padding: 16px 8px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(244, 240, 230, 0.66);
   font-size: 12px;
-  color: #888;
-  word-wrap: break-word;
+  line-height: 1.6;
 }
 
-.footer-bottom a {
-  color: #4a9eff;
-  text-decoration: none;
-  transition: color 0.3s ease;
-  word-break: break-word;
+.footer-bottom p {
+  margin: 0;
 }
 
-.footer-bottom a:hover {
-  color: #6bb3ff;
+@media (max-width: 960px) {
+  .footer-content {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
-/* Tablet screens (768px and below) */
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .footer {
-    padding: 30px 15px 15px;
-    margin-top: 40px;
+    margin-top: 32px;
+    padding: 24px 14px 14px;
   }
 
   .footer-content {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
-    padding: 0 5px;
+    grid-template-columns: 1fr;
+    gap: 18px;
+    padding: 0;
   }
 
   .footer-brand {
     font-size: 18px;
   }
 
-  .footer-title {
-    font-size: 13px;
-    margin-bottom: 12px;
-  }
-
+  .footer-description,
+  .footer-contact,
   .footer-links a,
-  .footer-contact {
+  .footer-meta dd {
     font-size: 12px;
-  }
-
-  .footer-section {
-    padding: 0 5px;
-  }
-}
-
-/* Small tablets and large phones (600px and below) */
-@media (max-width: 600px) {
-  .footer {
-    padding: 25px 12px 12px;
-    margin-top: 30px;
-  }
-
-  .footer-content {
-    grid-template-columns: 1fr;
-    gap: 15px;
-    padding: 0;
-  }
-
-  .footer-brand {
-    font-size: 16px;
-    margin-bottom: 8px;
-  }
-
-  .footer-description {
-    font-size: 12px;
-    line-height: 1.5;
-  }
-
-  .footer-title {
-    font-size: 12px;
-    margin-bottom: 10px;
-  }
-
-  .footer-links a,
-  .footer-contact {
-    font-size: 11px;
-  }
-
-  .footer-links li {
-    margin-bottom: 8px;
-  }
-
-  .footer-contact {
-    font-size: 11px;
-    margin: 6px 0;
-  }
-
-  .footer-section {
-    padding: 0;
   }
 
   .footer-bottom {
-    font-size: 11px;
-    padding-top: 15px;
-  }
-}
-
-/* Extra small phones (480px and below) */
-@media (max-width: 480px) {
-  .footer {
-    padding: 20px 10px 10px;
-    margin-top: 25px;
-  }
-
-  .footer-content {
-    grid-template-columns: 1fr;
-    gap: 12px;
-    padding: 0;
-  }
-
-  .footer-brand {
-    font-size: 15px;
-    margin-bottom: 6px;
-  }
-
-  .footer-description {
-    font-size: 11px;
-    line-height: 1.4;
-  }
-
-  .footer-title {
-    font-size: 11px;
-    margin-bottom: 8px;
-  }
-
-  .footer-links a,
-  .footer-contact {
-    font-size: 10px;
-  }
-
-  .footer-links li {
-    margin-bottom: 6px;
-  }
-
-  .footer-contact {
-    margin: 4px 0;
-    font-size: 10px;
-  }
-
-  .footer-bottom {
-    font-size: 10px;
-    padding-top: 12px;
-  }
-}
-
-/* Large desktop screens (1200px and above) */
-@media (min-width: 1200px) {
-  .footer-content {
-    grid-template-columns: repeat(4, 1fr);
-    gap: 40px;
-  }
-
-  .footer {
-    padding: 50px 30px 25px;
-  }
-
-  .footer-brand {
-    font-size: 22px;
-  }
-
-  .footer-title {
-    font-size: 15px;
-  }
-
-  .footer-links a,
-  .footer-contact {
-    font-size: 14px;
+    margin-top: 18px;
+    padding: 14px 0 0;
   }
 }
