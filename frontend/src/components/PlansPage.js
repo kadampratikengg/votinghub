@@ -219,7 +219,7 @@ const PlansPage = () => {
               <span>Total payable</span>
               <strong>{formatCurrency(buildPricedPlan(selectedPlan).total)}</strong>
             </div>
-
+{/* 
             <div className='gateway-modal__actions'>
               <button
                 type='button'
@@ -242,9 +242,56 @@ const PlansPage = () => {
             <p className='gateway-modal__note'>
               Razorpay is recommended for instant card and UPI checkout. Cashfree
               is available for customers who prefer its hosted payment page.
-            </p>
+            </p> */}
+            <div className='gateway-modal__temporary'>
+  
+  <h4>Online Payment is Temporarily Unavailable</h4>
+
+  <p>
+    We are currently upgrading our payment gateway. To complete your
+    subscription, please contact us on WhatsApp. We'll share a secure
+    payment link and activate your plan immediately.
+  </p>
+
+  {(() => {
+    const waNumber = process.env.REACT_APP_WA_NUMBER || '';
+    const sanitized = waNumber.replace(/[^0-9]/g, '');
+
+    if (!sanitized) {
+      return null;
+    }
+
+    const plan = buildPricedPlan(selectedPlan);
+
+    const message = encodeURIComponent(
+      `Hello,\n\nI want to purchase the "${selectedPlan.name}" plan.\nTotal Amount: ${formatCurrency(
+        plan.total
+      )}\n\nPlease share the payment details.`
+    );
+
+    const waUrl = `https://wa.me/${sanitized}?text=${message}`;
+
+    return (
+      <a
+        href={waUrl}
+        target='_blank'
+        rel='noopener noreferrer'
+        className='gateway-modal__whatsapp-button'
+      >
+        <FaWhatsapp size={22} />
+        Contact on WhatsApp
+      </a>
+    );
+  })()}
+
+  <p className='gateway-modal__note'>
+    Sorry for the inconvenience. Online payment will be available again soon.
+  </p>
+</div>
           </section>
+          
         </div>
+
       )}
 
       {errorMessage && <p className='plans-error'>{errorMessage}</p>}

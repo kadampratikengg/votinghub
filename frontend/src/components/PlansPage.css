@@ -535,3 +535,49 @@
     min-width: 0;
   }
 }
+.gateway-modal__temporary {
+  text-align: center;
+  padding: 1.5rem;
+}
+
+.gateway-modal__temporary-icon {
+  margin-bottom: 1rem;
+}
+
+.gateway-modal__temporary h4 {
+  margin-bottom: 0.75rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.gateway-modal__temporary p {
+  color: #666;
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+
+.gateway-modal__whatsapp-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #25d366;
+  color: #fff;
+  text-decoration: none;
+  padding: 12px 22px;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.25s ease;
+}
+
+.gateway-modal__whatsapp-button:hover {
+  background: #1ea952;
+  transform: translateY(-2px);
+  color: #fff;
+}
+
+.gateway-modal__note {
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  color: #888;
+}
