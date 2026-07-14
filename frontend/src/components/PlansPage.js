@@ -1,8 +1,6 @@
 import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
 import {
   FiCheckCircle,
-  FiCreditCard,
   FiShield,
   FiStar,
   FiTrendingDown,
@@ -10,20 +8,12 @@ import {
   FiZap,
 } from 'react-icons/fi';
 import { FaWhatsapp } from 'react-icons/fa';
-import { initiatePayment } from './razorpay';
 import './PlansPage.css';
 
 const PlansPage = () => {
   const [errorMessage, setErrorMessage] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
-  const navigate = useNavigate();
-  const { state } = useLocation();
-
-  const email = state?.email || '';
-  const userId = state?.userId || '';
-  const password = state?.password || '';
-  const confirmPassword = state?.confirmPassword || '';
 
   const plans = [
     {
@@ -79,24 +69,6 @@ const PlansPage = () => {
       txCharge: 0,
       total,
     };
-  };
-
-  const startCheckout = (gateway) => {
-    if (!selectedPlan) return;
-
-    const pricedPlan = buildPricedPlan(selectedPlan);
-    setSelectedPlan(null);
-    initiatePayment(
-      pricedPlan,
-      email,
-      userId,
-      setErrorMessage,
-      setLoading,
-      navigate,
-      null,
-      { password, confirmPassword },
-      gateway,
-    );
   };
 
   const handlePlanSelect = (plan) => {
@@ -219,30 +191,6 @@ const PlansPage = () => {
               <span>Total payable</span>
               <strong>{formatCurrency(buildPricedPlan(selectedPlan).total)}</strong>
             </div>
-{/* 
-            <div className='gateway-modal__actions'>
-              <button
-                type='button'
-                className='gateway-modal__button'
-                onClick={() => startCheckout('razorpay')}
-                disabled={loading}
-              >
-                <FiCreditCard /> Pay with Razorpay
-              </button>
-              <button
-                type='button'
-                className='gateway-modal__button gateway-modal__button--secondary'
-                onClick={() => startCheckout('cashfree')}
-                disabled={loading}
-              >
-                <FiShield /> Pay with Cashfree
-              </button>
-            </div>
-
-            <p className='gateway-modal__note'>
-              Razorpay is recommended for instant card and UPI checkout. Cashfree
-              is available for customers who prefer its hosted payment page.
-            </p> */}
             <div className='gateway-modal__temporary'>
   
   <h4>Online Payment is Temporarily Unavailable</h4>

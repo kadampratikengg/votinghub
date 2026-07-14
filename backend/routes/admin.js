@@ -31,6 +31,14 @@ const sanitizeUser = (user) => ({
   subscriptionHistory: user.subscriptionHistory || [],
 });
 
+const parseDateInput = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const toPaise = (value) => Math.round(Number(value || 0) * 100);
+
 const normalizeUserForResponse = (user) => {
   normalizeSubscriptionForExpiry(user.subscription, new Date());
   return sanitizeUser(user);
@@ -226,6 +234,125 @@ router.post(
     } catch (error) {
       console.error('Admin free credits error:', error);
       res.status(500).json({ message: 'Failed to add free credits' });
+    }
+  },
+);
+
+router.post(
+  '/api/admin/users/:userId/paid-credits',
+  authenticateToken,
+  requireCompanyAdmin,
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const credits = Number(req.body.credits);
+      const usedVotingCredits = Number(req.body.usedVotingCredits || 0);
+      const amountRupees = Number(req.body.amount);
+      const validityDays = Number(req.body.validityDays || 365);
+      const paymentStatus = String(req.body.status || 'active')
+        .trim()
+        .toLowerCase();
+
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(400).json({ message: 'Invalid user ID' });
+      }
+
+      if (!Number.isFinite(credits) || credits <= 0) {
+        return res
+          .status(400)
+          .json({ message: 'Credits must be a positive number' });
+      }
+
+      if (!Number.isFinite(amountRupees) || amountRupees <= 0) {
+        return res
+          .status(400)
+          .json({ message: 'Amount must be a positive number' });
+      }
+
+      if (!Number.isFinite(validityDays) || validityDays <= 0) {
+        return res
+          .status(400)
+          .json({ message: 'Validity days must be a positive number' });
+      }
+
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      const now = new Date();
+      const remainingCredits = getActiveRemainingCredits(
+        user.subscription,
+        now,
+      );
+
+      if (user.subscription?.orderId || user.subscription?.planDuration) {
+        user.subscriptionHistory = user.subscriptionHistory || [];
+        user.subscriptionHistory.push(
+          createSubscriptionHistoryRecord(user.subscription, now),
+        );
+      }
+
+      const startDate = parseDateInput(req.body.startDate) || now;
+      const endDateInput = parseDateInput(req.body.endDate);
+      const endDate = endDateInput || new Date(startDate);
+      if (!endDateInput) {
+        endDate.setDate(endDate.getDate() + validityDays);
+      }
+
+      const orderId =
+        req.body.orderId ||
+        `ADMIN_PAID_${Date.now()}_${String(user._id).slice(-6)}`;
+      const paymentId =
+        req.body.paymentId ||
+        req.body.transactionId ||
+        `TXN_${Date.now()}_${String(user._id).slice(-6)}`;
+      const paymentProvider =
+        req.body.paymentProvider || 'admin_manual';
+      const paymentAmount = toPaise(amountRupees);
+      const baseAmountRupees = Number((amountRupees / 1.18).toFixed(2));
+      const gstRupees = Number((amountRupees - baseAmountRupees).toFixed(2));
+      const discountRupees = Number(req.body.discount || 0);
+      const mrpRupees = Number(req.body.mrp || baseAmountRupees);
+      const normalizedStatus =
+        paymentStatus === 'active' ||
+        paymentStatus === 'paid' ||
+        paymentStatus === 'success'
+          ? 'active'
+          : paymentStatus;
+
+      user.subscription = {
+        planDuration:
+          req.body.planDuration || `${credits} Paid Voting Credits`,
+        startDate,
+        endDate,
+        activationDate: startDate,
+        isValid: normalizedStatus === 'active',
+        votingCredits: remainingCredits + credits,
+        usedVotingCredits:
+          Number.isFinite(usedVotingCredits) && usedVotingCredits >= 0
+            ? usedVotingCredits
+            : 0,
+        mrp: mrpRupees,
+        discount: discountRupees,
+        gst: gstRupees,
+        amount: paymentAmount,
+        paymentId,
+        orderId,
+        paymentStatus: normalizedStatus,
+        paymentProvider,
+        verifiedAt: new Date(),
+      };
+
+      await user.save();
+
+      res.status(200).json({
+        message: 'Paid credits added successfully',
+        user: sanitizeUser(user.toObject()),
+      });
+    } catch (error) {
+      console.error('Admin paid credits error:', error);
+      res.status(500).json({ message: 'Failed to add paid credits' });
     }
   },
 );
