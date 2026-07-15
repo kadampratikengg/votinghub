@@ -248,6 +248,7 @@ router.post(
       const credits = Number(req.body.credits);
       const usedVotingCredits = Number(req.body.usedVotingCredits || 0);
       const amountRupees = Number(req.body.amount);
+      const applyTax = req.body.applyTax === true || req.body.applyTax === 'true';
       const validityDays = Number(req.body.validityDays || 365);
       const paymentStatus = String(req.body.status || 'active')
         .trim()
@@ -309,9 +310,24 @@ router.post(
         `TXN_${Date.now()}_${String(user._id).slice(-6)}`;
       const paymentProvider =
         req.body.paymentProvider || 'admin_manual';
+      const baseAmountRupees = Number(
+        (Number(req.body.mrp ?? amountRupees) || 0).toFixed(2),
+      );
+      const invoiceBaseAmount = Number(
+        (Number(req.body.invoiceBaseAmount ?? baseAmountRupees) || 0).toFixed(2),
+      );
+      const gstRupees = applyTax
+        ? Number(
+            (Number(req.body.gst ?? (amountRupees - baseAmountRupees)) || 0).toFixed(2),
+          )
+        : 0;
+      const invoiceTaxAmount = Number(
+        (Number(req.body.invoiceTaxAmount ?? gstRupees) || 0).toFixed(2),
+      );
+      const invoiceTotalAmount = Number(
+        (Number(req.body.invoiceTotalAmount ?? amountRupees) || 0).toFixed(2),
+      );
       const paymentAmount = toPaise(amountRupees);
-      const baseAmountRupees = Number((amountRupees / 1.18).toFixed(2));
-      const gstRupees = Number((amountRupees - baseAmountRupees).toFixed(2));
       const discountRupees = Number(req.body.discount || 0);
       const mrpRupees = Number(req.body.mrp || baseAmountRupees);
       const normalizedStatus =
@@ -337,10 +353,14 @@ router.post(
         discount: discountRupees,
         gst: gstRupees,
         amount: paymentAmount,
+        invoiceBaseAmount,
+        invoiceTaxAmount,
+        invoiceTotalAmount,
         paymentId,
         orderId,
         paymentStatus: normalizedStatus,
         paymentProvider,
+        taxApplied: applyTax,
         verifiedAt: new Date(),
       };
 

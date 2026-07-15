@@ -305,15 +305,51 @@ router.get(
         .fillColor('#111827')
         .text('Subscription Details', rightX, 180, { width: columnWidth });
       const totalPaidRupees = Number(subscription.amount ?? 0) / 100;
+      const storedInvoiceBaseRupees = Number(subscription.invoiceBaseAmount ?? NaN);
+      const storedInvoiceTaxRupees = Number(subscription.invoiceTaxAmount ?? NaN);
+      const storedInvoiceTotalRupees = Number(subscription.invoiceTotalAmount ?? NaN);
+      const storedMrpRupees = Number(subscription.mrp ?? NaN);
       const storedGstRupees = Number(subscription.gst ?? 0);
-      const hasStoredGst =
-        Number.isFinite(storedGstRupees) && storedGstRupees > 0;
-      const discountedPriceRupees = hasStoredGst
-        ? Math.max(0, totalPaidRupees - storedGstRupees)
-        : totalPaidRupees / 1.18;
-      const gstRupees = hasStoredGst
-        ? storedGstRupees
-        : Math.max(0, totalPaidRupees - discountedPriceRupees);
+      const hasExplicitInvoiceValues =
+        Number.isFinite(storedInvoiceBaseRupees) ||
+        Number.isFinite(storedInvoiceTaxRupees) ||
+        Number.isFinite(storedInvoiceTotalRupees);
+      let taxApplied = false;
+      if (subscription.taxApplied === true || subscription.taxApplied === 'true') {
+        taxApplied = true;
+      } else if (
+        subscription.taxApplied === false ||
+        subscription.taxApplied === 'false'
+      ) {
+        taxApplied = false;
+      } else if (Number.isFinite(storedInvoiceTaxRupees)) {
+        taxApplied = storedInvoiceTaxRupees > 0;
+      } else if (
+        hasExplicitInvoiceValues &&
+        Number.isFinite(storedInvoiceTotalRupees) &&
+        Number.isFinite(storedInvoiceBaseRupees)
+      ) {
+        taxApplied = storedInvoiceTotalRupees > storedInvoiceBaseRupees;
+      } else {
+        taxApplied = Number.isFinite(storedGstRupees) && storedGstRupees > 0;
+      }
+      const taxLabel = taxApplied ? 'GST 18%' : 'GST 0%';
+      const baseAmountRupees = Number.isFinite(storedInvoiceBaseRupees)
+        ? storedInvoiceBaseRupees
+        : Number.isFinite(storedMrpRupees)
+        ? storedMrpRupees
+        : taxApplied
+          ? Math.max(0, totalPaidRupees - storedGstRupees)
+          : totalPaidRupees;
+      const gstRupees = Number.isFinite(storedInvoiceTaxRupees)
+        ? storedInvoiceTaxRupees
+        : taxApplied
+          ? Math.max(0, storedGstRupees || totalPaidRupees - baseAmountRupees)
+          : 0;
+      const finalAmountRupees = Number.isFinite(storedInvoiceTotalRupees)
+        ? storedInvoiceTotalRupees
+        : Number((baseAmountRupees + gstRupees).toFixed(2));
+      const finalAmountLabel = taxApplied ? 'Final Amount' : 'Final Price';
       doc
         .font('Helvetica')
         .fontSize(10)
@@ -340,11 +376,11 @@ router.get(
         });
 
       const pricingRows = [
-        ['Description', 'Amount', 'GST 18%'],
+        ['Description', 'Base Amount', taxLabel],
         [
           subscription.planDuration || 'Voting Subscription',
-          formatCurrencyRupees(subscription.mrp),
-          formatCurrencyRupees(subscription.gst),
+          formatCurrencyRupees(baseAmountRupees),
+          formatCurrencyRupees(gstRupees),
           true,
         ],
       ];
@@ -358,10 +394,10 @@ router.get(
       nextY = drawPricingTable(doc, leftX, nextY + 24, pageWidth, pricingRows);
 
       const breakdownRows = [
-        ['Amount', formatCurrencyRupees(subscription.mrp)],
+        ['Base Amount', formatCurrencyRupees(baseAmountRupees)],
         ['Discount', formatCurrencyRupees(subscription.discount)],
-        ['Final Amount', formatCurrencyRupees(discountedPriceRupees), true],
-        ['GST 18%', formatCurrencyRupees(gstRupees)],
+        [taxLabel, formatCurrencyRupees(gstRupees)],
+        [finalAmountLabel, formatCurrencyRupees(finalAmountRupees), true],
         ['Total Paid', formatCurrency(subscription.amount), true],
       ];
       const breakdownWidth = 260;

@@ -66,6 +66,7 @@ const createSubscriptionHistoryRecord = (subscription, now = new Date()) => {
     mrp: subscription.mrp,
     discount: subscription.discount,
     gst: subscription.gst,
+    taxApplied: subscription.taxApplied,
   };
 };
 

@@ -188,18 +188,19 @@ const AppRoutes = ({ isAuthenticated, setIsAuthenticated, handleLogin }) => {
       <Route
         path='/admin'
         element={
-          <WithFooter>
-            <AdminLogin />
-          </WithFooter>
+           <AdminLogin />
+          // <WithFooter>
+          //   <AdminLogin />
+          // </WithFooter>
         }
       />
       <Route
         path='/admin/dashboard'
         element={
           <AdminProtectedRoute>
-            <WithFooter>
+            {/* <WithFooter> */}
               <AdminDashboard />
-            </WithFooter>
+            {/* </WithFooter> */}
           </AdminProtectedRoute>
         }
       />
@@ -264,9 +265,9 @@ const AppRoutes = ({ isAuthenticated, setIsAuthenticated, handleLogin }) => {
             allowedRoles={['admin', 'subuser']}
             requiredPermissions={['/manage']}
           >
-            <WithFooter>
+            {/* <WithFooter> */}
               <Result setIsAuthenticated={setIsAuthenticated} />
-            </WithFooter>
+            {/* </WithFooter> */}
           </ProtectedRoute>
         }
       />
@@ -274,9 +275,9 @@ const AppRoutes = ({ isAuthenticated, setIsAuthenticated, handleLogin }) => {
       <Route
         path='/voting/:eventId'
         element={
-          <WithFooter>
+          // <WithFooter>
             <Voting setIsAuthenticated={setIsAuthenticated} />
-          </WithFooter>
+          // </WithFooter>
         }
       />
       <Route
