@@ -20,6 +20,9 @@ const adminRoutes = require('./routes/admin');
 const uploadcareRoutes = require('./routes/uploadcare'); // now handles S3 deletions
 const { errorHandler, multerErrorHandler } = require('./middleware/error');
 const { authenticateToken } = require('./middleware/auth');
+const {
+  activatePendingFreeCredits,
+} = require('./utils/subscription');
 const User = require('./models/User');
 
 const app = express();
@@ -86,6 +89,46 @@ app.use(multerErrorHandler);
 
 // Connect to MongoDB
 connectDB();
+
+const runPendingFreeCreditActivationSweep = async () => {
+  if (mongoose.connection.readyState !== 1) {
+    return;
+  }
+
+  const now = new Date();
+  const pendingUsers = await User.find({
+    'subscription.activationDate': { $exists: true, $lte: now },
+    'subscription.isValid': false,
+  }).select('_id subscription');
+
+  let activatedCount = 0;
+  for (const user of pendingUsers) {
+    if (await activatePendingFreeCredits(user)) {
+      activatedCount += 1;
+    }
+  }
+
+  if (activatedCount > 0) {
+    console.log(`✅ Activated ${activatedCount} pending free credit account(s)`);
+  }
+};
+
+let pendingFreeCreditSweepStarted = false;
+const startPendingFreeCreditSweep = () => {
+  if (pendingFreeCreditSweepStarted) return;
+  pendingFreeCreditSweepStarted = true;
+
+  const sweep = () => {
+    runPendingFreeCreditActivationSweep().catch((error) => {
+      console.error('Failed to sweep pending free credits:', error);
+    });
+  };
+
+  sweep();
+  setInterval(sweep, 60 * 60 * 1000);
+};
+
+mongoose.connection.once('connected', startPendingFreeCreditSweep);
 
 // Routes
 app.get('/', (req, res) => {

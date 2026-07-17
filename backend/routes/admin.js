@@ -39,6 +39,35 @@ const parseDateInput = (value) => {
 
 const toPaise = (value) => Math.round(Number(value || 0) * 100);
 
+const parseSubscriptionStatus = (value, fallback = 'active') => {
+  const normalized = String(value || fallback).trim().toLowerCase();
+  if (!normalized) return fallback;
+
+  const allowedStatuses = new Set([
+    'active',
+    'inactive',
+    'pending',
+    'expired',
+    'failed',
+    'paid',
+    'success',
+  ]);
+
+  return allowedStatuses.has(normalized) ? normalized : normalized;
+};
+
+const isSubscriptionExpiredOnOrBeforeToday = (date) => {
+  if (!date) return false;
+
+  const parsedDate = new Date(date);
+  if (Number.isNaN(parsedDate.getTime())) return false;
+
+  const today = new Date();
+  parsedDate.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+  return parsedDate <= today;
+};
+
 const normalizeUserForResponse = (user) => {
   normalizeSubscriptionForExpiry(user.subscription, new Date());
   return sanitizeUser(user);
@@ -423,6 +452,123 @@ router.patch(
     } catch (error) {
       console.error('Admin validity update error:', error);
       res.status(500).json({ message: 'Failed to update validity' });
+    }
+  },
+);
+
+router.patch(
+  '/api/admin/users/:userId/subscriptions/:orderId',
+  authenticateToken,
+  requireCompanyAdmin,
+  async (req, res) => {
+    try {
+      const { userId, orderId } = req.params;
+
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(400).json({ message: 'Invalid user ID' });
+      }
+
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      let subscription = null;
+      if (orderId === 'current' || user.subscription?.orderId === orderId) {
+        subscription = user.subscription;
+      } else {
+        subscription = (user.subscriptionHistory || []).find(
+          (item) => item.orderId === orderId,
+        );
+      }
+
+      if (!subscription) {
+        return res.status(404).json({ message: 'Subscription not found' });
+      }
+
+      const nextStartDate = parseDateInput(req.body.startDate);
+      if (req.body.startDate && !nextStartDate) {
+        return res.status(400).json({ message: 'Valid start date is required' });
+      }
+
+      const nextEndDate = parseDateInput(req.body.endDate);
+      if (req.body.endDate && !nextEndDate) {
+        return res.status(400).json({ message: 'Valid end date is required' });
+      }
+
+      const nextCredits =
+        req.body.votingCredits !== undefined
+          ? Number(req.body.votingCredits)
+          : Number(subscription.votingCredits || 0);
+      if (!Number.isFinite(nextCredits) || nextCredits < 0) {
+        return res
+          .status(400)
+          .json({ message: 'Credits must be a non-negative number' });
+      }
+
+      const nextUsedVotingCredits =
+        req.body.usedVotingCredits !== undefined
+          ? Number(req.body.usedVotingCredits)
+          : Number(subscription.usedVotingCredits || 0);
+      if (
+        !Number.isFinite(nextUsedVotingCredits) ||
+        nextUsedVotingCredits < 0
+      ) {
+        return res
+          .status(400)
+          .json({ message: 'Used credits must be a non-negative number' });
+      }
+
+      const nextAmountRupees =
+        req.body.amount !== undefined
+          ? Number(req.body.amount)
+          : Number(subscription.amount || 0) / 100;
+      if (!Number.isFinite(nextAmountRupees) || nextAmountRupees < 0) {
+        return res
+          .status(400)
+          .json({ message: 'Amount must be a non-negative number' });
+      }
+
+      const nextPlanDuration =
+        req.body.planDuration !== undefined
+          ? String(req.body.planDuration).trim()
+          : subscription.planDuration;
+      const nextPaymentStatus = parseSubscriptionStatus(
+        req.body.status ?? req.body.paymentStatus ?? subscription.paymentStatus,
+        subscription.isValid ? 'active' : 'inactive',
+      );
+      const nextIsValid =
+        ['active', 'paid', 'success'].includes(nextPaymentStatus) &&
+        !isSubscriptionExpiredOnOrBeforeToday(
+          nextEndDate || subscription.endDate,
+        );
+      const nextHasCredits = nextCredits > 0;
+
+      subscription.planDuration = nextPlanDuration;
+      if (nextStartDate) subscription.startDate = nextStartDate;
+      if (nextEndDate) subscription.endDate = nextEndDate;
+      subscription.amount = toPaise(nextAmountRupees);
+      subscription.votingCredits = nextCredits;
+      subscription.usedVotingCredits = nextUsedVotingCredits;
+      subscription.paymentStatus = nextPaymentStatus;
+      subscription.isValid = nextIsValid && nextHasCredits;
+
+      if (!subscription.paymentProvider) {
+        subscription.paymentProvider = 'admin_manual';
+      }
+      if (!subscription.verifiedAt) {
+        subscription.verifiedAt = new Date();
+      }
+
+      await user.save();
+
+      res.status(200).json({
+        message: 'Subscription updated successfully',
+        user: sanitizeUser(user.toObject()),
+      });
+    } catch (error) {
+      console.error('Admin subscription update error:', error);
+      res.status(500).json({ message: 'Failed to update subscription' });
     }
   },
 );

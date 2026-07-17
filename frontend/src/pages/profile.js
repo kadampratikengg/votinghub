@@ -22,6 +22,7 @@ import {
 } from 'react-icons/fi';
 import './Profile.css';
 import { resolveStoredAssetUrl } from '../utils/imageUrl';
+import { getSubscriptionStatusInfo } from '../utils/subscriptionStatus';
 import {
   finalizeCashfreePayment,
   finalizeRazorpayPayment,
@@ -99,27 +100,19 @@ const Profile = ({ setIsAuthenticated }) => {
     return `${day}-${month}-${year}`;
   };
 
-  const isExpiredByDate = (date) => {
-    if (!date) return false;
-    const endDate = new Date(date);
-    if (Number.isNaN(endDate.getTime())) return false;
-    endDate.setHours(0, 0, 0, 0);
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return endDate <= today;
-  };
-
-  const getSubscriptionStatus = (sub, isCurrentSubscription = false) => {
-    if (isCurrentSubscription && !isExpiredByDate(sub.endDate)) {
-      return 'Active until';
-    }
-    return isExpiredByDate(sub.endDate) ? 'Expired' : 'Active';
-  };
-
   const formatAmount = (amount) => {
     if (!amount && amount !== 0) return 'INR 0';
     return `INR ${Number(amount / 100).toLocaleString('en-IN')}`;
+  };
+
+  const formatPlanLabel = (value) => {
+    const label = String(value || '').trim();
+    if (!label) return '';
+
+    return label
+      .replace(/\bFree\b\s*/gi, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
   };
 
   const handleDownloadInvoice = async (sub) => {
@@ -584,12 +577,16 @@ const Profile = ({ setIsAuthenticated }) => {
   );
 
   const currentSubscription = userData.subscription || {};
-  // Support both shapes: `subscription.votingCredits` (primary) or a legacy/top-level `votingCredits`.
-  const availableCredits =
-    currentSubscription?.votingCredits ?? userData?.votingCredits ?? 0;
+  const availableCredits = currentSubscription.isValid
+    ? Math.max(
+        0,
+        Number(currentSubscription.votingCredits || 0) -
+          Number(currentSubscription.usedVotingCredits || 0),
+      )
+    : 0;
   const pendingActivationMessage =
     !currentSubscription.isValid && currentSubscription.activationDate
-      ? `Free credits will activate on ${formatDate(currentSubscription.activationDate)}`
+      ? `Credits will activate on ${formatDate(currentSubscription.activationDate)}`
       : '';
   const allSubscriptions = [
     ...(userData.subscription &&
@@ -922,7 +919,7 @@ const Profile = ({ setIsAuthenticated }) => {
                 <span className='profile-section-kicker'>Plan</span>
                 <h2>Subscription</h2>
                 <p>
-                  {currentSubscription.planDuration ||
+                  {formatPlanLabel(currentSubscription.planDuration) ||
                     'No active subscription plan found.'}
                 </p>
                 <p>
@@ -1073,46 +1070,47 @@ const Profile = ({ setIsAuthenticated }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedSubscriptions.map((sub, index) => (
-                    <tr
-                      key={`${sub.paymentId || 'subscription'}-${index}`}
-                      className='profile-history-row'
-                    >
-                      <td data-label='Plan'>
-                        {sub.planDuration || 'Subscription'}
-                      </td>
-                      <td data-label='Status'>
-                        <span
-                          className={`profile-history-status ${
-                            !isExpiredByDate(sub.endDate)
-                              ? 'is-active'
-                              : 'is-expired'
-                          }`}
-                        >
-                          {getSubscriptionStatus(
-                            sub,
-                            sub === userData.subscription,
-                          )}
-                        </span>
-                      </td>
-                      <td data-label='Start'>{formatDate(sub.startDate)}</td>
-                      <td data-label='End'>{formatDate(sub.endDate)}</td>
-                      <td data-label='Amount'>{formatAmount(sub.amount)}</td>
-                      <td data-label='Credits'>{sub.votingCredits || 0}</td>
-                      <td data-label='Used'>{sub.usedVotingCredits || 0}</td>
-                      <td data-label='Order ID'>{sub.orderId || 'Not set'}</td>
-                      <td data-label='Invoice'>
-                        <button
-                          type='button'
-                          onClick={() => handleDownloadInvoice(sub)}
-                          className='profile-icon-button profile-icon-button--ghost profile-history-invoice-button'
-                          title='Download invoice'
-                        >
-                          <FiDownload />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {sortedSubscriptions.map((sub, index) => {
+                    const statusInfo = getSubscriptionStatusInfo(sub, {
+                      current: sub === userData.subscription,
+                    });
+
+                    return (
+                      <tr
+                        key={`${sub.paymentId || 'subscription'}-${index}`}
+                        className='profile-history-row'
+                      >
+                        <td data-label='Plan'>
+                          {formatPlanLabel(sub.planDuration) || 'Subscription'}
+                        </td>
+                        <td data-label='Status'>
+                          <span
+                            className={`profile-history-status is-${statusInfo.tone}`}
+                          >
+                            {statusInfo.label}
+                          </span>
+                        </td>
+                        <td data-label='Start'>{formatDate(sub.startDate)}</td>
+                        <td data-label='End'>{formatDate(sub.endDate)}</td>
+                        <td data-label='Amount'>{formatAmount(sub.amount)}</td>
+                        <td data-label='Credits'>{sub.votingCredits || 0}</td>
+                        <td data-label='Used'>{sub.usedVotingCredits || 0}</td>
+                        <td data-label='Order ID'>
+                          {sub.orderId || 'Not set'}
+                        </td>
+                        <td data-label='Invoice'>
+                          <button
+                            type='button'
+                            onClick={() => handleDownloadInvoice(sub)}
+                            className='profile-icon-button profile-icon-button--ghost profile-history-invoice-button'
+                            title='Download invoice'
+                          >
+                            <FiDownload />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             ) : (

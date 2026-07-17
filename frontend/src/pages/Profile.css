@@ -638,6 +638,16 @@
   color: #a12828;
 }
 
+.profile-history-status.is-pending {
+  background: rgba(245, 158, 11, 0.12);
+  color: #a16207;
+}
+
+.profile-history-status.is-inactive {
+  background: rgba(100, 112, 103, 0.12);
+  color: var(--profile-muted);
+}
+
 .profile-history-invoice-button {
   min-width: 44px;
   min-height: 44px;

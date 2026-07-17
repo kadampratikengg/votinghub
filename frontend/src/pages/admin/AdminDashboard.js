@@ -15,8 +15,13 @@ import {
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './Admin.css';
+import { getSubscriptionStatusInfo } from '../../utils/subscriptionStatus';
 
-const getCredits = (user) => Number(user.subscription?.votingCredits || 0);
+const getRemainingCredits = (user) => {
+  const total = Number(user.subscription?.votingCredits || 0);
+  const used = Number(user.subscription?.usedVotingCredits || 0);
+  return Math.max(0, total - used);
+};
 const getUsedCredits = (user) =>
   Number(user.subscription?.usedVotingCredits || 0);
 const formatAmount = (value) =>
@@ -30,6 +35,11 @@ const formatDate = (value) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'N/A';
   return date.toLocaleDateString('en-IN');
+};
+
+const formatAmountInput = (value) => {
+  if (value === undefined || value === null || value === '') return '';
+  return (Number(value || 0) / 100).toFixed(2);
 };
 
 const formatDateTimeInput = (value) => {
@@ -57,30 +67,14 @@ const getEndDateFromStartAndDays = (startValue, daysValue) => {
   return formatDateTimeInput(endDate);
 };
 
-const getPlanStatusLabel = (plan) => {
-  const status = String(plan.paymentStatus || '').trim();
-  if (!status) return plan.isValid === false ? 'Inactive' : 'Active';
-
-  const normalized = status.toLowerCase();
-  if (
-    normalized === 'success' ||
-    normalized === 'paid' ||
-    normalized === 'active'
-  ) {
-    return 'Active';
-  }
-  if (
-    normalized === 'inactive' ||
-    normalized === 'expired' ||
-    normalized === 'failed'
-  ) {
-    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
-  }
-
-  return status.charAt(0).toUpperCase() + status.slice(1);
-};
-
 const getPlanOrderId = (plan) => plan.orderId || plan.paymentId || 'N/A';
+
+const getSubscriptionEditStatus = (subscription = {}) => {
+  const status = String(subscription.paymentStatus || '')
+    .trim()
+    .toLowerCase();
+  return status || (subscription.isValid === false ? 'inactive' : 'active');
+};
 
 const PAID_CREDIT_PRESETS = [
   {
@@ -139,6 +133,16 @@ const buildCreditsModalDefaults = (mode = 'free') =>
     ? { ...buildPaidCreditDefaults() }
     : { credits: '', validityDays: 365 };
 
+const buildSubscriptionEditDefaults = (subscription = {}) => ({
+  planDuration: subscription.planDuration || '',
+  status: getSubscriptionEditStatus(subscription),
+  startDate: formatDateTimeInput(subscription.startDate),
+  endDate: formatDateTimeInput(subscription.endDate),
+  amount: formatAmountInput(subscription.amount),
+  credits: Number(subscription.votingCredits || 0),
+  usedVotingCredits: Number(subscription.usedVotingCredits || 0),
+});
+
 const getPlanRows = (user) => {
   const rows = [];
   if (user.subscription?.orderId || user.subscription?.planDuration) {
@@ -165,6 +169,14 @@ const AdminDashboard = () => {
     userName: '',
     mode: 'free',
     form: buildCreditsModalDefaults('free'),
+  });
+  const [subscriptionModal, setSubscriptionModal] = useState({
+    open: false,
+    userId: null,
+    userName: '',
+    orderId: '',
+    planLabel: '',
+    form: buildSubscriptionEditDefaults(),
   });
   const navigate = useNavigate();
 
@@ -226,7 +238,10 @@ const AdminDashboard = () => {
     );
   }, [search, users]);
 
-  const totalCredits = users.reduce((sum, user) => sum + getCredits(user), 0);
+  const totalCredits = users.reduce(
+    (sum, user) => sum + getRemainingCredits(user),
+    0,
+  );
   const activeUsers = users.filter((user) => user.subscription?.isValid).length;
 
   const updateUser = (updatedUser) => {
@@ -350,6 +365,28 @@ const AdminDashboard = () => {
       userName: '',
       mode: 'free',
       form: buildCreditsModalDefaults('free'),
+    });
+  };
+
+  const openSubscriptionModal = (user, plan) => {
+    setSubscriptionModal({
+      open: true,
+      userId: user.id,
+      userName: user.name || user.email || 'User',
+      orderId: plan.orderId || (plan.current ? 'current' : ''),
+      planLabel: plan.planDuration || 'Voting Subscription',
+      form: buildSubscriptionEditDefaults(plan),
+    });
+  };
+
+  const closeSubscriptionModal = () => {
+    setSubscriptionModal({
+      open: false,
+      userId: null,
+      userName: '',
+      orderId: '',
+      planLabel: '',
+      form: buildSubscriptionEditDefaults(),
     });
   };
 
@@ -532,6 +569,49 @@ const AdminDashboard = () => {
     }
   };
 
+  const updateSubscriptionDetails = async (userId, orderId, form) => {
+    const resolvedForm = form || buildSubscriptionEditDefaults();
+
+    try {
+      const apiUrl = process.env.REACT_APP_API_URL;
+      if (!apiUrl) {
+        throw new Error('API URL is not configured');
+      }
+
+      const response = await fetch(
+        `${apiUrl}/api/admin/users/${userId}/subscriptions/${encodeURIComponent(orderId || 'current')}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            planDuration: resolvedForm.planDuration,
+            status: resolvedForm.status,
+            startDate: resolvedForm.startDate,
+            endDate: resolvedForm.endDate,
+            amount: resolvedForm.amount,
+            votingCredits: resolvedForm.credits,
+            usedVotingCredits: resolvedForm.usedVotingCredits,
+          }),
+        },
+      );
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to update subscription');
+      }
+
+      updateUser(data.user);
+      toast.success('Subscription details updated successfully');
+      return true;
+    } catch (error) {
+      toast.error(error.message || 'Failed to update subscription');
+      return false;
+    }
+  };
+
   const downloadInvoice = async (orderId) => {
     try {
       const apiUrl = process.env.REACT_APP_API_URL;
@@ -568,6 +648,9 @@ const AdminDashboard = () => {
 
   const selectedCreditsUser = creditsModal.userId
     ? users.find((user) => user.id === creditsModal.userId)
+    : null;
+  const selectedSubscriptionUser = subscriptionModal.userId
+    ? users.find((user) => user.id === subscriptionModal.userId)
     : null;
   const paidAmountValue = Number(creditsModal.form.amount || 0);
   const paidTaxValue = creditsModal.form.applyTax
@@ -682,7 +765,8 @@ const AdminDashboard = () => {
                           </small>
                         </td>
                         <td data-label='Credits'>
-                          <strong>{getCredits(user)}</strong>
+                          <strong>{getRemainingCredits(user)}</strong>
+                          <small>Remaining {getRemainingCredits(user)}</small>
                           <small>Used {getUsedCredits(user)}</small>
                         </td>
                         <td data-label='Status'>
@@ -721,9 +805,12 @@ const AdminDashboard = () => {
                                 <div>
                                   <span>Status</span>
                                   <strong>
-                                    {getPlanStatusLabel(
-                                      user.subscription || {},
-                                    )}
+                                    {
+                                      getSubscriptionStatusInfo(
+                                        user.subscription || {},
+                                        { current: true },
+                                      ).label
+                                    }
                                   </strong>
                                 </div>
                                 <div>
@@ -759,9 +846,12 @@ const AdminDashboard = () => {
                                 <div>
                                   <span>Payment</span>
                                   <strong>
-                                    {getPlanStatusLabel(
-                                      user.subscription || {},
-                                    )}
+                                    {
+                                      getSubscriptionStatusInfo(
+                                        user.subscription || {},
+                                        { current: true },
+                                      ).label
+                                    }
                                   </strong>
                                 </div>
                               </div>
@@ -836,6 +926,7 @@ const AdminDashboard = () => {
                                       <span>Used</span>
                                       <span>Order ID</span>
                                       <span>Invoice</span>
+                                      <span>Edit</span>
                                     </div>
                                     {planRows.map((plan, index) => (
                                       <div
@@ -848,7 +939,11 @@ const AdminDashboard = () => {
                                           {plan.current && <em>Current</em>}
                                         </span>
                                         <span data-label='Status'>
-                                          {getPlanStatusLabel(plan)}
+                                          {
+                                            getSubscriptionStatusInfo(plan, {
+                                              current: !!plan.current,
+                                            }).label
+                                          }
                                         </span>
                                         <span data-label='Start'>
                                           {formatDate(plan.startDate)}
@@ -882,6 +977,21 @@ const AdminDashboard = () => {
                                           ) : (
                                             'N/A'
                                           )}
+                                        </span>
+                                        <span data-label='Edit'>
+                                          <button
+                                            type='button'
+                                            className='company-admin-plan-edit'
+                                            onClick={(event) => {
+                                              event.stopPropagation();
+                                              openSubscriptionModal(user, plan);
+                                            }}
+                                            disabled={
+                                              !plan.orderId && !plan.current
+                                            }
+                                          >
+                                            Edit
+                                          </button>
                                         </span>
                                       </div>
                                     ))}
@@ -1330,6 +1440,193 @@ const AdminDashboard = () => {
                 )}
               </div>
             )}
+          </section>
+        </div>
+      )}
+      {subscriptionModal.open && selectedSubscriptionUser && (
+        <div
+          className='company-admin-modal__backdrop'
+          role='dialog'
+          aria-modal='true'
+        >
+          <section className='company-admin-modal'>
+            <div className='company-admin-modal__header'>
+              <div>
+                <p className='company-admin-modal__eyebrow'>
+                  Edit Subscription Details
+                </p>
+                <h3>{subscriptionModal.userName}</h3>
+                <p className='company-admin-modal__hint'>
+                  {subscriptionModal.planLabel}
+                </p>
+              </div>
+              <button
+                type='button'
+                className='company-admin-modal__close'
+                onClick={closeSubscriptionModal}
+                aria-label='Close subscription editor'
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <div className='company-admin-modal__form company-admin-modal__form--subscription'>
+              <label>
+                Plan / Subscription Name
+                <input
+                  type='text'
+                  value={subscriptionModal.form.planDuration}
+                  onChange={(event) =>
+                    setSubscriptionModal((current) => ({
+                      ...current,
+                      form: {
+                        ...current.form,
+                        planDuration: event.target.value,
+                      },
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                Status
+                <select
+                  value={subscriptionModal.form.status}
+                  onChange={(event) =>
+                    setSubscriptionModal((current) => ({
+                      ...current,
+                      form: {
+                        ...current.form,
+                        status: event.target.value,
+                      },
+                    }))
+                  }
+                >
+                  <option value='active'>Active</option>
+                  <option value='inactive'>Inactive</option>
+                  <option value='pending'>Pending</option>
+                  <option value='expired'>Expired</option>
+                  <option value='failed'>Failed</option>
+                  <option value='paid'>Paid</option>
+                  <option value='success'>Success</option>
+                </select>
+              </label>
+              <label>
+                Start
+                <input
+                  type='datetime-local'
+                  value={subscriptionModal.form.startDate}
+                  onChange={(event) =>
+                    setSubscriptionModal((current) => ({
+                      ...current,
+                      form: {
+                        ...current.form,
+                        startDate: event.target.value,
+                      },
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                End
+                <input
+                  type='datetime-local'
+                  value={subscriptionModal.form.endDate}
+                  onChange={(event) =>
+                    setSubscriptionModal((current) => ({
+                      ...current,
+                      form: {
+                        ...current.form,
+                        endDate: event.target.value,
+                      },
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                Amount (INR)
+                <input
+                  type='number'
+                  min='0'
+                  step='0.01'
+                  value={subscriptionModal.form.amount}
+                  onChange={(event) =>
+                    setSubscriptionModal((current) => ({
+                      ...current,
+                      form: {
+                        ...current.form,
+                        amount: event.target.value,
+                      },
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                Credits
+                <input
+                  type='number'
+                  min='0'
+                  step='1'
+                  value={subscriptionModal.form.credits}
+                  onChange={(event) =>
+                    setSubscriptionModal((current) => ({
+                      ...current,
+                      form: {
+                        ...current.form,
+                        credits: event.target.value,
+                      },
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                Used
+                <input
+                  type='number'
+                  min='0'
+                  step='1'
+                  value={subscriptionModal.form.usedVotingCredits}
+                  onChange={(event) =>
+                    setSubscriptionModal((current) => ({
+                      ...current,
+                      form: {
+                        ...current.form,
+                        usedVotingCredits: event.target.value,
+                      },
+                    }))
+                  }
+                />
+              </label>
+
+              <div className='company-admin-modal__summary company-admin-modal__hint--full'>
+                <div>
+                  <span>Credits</span>
+                  <strong>{subscriptionModal.form.credits || 0}</strong>
+                </div>
+                <div>
+                  <span>Used</span>
+                  <strong>
+                    {subscriptionModal.form.usedVotingCredits || 0}
+                  </strong>
+                </div>
+              </div>
+
+              <button
+                type='button'
+                className='company-admin-modal__submit'
+                onClick={async () => {
+                  const success = await updateSubscriptionDetails(
+                    selectedSubscriptionUser.id,
+                    subscriptionModal.orderId,
+                    subscriptionModal.form,
+                  );
+                  if (success) {
+                    closeSubscriptionModal();
+                  }
+                }}
+              >
+                Save Subscription Details
+              </button>
+            </div>
           </section>
         </div>
       )}
