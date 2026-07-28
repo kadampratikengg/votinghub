@@ -7,7 +7,7 @@ const router = express.Router();
 
 const COMPANY_DETAILS = {
   name: 'VotingHUb',
-  address: '266 Arale Satara 415011',
+  address: 'Satara 415011',
   phone: '9404360234',
   email: 'support@votinghub.com',
 };
