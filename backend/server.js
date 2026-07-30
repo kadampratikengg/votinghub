@@ -160,12 +160,20 @@ app.get('/ready', (req, res) => {
 });
 
 const getFrontendBaseUrl = () => {
-  const configured = String(process.env.FRONTEND_URL || '')
+  const rawValue = String(
+    process.env.PASSWORD_RESET_URL || process.env.FRONTEND_URL || '',
+  ).trim();
+
+  if (!rawValue) {
+    return 'http://localhost:3000';
+  }
+
+  const candidates = rawValue
     .split(',')
     .map((value) => value.trim())
     .filter(Boolean);
 
-  const validOrigins = configured
+  const validOrigins = candidates
     .map((value) => {
       try {
         return new URL(value).origin;
@@ -175,23 +183,25 @@ const getFrontendBaseUrl = () => {
     })
     .filter(Boolean);
 
-  if (validOrigins.length > 0) {
-    if (validOrigins.length > 1) {
-      console.warn(
-        'Multiple FRONTEND_URL values configured for password reset. Using the first valid URL only.',
-        validOrigins,
-      );
-    }
+  if (validOrigins.length === 1 && candidates.length === 1) {
     return validOrigins[0];
   }
 
-  if (configured.length > 0) {
+  if (validOrigins.length > 1) {
     throw new Error(
-      'FRONTEND_URL is invalid. Use one valid frontend URL, or a comma-separated list of valid URLs.',
+      'PASSWORD_RESET_URL or FRONTEND_URL must contain exactly one valid URL for password reset emails. Put multiple domains in ALLOWED_ORIGINS instead.',
     );
   }
 
-  return 'http://localhost:3000';
+  if (candidates.length === 1) {
+    throw new Error(
+      `Invalid password reset URL: ${rawValue}. Set PASSWORD_RESET_URL to a single valid URL such as https://www.privatevoting.in`,
+    );
+  }
+
+  throw new Error(
+    'Password reset URL is misconfigured. Set PASSWORD_RESET_URL to one valid URL only.',
+  );
 };
 
 const escapeRegex = (value) =>
@@ -247,6 +257,19 @@ const sendPasswordResetEmail = async (user, rawToken) => {
   });
 };
 
+const isSmtpTimeoutError = (error) => {
+  const code = String(error?.code || '').toUpperCase();
+  const message = String(error?.message || '').toLowerCase();
+  return (
+    code === 'ETIMEDOUT' ||
+    code === 'ESOCKET' ||
+    code === 'ECONNECTION' ||
+    code === 'EAI_AGAIN' ||
+    message.includes('timeout') ||
+    message.includes('timed out')
+  );
+};
+
 app.post('/forgot-password', async (req, res) => {
   const { email } = req.body || {};
 
@@ -281,6 +304,12 @@ app.post('/forgot-password', async (req, res) => {
     });
   } catch (error) {
     console.error('Error sending password reset email:', error);
+    if (isSmtpTimeoutError(error)) {
+      return res.status(503).json({
+        message:
+          'Mail server timeout. Check Gmail SMTP settings, app password, and live server outbound access.',
+      });
+    }
     const message =
       error?.message ||
       'Failed to send reset email';
