@@ -307,7 +307,7 @@ app.post('/forgot-password', async (req, res) => {
     if (isSmtpTimeoutError(error)) {
       return res.status(503).json({
         message:
-          'Mail server timeout. On Render, try SMTP_FAMILY=4 and SMTP_PORT=465 with SMTP_SECURE=true, and confirm Gmail app password plus outbound SMTP access.',
+          'Mail server timeout. Confirm SMTP_PORT=587, SMTP_SECURE=false, Gmail app password, and outbound SMTP access on the live server.',
       });
     }
     const message =
