@@ -15,10 +15,16 @@ const transporter = nodemailer.createTransport({
   host: smtpHost,
   port: smtpPort,
   secure: smtpSecure,
+  family: Number(process.env.SMTP_FAMILY || 4),
+  requireTLS: !smtpSecure,
   auth: smtpUser && smtpPass ? { user: smtpUser, pass: smtpPass } : undefined,
   connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT || 10000),
   greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT || 10000),
   socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT || 15000),
+  tls: {
+    minVersion: 'TLSv1.2',
+    servername: smtpHost,
+  },
 });
 
 module.exports = { transporter, smtpFrom, isSmtpConfigured };
