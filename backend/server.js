@@ -6,6 +6,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/auth');
 const contactRoutes = require('./routes/contact');
@@ -21,12 +22,18 @@ const uploadcareRoutes = require('./routes/uploadcare'); // now handles S3 delet
 const { errorHandler, multerErrorHandler } = require('./middleware/error');
 const { authenticateToken } = require('./middleware/auth');
 const {
+  transporter,
+  smtpFrom,
+  isSmtpConfigured,
+} = require('./utils/nodemailer');
+const {
   activatePendingFreeCredits,
 } = require('./utils/subscription');
 const User = require('./models/User');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const PASSWORD_RESET_TTL_MS = 10 * 60 * 1000;
 
 // prometheus instrumentation
 const client = require('prom-client');
@@ -151,6 +158,206 @@ app.get('/ready', (req, res) => {
   if (state === 1) return res.status(200).json({ ready: true });
   return res.status(503).json({ ready: false });
 });
+
+const getFrontendBaseUrl = () => {
+  const configured = String(process.env.FRONTEND_URL || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  const validOrigins = configured
+    .map((value) => {
+      try {
+        return new URL(value).origin;
+      } catch (error) {
+        return null;
+      }
+    })
+    .filter(Boolean);
+
+  if (validOrigins.length > 0) {
+    if (validOrigins.length > 1) {
+      console.warn(
+        'Multiple FRONTEND_URL values configured for password reset. Using the first valid URL only.',
+        validOrigins,
+      );
+    }
+    return validOrigins[0];
+  }
+
+  if (configured.length > 0) {
+    throw new Error(
+      'FRONTEND_URL is invalid. Use one valid frontend URL, or a comma-separated list of valid URLs.',
+    );
+  }
+
+  return 'http://localhost:3000';
+};
+
+const escapeRegex = (value) =>
+  String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const findUserByEmailCaseInsensitive = async (email) => {
+  const normalizedEmail = String(email || '').trim();
+  if (!normalizedEmail) return null;
+
+  return User.findOne({
+    email: { $regex: `^${escapeRegex(normalizedEmail)}$`, $options: 'i' },
+  });
+};
+
+const buildPasswordResetEmail = (resetUrl) => ({
+  subject: 'Reset Your Private Voting Account Password',
+  text: [
+    'A password reset was requested for your Private Voting account.',
+    '',
+    `Use this link within 10 minutes: ${resetUrl}`,
+    '',
+    'If you did not request this, you can ignore this email.',
+  ].join('\n'),
+  html: `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f2937;">
+      <h2 style="margin: 0 0 12px;">Reset Your Private Voting Account Password</h2>
+      <p>A password reset was requested for your Private Voting account.</p>
+      <p>
+        Click this link within 10 minutes:
+        <a href="${resetUrl}" target="_blank" rel="noreferrer">${resetUrl}</a>
+      </p>
+      <p>If you did not request this reset, you can ignore this email.</p>
+    </div>
+  `,
+});
+
+const sendPasswordResetEmail = async (user, rawToken) => {
+  if (!isSmtpConfigured) {
+    throw new Error(
+      'SMTP is not configured. Set SMTP_USER, SMTP_PASS, and SMTP_FROM in backend/.env',
+    );
+  }
+
+  const resetUrl = `${getFrontendBaseUrl()}/reset-password/${rawToken}`;
+  const mail = buildPasswordResetEmail(resetUrl);
+
+  await transporter.sendMail({
+    from: smtpFrom || process.env.SMTP_USER || process.env.EMAIL_USER,
+    to: user.email,
+    subject: mail.subject,
+    text: mail.text,
+    html: mail.html,
+  });
+};
+
+app.post('/forgot-password', async (req, res) => {
+  const { email } = req.body || {};
+
+  try {
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const user = await findUserByEmailCaseInsensitive(email);
+    if (!user) {
+      return res.status(404).json({ message: 'Email is not registered' });
+    }
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+    user.resetPasswordToken = tokenHash;
+    user.resetPasswordExpires = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
+    await user.save();
+
+    try {
+      await sendPasswordResetEmail(user, rawToken);
+    } catch (mailError) {
+      user.resetPasswordToken = null;
+      user.resetPasswordExpires = null;
+      await user.save();
+      throw mailError;
+    }
+
+    return res.status(200).json({
+      message: 'Password reset link sent. It will expire in 10 minutes.',
+    });
+  } catch (error) {
+    console.error('Error sending password reset email:', error);
+    const message =
+      error?.message ||
+      'Failed to send reset email';
+    return res.status(500).json({
+      message,
+    });
+  }
+});
+
+app.get('/api/reset-password/verify/:token', async (req, res) => {
+  const { token } = req.params;
+
+  try {
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const user = await User.findOne({ resetPasswordToken: tokenHash });
+
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid reset link' });
+    }
+
+    if (!user.resetPasswordExpires || user.resetPasswordExpires <= new Date()) {
+      user.resetPasswordToken = null;
+      user.resetPasswordExpires = null;
+      await user.save();
+      return res.status(410).json({ message: 'Link expired. Please try again.' });
+    }
+
+    return res.status(200).json({ message: 'Reset link is valid' });
+  } catch (error) {
+    console.error('Error verifying reset token:', error);
+    return res.status(500).json({ message: 'Failed to verify reset link' });
+  }
+});
+
+app.post('/api/reset-password/:token', async (req, res) => {
+  const { token } = req.params;
+  const { newPassword, confirmPassword } = req.body || {};
+
+  try {
+    if (!newPassword || newPassword.length < 8) {
+      return res
+        .status(400)
+        .json({ message: 'Password must be at least 8 characters' });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ message: 'Passwords do not match' });
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const user = await User.findOne({ resetPasswordToken: tokenHash });
+
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid reset link' });
+    }
+
+    if (!user.resetPasswordExpires || user.resetPasswordExpires <= new Date()) {
+      user.resetPasswordToken = null;
+      user.resetPasswordExpires = null;
+      await user.save();
+      return res.status(410).json({ message: 'Link expired. Please try again.' });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+    await user.save();
+
+    return res.status(200).json({
+      message: 'Password updated successfully',
+    });
+  } catch (error) {
+    console.error('Error resetting password:', error);
+    return res.status(500).json({ message: 'Failed to reset password' });
+  }
+});
+
 app.post('/api/change-password', authenticateToken, async (req, res) => {
   const { newPassword } = req.body;
 

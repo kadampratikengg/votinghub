@@ -9,6 +9,7 @@ import {
 import LoginPage from './components/LoginPage';
 import CreateAccountPage from './components/create-account';
 import ForgotPasswordPage from './components/forgot-password';
+import ResetPasswordPage from './components/reset-password';
 import Dashboard from './pages/dashboard';
 import Manage from './pages/manage';
 import Bids from './pages/bids';
@@ -182,6 +183,14 @@ const AppRoutes = ({ isAuthenticated, setIsAuthenticated, handleLogin }) => {
         element={
           <WithFooter>
             <ForgotPasswordPage />
+          </WithFooter>
+        }
+      />
+      <Route
+        path='/reset-password/:token'
+        element={
+          <WithFooter>
+            <ResetPasswordPage />
           </WithFooter>
         }
       />

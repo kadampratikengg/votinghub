@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FiArrowLeft, FiMail, FiSend, FiShield } from 'react-icons/fi';
 import './LoginPage.css';
@@ -9,6 +9,7 @@ const ForgotPasswordPage = () => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const apiUrl = process.env.REACT_APP_API_URL || '';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -26,7 +27,7 @@ const ForgotPasswordPage = () => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/forgot-password`, {
+      const response = await fetch(`${apiUrl}/forgot-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
