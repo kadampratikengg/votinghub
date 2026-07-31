@@ -22,9 +22,10 @@ const uploadcareRoutes = require('./routes/uploadcare'); // now handles S3 delet
 const { errorHandler, multerErrorHandler } = require('./middleware/error');
 const { authenticateToken } = require('./middleware/auth');
 const {
-  transporter,
+  sendMail,
   smtpFrom,
   isSmtpConfigured,
+  shouldPreferResend,
 } = require('./utils/nodemailer');
 const {
   activatePendingFreeCredits,
@@ -240,21 +241,44 @@ const buildPasswordResetEmail = (resetUrl) => ({
 
 const sendPasswordResetEmail = async (user, rawToken) => {
   if (!isSmtpConfigured) {
-    throw new Error(
-      'SMTP is not configured. Set SMTP_USER, SMTP_PASS, and SMTP_FROM in backend/.env',
-    );
+    if (!shouldPreferResend) {
+      throw new Error(
+        'Email delivery is not configured. Set SMTP_USER, SMTP_PASS, and SMTP_FROM for SMTP or RESEND_API_KEY and RESEND_FROM for HTTPS email delivery.',
+      );
+    }
   }
 
   const resetUrl = `${getFrontendBaseUrl()}/reset-password/${rawToken}`;
   const mail = buildPasswordResetEmail(resetUrl);
-
-  await transporter.sendMail({
-    from: smtpFrom || process.env.SMTP_USER || process.env.EMAIL_USER,
+  const payload = {
+    from:
+      smtpFrom ||
+      process.env.SMTP_USER ||
+      process.env.EMAIL_USER ||
+      process.env.RESEND_FROM,
     to: user.email,
     subject: mail.subject,
     text: mail.text,
     html: mail.html,
-  });
+  };
+
+  const attempts = 2;
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await sendMail(payload);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (!isSmtpTimeoutError(error) || attempt === attempts) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+  }
+
+  throw lastError;
 };
 
 const isSmtpTimeoutError = (error) => {
@@ -264,6 +288,10 @@ const isSmtpTimeoutError = (error) => {
     code === 'ETIMEDOUT' ||
     code === 'ESOCKET' ||
     code === 'ECONNECTION' ||
+    code === 'ECONNREFUSED' ||
+    code === 'ENETUNREACH' ||
+    code === 'EHOSTUNREACH' ||
+    code === 'ECONNRESET' ||
     code === 'EAI_AGAIN' ||
     message.includes('timeout') ||
     message.includes('timed out')
@@ -307,7 +335,7 @@ app.post('/forgot-password', async (req, res) => {
     if (isSmtpTimeoutError(error)) {
       return res.status(503).json({
         message:
-          'Mail server timeout. Confirm SMTP_PORT=587, SMTP_SECURE=false, Gmail app password, and outbound SMTP access on the live server.',
+          'Mail server timeout. If this runs on Render, SMTP egress may be blocked. Use RESEND_API_KEY/RESEND_FROM for HTTPS email delivery, or confirm SMTP_PORT=587, SMTP_SECURE=false, Gmail app password, and outbound SMTP access on the live server.',
       });
     }
     const message =
