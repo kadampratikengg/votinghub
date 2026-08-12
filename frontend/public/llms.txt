@@ -1,0 +1,16 @@
+# PrivateVoting
+
+PrivateVoting is a secure online voting platform for organizations, housing societies, educational institutions, corporates, NGOs, and government projects.
+
+## Primary features
+- Secure elections and anonymous ballots
+- Role-based access control and voter verification
+- Real-time election monitoring and audit-ready reporting
+- Support for organizations, societies, schools, colleges, businesses, NGOs, and public projects
+
+## Key pages
+- https://www.privatevoting.in/
+- https://www.privatevoting.in/features
+- https://www.privatevoting.in/security
+- https://www.privatevoting.in/pricing
+- https://www.privatevoting.in/contact

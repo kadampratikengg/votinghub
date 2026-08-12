@@ -85,9 +85,9 @@ const PrivacyPolicyPage = () => (
         <ul>
           <li>Voter ID verification</li>
           <li>Employee or Member ID verification</li>
-          <li>QR Code verification</li>
-          <li>OTP verification</li>
-          <li>Organization-issued credentials</li>
+          <li>QR Code verification / Upcomming</li>
+          <li>OTP verification / Upcomming</li>
+          <li>Organization-issued credentials / Upcomming</li>
           <li>Other approved verification methods</li>
         </ul>
         <p>Only verified and eligible voters are allowed to cast votes.</p>

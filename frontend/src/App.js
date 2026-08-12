@@ -7,22 +7,23 @@ import {
   useLocation,
 } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
-import LoginPage from './components/LoginPage';
-import CreateAccountPage from './components/create-account';
-import ForgotPasswordPage from './components/forgot-password';
-import ResetPasswordPage from './components/reset-password';
-import PlansPage from './components/PlansPage';
 import Footer from './components/Footer';
-import Dashboard from './pages/dashboard';
-import Manage from './pages/manage';
-import Bids from './pages/bids';
-import Settings from './pages/settings';
-import Profile from './pages/profile';
-import Voting from './pages/Voting';
-import Start from './pages/start';
-import Result from './pages/result';
-import AdminLogin from './pages/admin/AdminLogin';
-import AdminDashboard from './pages/admin/AdminDashboard';
+
+const LoginPage = lazy(() => import('./components/LoginPage'));
+const CreateAccountPage = lazy(() => import('./components/create-account'));
+const ForgotPasswordPage = lazy(() => import('./components/forgot-password'));
+const ResetPasswordPage = lazy(() => import('./components/reset-password'));
+const PlansPage = lazy(() => import('./components/PlansPage'));
+const Dashboard = lazy(() => import('./pages/dashboard'));
+const Manage = lazy(() => import('./pages/manage'));
+const Bids = lazy(() => import('./pages/bids'));
+const Settings = lazy(() => import('./pages/settings'));
+const Profile = lazy(() => import('./pages/profile'));
+const Voting = lazy(() => import('./pages/Voting'));
+const Start = lazy(() => import('./pages/start'));
+const Result = lazy(() => import('./pages/result'));
+const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 
 const HomePage = lazy(() => import('./pages/public/HomePage'));
 const FeaturesPage = lazy(() => import('./pages/public/FeaturesPage'));

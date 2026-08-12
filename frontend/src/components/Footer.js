@@ -1,4 +1,4 @@
-import { FiFacebook, FiGithub, FiLinkedin, FiX } from 'react-icons/fi';
+import { FiFacebook, FiLinkedin, FiX, FiYoutube } from 'react-icons/fi';
 import BrandMark from './site/BrandMark';
 import '../styles/public.css';
 import './Footer.css';
@@ -26,8 +26,8 @@ const Footer = () => {
               <a href='https://x.com' target='_blank' rel='noreferrer' aria-label='X'>
                 <FiX />
               </a>
-              <a href='https://github.com' target='_blank' rel='noreferrer' aria-label='GitHub'>
-                <FiGithub />
+              <a href='https://www.youtube.com' target='_blank' rel='noreferrer' aria-label='YouTube'>
+                <FiYoutube />
               </a>
             </div>
           </div>

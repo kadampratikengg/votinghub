@@ -34,9 +34,9 @@ const featureItems = [
   {
     title: 'Voter verification and access control',
     description:
-      'Verify voters through secure identity checks and role-based permissions so only authorized participants can vote.',
+      'Verify voters through secure identity checks and based on permissions so only authorized participants can vote.',
     icon: <FiUserCheck />,
-    chips: ['OTP', 'Role access', 'Verified voters'],
+    chips: ['Role access', 'Verified voters'],
   },
   {
     title: 'Private and transparent voting',
@@ -228,7 +228,11 @@ const HomePage = () => {
               src='/images/hero.png'
               alt='PrivateVoting secure digital voting platform preview'
               className='site-placeholder__image'
-              loading='lazy'
+              width={1200}
+              height={820}
+              loading='eager'
+              fetchPriority='high'
+              decoding='async'
             />
           </div>
         </div>
