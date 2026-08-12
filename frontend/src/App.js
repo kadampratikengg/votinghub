@@ -120,13 +120,52 @@ const PublicRedirect = ({ children }) => {
 const AppRoutes = ({ setIsAuthenticated, handleLogin }) => {
   const role = getStoredRole();
   const defaultPrivateRoute = getDefaultPrivateRoute(role);
+  const location = useLocation();
+
+  useEffect(() => {
+    // Scroll to top on route change
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, left: 0 });
+    }
+  }, [location.pathname]);
 
   return (
     <Suspense
       fallback={
-        <div className='site-shell' aria-busy='true'>
-          <div className='site-container' style={{ padding: '48px 0' }}>
-            Loading...
+        <div
+          className='site-shell'
+          aria-busy='true'
+          style={{
+            display: 'grid',
+            placeItems: 'center',
+            minHeight: '100vh',
+            background: 'linear-gradient(180deg, #f8f5ee 0%, #eef4e9 100%)',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '14px',
+              textAlign: 'center',
+            }}
+          >
+            <img
+              src='/logo512.png'
+              alt='PrivateVoting logo'
+              style={{
+                width: '96px',
+                height: '96px',
+                borderRadius: '24px',
+                objectFit: 'cover',
+                boxShadow: '0 18px 40px rgba(31, 122, 77, 0.18)',
+                animation: 'pulse 1.8s ease-in-out infinite',
+              }}
+            />
+            <div style={{ color: '#13432c', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              Loading...
+            </div>
           </div>
         </div>
       }

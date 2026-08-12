@@ -264,13 +264,14 @@ const HomePage = () => {
             description='Security is layered across voter verification, role control, secure recording, and audit logging.'
           />
           <StatsGrid stats={controlStats} />
-          <div className='site-chip-list' style={{ marginTop: 20 }}>
+          <div className='site-chip-list site-chip-list--hero' style={{ marginTop: 20 }}>
             {[
               'SSL Encryption',
               'JWT Security',
               'Secure API',
               'Encrypted Database',
               'Anonymous Ballots',
+              'IP Restriction',
               'Role Permissions',
               'Audit Logs',
               'Tamper Resistant Process',

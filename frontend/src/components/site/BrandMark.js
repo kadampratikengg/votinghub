@@ -1,8 +1,12 @@
 const BrandMark = ({ compact = false }) => (
   <span className='site-brand' aria-label='PrivateVoting'>
-    <span className='site-brand__mark' aria-hidden='true'>
-      PV
-    </span>
+    <img 
+      src='/logo512.png' 
+      alt='PrivateVoting Logo' 
+      className='site-brand__logo-image'
+      width='44'
+      height='44'
+    />
     {!compact ? (
       <span className='site-brand__copy'>
         <span className='site-brand__name'>PrivateVoting</span>

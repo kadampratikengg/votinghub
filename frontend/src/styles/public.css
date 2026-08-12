@@ -77,6 +77,10 @@ select {
   flex-shrink: 0;
 }
 
+.site-brand__logo-image {
+  border-radius: 8px;
+}
+
 .site-brand__mark {
   width: 44px;
   height: 44px;
@@ -210,11 +214,11 @@ select {
 }
 
 .site-section {
-  padding: clamp(64px, 8vw, 112px) 0;
+  padding: clamp(24px, 3vw, 36px) 0;
 }
 
 .site-section--tight {
-  padding: clamp(40px, 6vw, 72px) 0;
+  padding: clamp(12px, 2vw, 20px) 0;
 }
 
 .site-kicker {
@@ -233,7 +237,8 @@ select {
 }
 
 .site-page-hero {
-  padding: clamp(56px, 8vw, 104px) 0 clamp(40px, 6vw, 72px);
+  position: relative;
+  padding: clamp(28px, 4vw, 52px) 0 clamp(12px, 3vw, 20px);
 }
 
 .site-page-hero__grid {
@@ -241,33 +246,75 @@ select {
   grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr);
   gap: clamp(24px, 5vw, 56px);
   align-items: center;
+  padding: clamp(24px, 4vw, 38px);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 34px;
+  color: #fffaf0;
+  background:
+    linear-gradient(135deg, rgba(23, 33, 26, 0.95), rgba(31, 122, 77, 0.9)),
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.06) 0 1px,
+      transparent 1px 15px
+    );
+  box-shadow: 0 22px 60px rgba(37, 48, 35, 0.13);
+  overflow: hidden;
+  position: relative;
+}
+
+.site-page-hero__grid::after {
+  content: '';
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  right: -80px;
+  top: -90px;
+  border-radius: 999px;
+  background: rgba(215, 240, 110, 0.18);
 }
 
 .site-page-hero h1 {
-  margin: 18px 0 16px;
+  margin: 9px 0 8px;
   font-family: Georgia, 'Times New Roman', serif;
   font-size: clamp(42px, 6vw, 78px);
   line-height: 0.96;
   letter-spacing: -0.06em;
+  color: #fffaf0;
 }
 
 .site-page-hero p {
   margin: 0;
   font-size: clamp(16px, 2vw, 19px);
   line-height: 1.75;
-  color: var(--pv-muted);
+  color: rgba(255, 250, 240, 0.8);
   max-width: 64ch;
+}
+
+.site-page-hero .site-kicker {
+  color: var(--pv-accent);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.site-page-hero__panel {
+  position: relative;
+  z-index: 1;
+  padding: 12px;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 16px 40px rgba(18, 33, 24, 0.18);
 }
 
 .site-page-hero__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  margin-top: 28px;
+  margin-top: 14px;
 }
 
 .site-page-hero__panel {
-  padding: 24px;
+  padding: 12px;
   border-radius: 28px;
   border: 1px solid rgba(19, 67, 44, 0.1);
   background:
@@ -281,7 +328,7 @@ select {
   gap: 14px;
   place-items: center;
   min-height: 320px;
-  padding: 24px;
+  padding: 12px;
   border-radius: 24px;
   border: 1px dashed rgba(31, 122, 77, 0.22);
   background:
@@ -320,13 +367,18 @@ select {
   font-weight: 700;
 }
 
+.site-logo-chip__icon {
+  font-size: 48px;
+  margin-bottom: 8px;
+}
+
 .site-section__heading {
   max-width: 760px;
-  margin-bottom: 28px;
+  margin-bottom: 14px;
 }
 
 .site-section__heading h2 {
-  margin: 12px 0 12px;
+  margin: 6px 0 6px;
   font-family: Georgia, 'Times New Roman', serif;
   font-size: clamp(30px, 4vw, 52px);
   line-height: 1;
@@ -366,7 +418,7 @@ select {
 }
 
 .site-card {
-  padding: 24px;
+  padding: 12px;
   border-radius: 24px;
   border: 1px solid rgba(19, 67, 44, 0.1);
   background: var(--pv-surface-strong);
@@ -390,7 +442,7 @@ select {
   display: grid;
   place-items: center;
   border-radius: 14px;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
   color: var(--pv-brand);
   background: rgba(31, 122, 77, 0.1);
 }
@@ -400,6 +452,16 @@ select {
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 16px;
+}
+
+.site-chip-list--hero {
+  margin-top: 18px;
+}
+
+.site-chip-list--hero .site-chip {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: rgba(255, 250, 240, 0.86);
 }
 
 .site-chip {
@@ -424,7 +486,7 @@ select {
   grid-template-columns: 90px minmax(0, 1fr);
   gap: 20px;
   align-items: start;
-  padding: 20px 24px;
+  padding: 10px 12px;
   border-radius: 22px;
   border: 1px solid rgba(19, 67, 44, 0.1);
   background: rgba(255, 255, 255, 0.8);
@@ -462,7 +524,7 @@ select {
 }
 
 .site-stats__item {
-  padding: 28px 24px;
+  padding: 14px 12px;
   border-radius: 24px;
   border: 1px solid rgba(19, 67, 44, 0.1);
   background:
@@ -684,14 +746,7 @@ select {
 }
 
 .site-breadcrumbs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 0 0 18px;
-  padding: 0;
-  list-style: none;
-  color: var(--pv-muted);
-  font-size: 0.9rem;
+  display: none !important;
 }
 
 .site-breadcrumbs li + li::before {

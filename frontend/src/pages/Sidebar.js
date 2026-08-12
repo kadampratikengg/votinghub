@@ -59,14 +59,14 @@ const Sidebar = ({ setIsAuthenticated }) => {
       <ul>
         <li>
           <button onClick={() => handleNavigation('/dashboard')}>
-            <FaTachometerAlt size={20} />
+            <FaTachometerAlt size={22} />
             {!isMinimized && 'Dashboard'}
           </button>
         </li>
         {canManage && (
           <li>
             <button onClick={() => handleNavigation('/manage')}>
-              <FaCogs size={20} />
+              <FaCogs size={22} />
               {!isMinimized && 'Manage'}
             </button>
           </li>
@@ -74,7 +74,7 @@ const Sidebar = ({ setIsAuthenticated }) => {
         {role === 'admin' && (
           <li>
             <button onClick={() => handleNavigation('/profile')}>
-              <FaUserCircle size={20} />
+              <FaUserCircle size={22} />
               {!isMinimized && 'Profile'}
             </button>
           </li>
@@ -82,7 +82,7 @@ const Sidebar = ({ setIsAuthenticated }) => {
         {role === 'admin' && (
           <li>
             <button onClick={() => handleNavigation('/settings')}>
-              <FaCog size={20} />
+              <FaCog size={22} />
               {!isMinimized && 'Settings'}
             </button>
           </li>
@@ -90,14 +90,14 @@ const Sidebar = ({ setIsAuthenticated }) => {
         {/* Uncomment to enable Bids menu
         <li>
           <button onClick={() => handleNavigation('/bids')}>
-            <FaGavel size={20} />
+            <FaGavel size={22} />
             {!isMinimized && 'Bids'}
           </button>
         </li>
         */}
         <li>
           <button onClick={handleLogout}>
-            <FaSignOutAlt size={20} />
+            <FaSignOutAlt size={22} />
             {!isMinimized && 'Log Out'}
           </button>
         </li>
