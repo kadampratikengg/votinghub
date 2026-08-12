@@ -1,66 +1,86 @@
-import React from 'react';
+import { FiFacebook, FiGithub, FiLinkedin, FiX } from 'react-icons/fi';
+import BrandMark from './site/BrandMark';
+import '../styles/public.css';
 import './Footer.css';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
-  const brandName = process.env.REACT_APP_BRAND_NAME || 'PrivateVoting';
-  const supportEmail =
-    process.env.REACT_APP_SUPPORT_EMAIL || 'info@privatevoting.in';
-
   return (
-    <footer className='footer'>
-      <div className='footer-content'>
-        <div className='footer-section footer-section--brand'>
-          <h4 className='footer-brand'>{brandName}</h4>
-          <p className='footer-description'>
-            Secure digital voting platform for elections, governance, and
-            organizational decisions.
-          </p>
+    <footer className='site-footer'>
+      <div className='site-container'>
+        <div className='site-footer__grid'>
+          <div>
+            <BrandMark />
+            <p className='site-footer__description'>
+              PrivateVoting is a secure digital voting platform for elections,
+              governance, and organizational decision-making across India and
+              beyond.
+            </p>
+            <div className='site-footer__social' aria-label='Social links'>
+              <a href='https://www.linkedin.com' target='_blank' rel='noreferrer' aria-label='LinkedIn'>
+                <FiLinkedin />
+              </a>
+              <a href='https://www.facebook.com' target='_blank' rel='noreferrer' aria-label='Facebook'>
+                <FiFacebook />
+              </a>
+              <a href='https://x.com' target='_blank' rel='noreferrer' aria-label='X'>
+                <FiX />
+              </a>
+              <a href='https://github.com' target='_blank' rel='noreferrer' aria-label='GitHub'>
+                <FiGithub />
+              </a>
+            </div>
+          </div>
+
+          <div>
+            <h3 className='site-footer__heading'>About</h3>
+            <ul className='site-footer__links'>
+              <li>
+                <a href='/about-us'>About Us</a>
+              </li>
+              <li>
+                <a href='/features'>Features</a>
+              </li>
+              <li>
+                <a href='/pricing'>Pricing</a>
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h3 className='site-footer__heading'>Explore</h3>
+            <ul className='site-footer__links'>
+              <li>
+                <a href='/contact'>Contact</a>
+              </li>
+              <li>
+                <a href='/faq'>FAQ</a>
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h3 className='site-footer__heading'>Legal</h3>
+            <ul className='site-footer__links'>
+              <li>
+                <a href='/privacy-policy'>Privacy Policy</a>
+              </li>
+              <li>
+                <a href='/terms-of-service'>Terms of Service</a>
+              </li>
+              <li>
+                <a href='/cookie-policy'>Cookie Policy</a>
+              </li>
+            </ul>
+          </div>
         </div>
 
-        <div className='footer-section'>
-          <h5 className='footer-title'>Quick Links</h5>
-          <ul className='footer-links'>
-            <li>
-              <a href='/'>Home</a>
-            </li>
-            <li>
-              <a href='/about-us'>About Us</a>
-            </li>
-            <li>
-              <a href='/contact'>Contact</a>
-            </li>
-            
-          </ul>
+        <div className='site-footer__bottom'>
+          <span>
+            &copy; {currentYear} PrivateVoting. All rights reserved.
+          </span>
+          <span>Secure online voting platform</span>
         </div>
-
-        <div className='footer-section'>
-          <h5 className='footer-title'>Legal</h5>
-          <ul className='footer-links'>
-            <li>
-              <a href='/privacy-policy'>Privacy Policy</a>
-            </li>
-            <li>
-              <a href='/terms-of-service'>Terms of Service</a>
-            </li>
-            <li>
-              <a href='/cookie-policy'>Cookie Policy</a>
-            </li>
-          </ul>
-        </div>
-
-        <div className='footer-section'>
-          <h5 className='footer-title'>Contact</h5>
-          <p className='footer-contact'>
-            Email: <a href={`mailto:${supportEmail}`}>{supportEmail}</a>
-          </p>
-        </div>
-      </div>
-
-      <div className='footer-bottom'>
-        <p>
-          &copy; {currentYear} {brandName}. All rights reserved.
-        </p>
       </div>
     </footer>
   );

@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { FiArrowRight, FiLock, FiMail, FiShield } from 'react-icons/fi';
+import Seo from './site/Seo';
 import './LoginPage.css';
 
 const LoginPage = ({ onLogin }) => {
@@ -223,6 +224,12 @@ const LoginPage = ({ onLogin }) => {
 
   return (
     <main className='auth-shell auth-shell--compact'>
+      <Seo
+        title='Login | PrivateVoting'
+        description='Sign in to PrivateVoting to manage secure elections, voter access, and published results.'
+        canonicalPath='/login'
+        noIndex
+      />
       <section className='auth-art-panel'>
         <span className='auth-badge'>
           <FiShield /> Secure voting access

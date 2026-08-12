@@ -1,13 +1,19 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { FiArrowLeft } from 'react-icons/fi';
-import './MaintenancePage.css'; // Reusing styles for consistency
+import Seo from '../../components/site/Seo';
+import './MaintenancePage.css';
 
 const CookiePolicyPage = () => (
   <main className='static-page'>
+    <Seo
+      title='Cookie Policy | PrivateVoting'
+      description='Learn how PrivateVoting uses essential cookies and similar technologies to keep accounts and sessions secure.'
+      canonicalPath='/cookie-policy'
+    />
     <div className='static-page__shell'>
       <section className='static-page__panel'>
-        <h1>COOKIE POLICY</h1>
+        <h1>Cookie Policy - Private Voting Platform</h1>
         <p>
           <strong>Last Updated:</strong> 26 November 2023
         </p>
@@ -15,8 +21,8 @@ const CookiePolicyPage = () => (
           <strong>Effective Date:</strong> 26 November 2023
         </p>
         <p>
-          This Cookie Policy explains how <strong>[Private Voting]</strong>{' '}
-          ("Company", "we", "us", or "our") uses cookies and similar 
+          This Cookie Policy explains how <strong>Private Voting</strong>{' '}
+          ("Company", "we", "us", or "our") uses cookies and similar
           technologies when you access or use our website, SaaS platform,
           applications, products, and related services (collectively, the{' '}
           <strong>"Services"</strong>).

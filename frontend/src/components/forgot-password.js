@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FiArrowLeft, FiMail, FiSend, FiShield } from 'react-icons/fi';
+import Seo from './site/Seo';
 import './LoginPage.css';
 
 const ForgotPasswordPage = () => {
@@ -51,6 +52,12 @@ const ForgotPasswordPage = () => {
 
   return (
     <main className="auth-shell auth-shell--compact">
+      <Seo
+        title='Forgot Password | PrivateVoting'
+        description='Request a password reset link for your PrivateVoting administrator account.'
+        canonicalPath='/forgot-password'
+        noIndex
+      />
       <section className="auth-art-panel auth-art-panel--reset">
         <span className="auth-badge"><FiShield /> Voting account recovery</span>
         <h1>Restore access to your voting dashboard.</h1>

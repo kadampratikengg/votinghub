@@ -8,6 +8,8 @@ import {
   FiZap,
 } from 'react-icons/fi';
 import { FaWhatsapp } from 'react-icons/fa';
+import Seo from './site/Seo';
+import PublicLayout from './site/PublicLayout';
 import './PlansPage.css';
 
 const PlansPage = () => {
@@ -77,7 +79,13 @@ const PlansPage = () => {
   };
 
   return (
-    <main className='plans-page'>
+    <PublicLayout>
+      <Seo
+        title='Pricing | PrivateVoting'
+        description='Compare PrivateVoting voting credit plans and choose the right package for your organization.'
+        canonicalPath='/pricing'
+      />
+      <div className='plans-page'>
       <section className='plans-hero'>
         <div>
           <span className='plans-kicker'>
@@ -273,7 +281,8 @@ const PlansPage = () => {
           </a>
         );
       })()}
-    </main>
+      </div>
+    </PublicLayout>
   );
 };
 

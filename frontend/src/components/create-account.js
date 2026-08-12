@@ -16,6 +16,7 @@ import {
 } from 'react-icons/fi';
 import 'react-toastify/dist/ReactToastify.css';
 import './LoginPage.css';
+import Seo from './site/Seo';
 import { resolveStoredAssetUrl } from '../utils/imageUrl';
 
 const CreateAccountPage = () => {
@@ -161,6 +162,12 @@ const CreateAccountPage = () => {
 
   return (
     <main className='auth-shell auth-shell--wide auth-shell--single'>
+      <Seo
+        title='Create Account | PrivateVoting'
+        description='Create a PrivateVoting account to start setting up secure online voting for your organization.'
+        canonicalPath='/create-account'
+        noIndex
+      />
       <ToastContainer position='top-right' autoClose={3000} />
 
       <section className='auth-art-panel auth-art-panel--signup'>

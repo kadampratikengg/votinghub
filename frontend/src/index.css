@@ -1,20 +1,31 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
 body {
-  font-family: Arial, sans-serif;
   margin: 0;
-  padding: 0;
-  background-color: #ecf0f1;
+  font-family: Inter, 'Segoe UI', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-.authenticated-layout {
-  display: flex;
+img {
+  max-width: 100%;
 }
 
-.sidebar-and-content {
-  display: flex;
-  width: 100%;
+button,
+input,
+textarea,
+select {
+  font: inherit;
 }
 
-.content {
-  padding: 20px;
-  flex-grow: 1;
+a {
+  color: inherit;
 }

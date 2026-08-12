@@ -1,13 +1,19 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { FiArrowLeft } from 'react-icons/fi';
-import './MaintenancePage.css'; // Reusing styles for consistency
+import Seo from '../../components/site/Seo';
+import './MaintenancePage.css';
 
 const TermsPage = () => (
   <main className='static-page'>
+    <Seo
+      title='Terms of Service | PrivateVoting'
+      description='Review the terms that govern the use of PrivateVoting, including account responsibilities and permitted use.'
+      canonicalPath='/terms-of-service'
+    />
     <div className='static-page__shell'>
       <section className='static-page__panel'>
-        <h1>Terms of Service – Private Voting Platform</h1>
+        <h1>Terms of Service - Private Voting Platform</h1>
         <p>
           <strong>Effective Date:</strong> 26 November 2023
         </p>
@@ -489,3 +495,4 @@ const TermsPage = () => (
 );
 
 export default TermsPage;
+

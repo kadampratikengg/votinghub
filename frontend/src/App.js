@@ -1,15 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import {
   BrowserRouter as Router,
-  Routes,
-  Route,
   Navigate,
+  Route,
+  Routes,
   useLocation,
 } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 import LoginPage from './components/LoginPage';
 import CreateAccountPage from './components/create-account';
 import ForgotPasswordPage from './components/forgot-password';
 import ResetPasswordPage from './components/reset-password';
+import PlansPage from './components/PlansPage';
+import Footer from './components/Footer';
 import Dashboard from './pages/dashboard';
 import Manage from './pages/manage';
 import Bids from './pages/bids';
@@ -18,16 +21,18 @@ import Profile from './pages/profile';
 import Voting from './pages/Voting';
 import Start from './pages/start';
 import Result from './pages/result';
-import PlansPage from './components/PlansPage';
-import Footer from './components/Footer';
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminDashboard from './pages/admin/AdminDashboard';
-import AboutUsPage from './pages/static/AboutUsPage';
-import ContactPage from './pages/static/ContactPage';
-import SupportPage from './pages/static/SupportPage';
-import PrivacyPolicyPage from './pages/static/PrivacyPolicyPage';
-import TermsPage from './pages/static/TermsPage';
-import CookiePolicyPage from './pages/static/CookiePolicyPage';
+
+const HomePage = lazy(() => import('./pages/public/HomePage'));
+const FeaturesPage = lazy(() => import('./pages/public/FeaturesPage'));
+const SecurityPage = lazy(() => import('./pages/public/SecurityPage'));
+const FaqPage = lazy(() => import('./pages/public/FaqPage'));
+const AboutUsPage = lazy(() => import('./pages/static/AboutUsPage'));
+const ContactPage = lazy(() => import('./pages/static/ContactPage'));
+const PrivacyPolicyPage = lazy(() => import('./pages/static/PrivacyPolicyPage'));
+const TermsPage = lazy(() => import('./pages/static/TermsPage'));
+const CookiePolicyPage = lazy(() => import('./pages/static/CookiePolicyPage'));
 
 const getStoredRole = () => localStorage.getItem('role') || 'admin';
 const getStoredSubUserRole = () => localStorage.getItem('subUserRole') || '';
@@ -76,7 +81,7 @@ const ProtectedRoute = ({ children, allowedRoles, requiredPermissions }) => {
   const permissions = getStoredPermissions();
 
   if (!isAuthenticated) {
-    return <Navigate to='/' replace state={{ from: location }} />;
+    return <Navigate to='/login' replace state={{ from: location }} />;
   }
 
   if (allowedRoles && !allowedRoles.includes(role)) {
@@ -104,210 +109,207 @@ const ProtectedRoute = ({ children, allowedRoles, requiredPermissions }) => {
   return children;
 };
 
-const AppRoutes = ({ isAuthenticated, setIsAuthenticated, handleLogin }) => {
+const PublicRedirect = ({ children }) => {
+  if (hasSession()) {
+    return <Navigate to={getDefaultPrivateRoute(getStoredRole())} replace />;
+  }
+
+  return children;
+};
+
+const AppRoutes = ({ setIsAuthenticated, handleLogin }) => {
   const role = getStoredRole();
   const defaultPrivateRoute = getDefaultPrivateRoute(role);
 
   return (
-    <Routes>
-      <Route
-        path='/'
-        element={
-          isAuthenticated ? (
-            <Navigate to={defaultPrivateRoute} replace />
-          ) : (
+    <Suspense
+      fallback={
+        <div className='site-shell' aria-busy='true'>
+          <div className='site-container' style={{ padding: '48px 0' }}>
+            Loading...
+          </div>
+        </div>
+      }
+    >
+      <Routes>
+        <Route
+          path='/'
+          element={
+            hasSession() ? (
+              <Navigate to={defaultPrivateRoute} replace />
+            ) : (
+              <HomePage />
+            )
+          }
+        />
+        <Route
+          path='/login'
+          element={
+            <PublicRedirect>
+              <WithFooter>
+                <LoginPage onLogin={handleLogin} />
+              </WithFooter>
+            </PublicRedirect>
+          }
+        />
+        <Route
+          path='/create-account'
+          element={
+            <PublicRedirect>
+              <WithFooter>
+                <CreateAccountPage />
+              </WithFooter>
+            </PublicRedirect>
+          }
+        />
+        <Route
+          path='/about-us'
+          element={<AboutUsPage />}
+        />
+        <Route
+          path='/features'
+          element={<FeaturesPage />}
+        />
+        <Route
+          path='/security'
+          element={<SecurityPage />}
+        />
+        <Route
+          path='/pricing'
+          element={<PlansPage setIsAuthenticated={setIsAuthenticated} />}
+        />
+        <Route
+          path='/faq'
+          element={<FaqPage />}
+        />
+        <Route
+          path='/contact'
+          element={<ContactPage />}
+        />
+        <Route
+          path='/privacy-policy'
+          element={<PrivacyPolicyPage />}
+        />
+        <Route
+          path='/terms-of-service'
+          element={<TermsPage />}
+        />
+        <Route
+          path='/cookie-policy'
+          element={<CookiePolicyPage />}
+        />
+        <Route
+          path='/forgot-password'
+          element={
             <WithFooter>
-              <LoginPage onLogin={handleLogin} />
+              <ForgotPasswordPage />
             </WithFooter>
-          )
-        }
-      />
-      <Route
-        path='/create-account'
-        element={
-          <WithFooter>
-            <CreateAccountPage />
-          </WithFooter>
-        }
-      />
-      <Route
-        path='/about-us'
-        element={
-          <WithFooter>
-            <AboutUsPage />
-          </WithFooter>
-        }
-      />
-      <Route
-        path='/contact'
-        element={
-          <WithFooter>
-            <ContactPage />
-          </WithFooter>
-        }
-      />
-      <Route
-        path='/support'
-        element={
-          <WithFooter>
-            <SupportPage />
-          </WithFooter>
-        }
-      />
-      <Route
-        path='/privacy-policy'
-        element={
-          <WithFooter>
-            <PrivacyPolicyPage />
-          </WithFooter>
-        }
-      />
-      <Route
-        path='/terms-of-service'
-        element={
-          <WithFooter>
-            <TermsPage />
-          </WithFooter>
-        }
-      />
-      <Route
-        path='/cookie-policy'
-        element={
-          <WithFooter>
-            <CookiePolicyPage />
-          </WithFooter>
-        }
-      />
-      <Route
-        path='/forgot-password'
-        element={
-          <WithFooter>
-            <ForgotPasswordPage />
-          </WithFooter>
-        }
-      />
-      <Route
-        path='/reset-password/:token'
-        element={
-          <WithFooter>
-            <ResetPasswordPage />
-          </WithFooter>
-        }
-      />
-      <Route
-        path='/admin'
-        element={
-           <AdminLogin />
-          // <WithFooter>
-          //   <AdminLogin />
-          // </WithFooter>
-        }
-      />
-      <Route
-        path='/admin/dashboard'
-        element={
-          <AdminProtectedRoute>
-            {/* <WithFooter> */}
+          }
+        />
+        <Route
+          path='/reset-password/:token'
+          element={
+            <WithFooter>
+              <ResetPasswordPage />
+            </WithFooter>
+          }
+        />
+        <Route
+          path='/admin'
+          element={<AdminLogin />}
+        />
+        <Route
+          path='/admin/dashboard'
+          element={
+            <AdminProtectedRoute>
               <AdminDashboard />
-            {/* </WithFooter> */}
-          </AdminProtectedRoute>
-        }
-      />
-      <Route
-        path='/planspage'
-        element={
-          <WithFooter>
-            <PlansPage setIsAuthenticated={setIsAuthenticated} />
-          </WithFooter>
-        }
-      />
-
-      <Route
-        path='/dashboard'
-        element={
-          <ProtectedRoute allowedRoles={['admin', 'subuser']}>
-            <Dashboard setIsAuthenticated={setIsAuthenticated} />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path='/manage'
-        element={
-          <ProtectedRoute
-            allowedRoles={['admin', 'subuser']}
-            requiredPermissions={['/manage']}
-          >
-            <Manage setIsAuthenticated={setIsAuthenticated} />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path='/bids'
-        element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <WithFooter>
-              <Bids setIsAuthenticated={setIsAuthenticated} />
-            </WithFooter>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path='/profile'
-        element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <Profile setIsAuthenticated={setIsAuthenticated} />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path='/settings'
-        element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <Settings setIsAuthenticated={setIsAuthenticated} />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path='/results/:eventId'
-        element={
-          <ProtectedRoute
-            allowedRoles={['admin', 'subuser']}
-            requiredPermissions={['/manage']}
-          >
-            {/* <WithFooter> */}
+            </AdminProtectedRoute>
+          }
+        />
+        <Route
+          path='/planspage'
+          element={<PlansPage setIsAuthenticated={setIsAuthenticated} />}
+        />
+        <Route
+          path='/dashboard'
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'subuser']}>
+              <Dashboard setIsAuthenticated={setIsAuthenticated} />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path='/manage'
+          element={
+            <ProtectedRoute
+              allowedRoles={['admin', 'subuser']}
+              requiredPermissions={['/manage']}
+            >
+              <Manage setIsAuthenticated={setIsAuthenticated} />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path='/bids'
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <WithFooter>
+                <Bids setIsAuthenticated={setIsAuthenticated} />
+              </WithFooter>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path='/profile'
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <Profile setIsAuthenticated={setIsAuthenticated} />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path='/settings'
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <Settings setIsAuthenticated={setIsAuthenticated} />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path='/results/:eventId'
+          element={
+            <ProtectedRoute
+              allowedRoles={['admin', 'subuser']}
+              requiredPermissions={['/manage']}
+            >
               <Result setIsAuthenticated={setIsAuthenticated} />
-            {/* </WithFooter> */}
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path='/voting/:eventId'
-        element={
-          // <WithFooter>
-            <Voting setIsAuthenticated={setIsAuthenticated} />
-          // </WithFooter>
-        }
-      />
-      <Route
-        path='/voting/:eventId/start'
-        element={
-          <ProtectedRoute
-            allowedRoles={['admin', 'subuser']}
-            requiredPermissions={['/voting/:eventId']}
-          >
-            <WithFooter>
-              <Start setIsAuthenticated={setIsAuthenticated} />
-            </WithFooter>
-          </ProtectedRoute>
-        }
-      />
-    </Routes>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path='/voting/:eventId'
+          element={<Voting setIsAuthenticated={setIsAuthenticated} />}
+        />
+        <Route
+          path='/voting/:eventId/start'
+          element={
+            <ProtectedRoute
+              allowedRoles={['admin', 'subuser']}
+              requiredPermissions={['/voting/:eventId']}
+            >
+              <WithFooter>
+                <Start setIsAuthenticated={setIsAuthenticated} />
+              </WithFooter>
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </Suspense>
   );
 };
 
 const App = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
     setIsAuthenticated(hasSession());
@@ -319,15 +321,16 @@ const App = () => {
   };
 
   return (
-    <Router>
-      <div className='App'>
-        <AppRoutes
-          isAuthenticated={isAuthenticated}
-          setIsAuthenticated={setIsAuthenticated}
-          handleLogin={handleLogin}
-        />
-      </div>
-    </Router>
+    <HelmetProvider>
+      <Router>
+        <div className='App'>
+          <AppRoutes
+            setIsAuthenticated={setIsAuthenticated}
+            handleLogin={handleLogin}
+          />
+        </div>
+      </Router>
+    </HelmetProvider>
   );
 };
 

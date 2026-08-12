@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { FiArrowLeft, FiLock, FiShield, FiCheckCircle } from 'react-icons/fi';
+import Seo from './site/Seo';
 import './LoginPage.css';
 
 const ResetPasswordPage = () => {
@@ -102,6 +103,12 @@ const ResetPasswordPage = () => {
 
   return (
     <main className="auth-shell auth-shell--compact">
+      <Seo
+        title='Reset Password | PrivateVoting'
+        description='Set a new password for your PrivateVoting administrator account.'
+        canonicalPath='/forgot-password'
+        noIndex
+      />
       <section className="auth-art-panel auth-art-panel--reset">
         <span className="auth-badge">
           <FiShield /> Secure password reset

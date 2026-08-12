@@ -1,5 +1,7 @@
 import React from 'react';
 import { FiMail, FiPhone, FiMapPin } from 'react-icons/fi';
+import Seo from '../../components/site/Seo';
+import PublicLayout from '../../components/site/PublicLayout';
 import './MaintenancePage.css'; // Reusing styles
 import './ContactPage.css'; // New styles for this page
 
@@ -10,13 +12,19 @@ const ContactPage = () => {
   const address = 'Satara, 415011, Maharashtra, India';
 
   return (
-    <main className='static-page'>
-      <div className='static-page__shell'>
-        <section className='static-page__panel'>
+    <PublicLayout>
+      <Seo
+        title='Contact | PrivateVoting'
+        description='Contact PrivateVoting for demos, onboarding help, rollout planning, and product questions.'
+        canonicalPath='/contact'
+      />
+      <div className='static-page'>
+        <div className='static-page__shell'>
+          <section className='static-page__panel'>
           <h1>Contact Us</h1>
           <p>
-            We're here to help. Reach out to us with any questions or for
-            support.
+            We are here to help with demos, setup, rollout planning, and
+            product support.
           </p>
 
           <hr />
@@ -63,10 +71,20 @@ const ContactPage = () => {
             </div>
           </div>
 
-        
-        </section>
+          <hr />
+
+          <div className='contact-support-flow'>
+            <h2>Contact and workflow help</h2>
+            <p>
+              Contact is now handled through this page so there is a single
+              public point for planning, troubleshooting, and launch
+              coordination.
+            </p>
+          </div>
+          </section>
+        </div>
       </div>
-    </main>
+    </PublicLayout>
   );
 };
 

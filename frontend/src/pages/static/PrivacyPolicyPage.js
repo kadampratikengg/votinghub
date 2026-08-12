@@ -1,13 +1,19 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { FiArrowLeft } from 'react-icons/fi';
-import './MaintenancePage.css'; // Reusing styles for consistency
+import Seo from '../../components/site/Seo';
+import './MaintenancePage.css';
 
 const PrivacyPolicyPage = () => (
   <main className='static-page'>
+    <Seo
+      title='Privacy Policy | PrivateVoting'
+      description='Read how PrivateVoting handles personal data, voting records, account access, and ballot privacy.'
+      canonicalPath='/privacy-policy'
+    />
     <div className='static-page__shell'>
       <section className='static-page__panel'>
-        <h1>Privacy Policy – Private Voting Platform</h1>
+        <h1>Privacy Policy - Private Voting Platform</h1>
         <p>
           <strong>Effective Date:</strong> 26 November 2023
         </p>
@@ -212,3 +218,4 @@ const PrivacyPolicyPage = () => (
 );
 
 export default PrivacyPolicyPage;
+
