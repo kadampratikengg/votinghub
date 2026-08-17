@@ -20,13 +20,13 @@ const Footer = () => {
               <a href='https://www.linkedin.com' target='_blank' rel='noreferrer' aria-label='LinkedIn'>
                 <FiLinkedin />
               </a>
-              <a href='https://www.facebook.com' target='_blank' rel='noreferrer' aria-label='Facebook'>
+              <a href='https://www.facebook.com/share/1LThatW4Gk/?mibextid=wwXIfr' target='_blank' rel='noreferrer' aria-label='Facebook'>
                 <FiFacebook />
               </a>
               <a href='https://x.com' target='_blank' rel='noreferrer' aria-label='X'>
                 <FiX />
               </a>
-              <a href='https://www.youtube.com' target='_blank' rel='noreferrer' aria-label='YouTube'>
+              <a href='https://www.youtube.com/@PrivateVoting' target='_blank' rel='noreferrer' aria-label='YouTube'>
                 <FiYoutube />
               </a>
             </div>

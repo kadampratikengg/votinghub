@@ -9,7 +9,6 @@ import {
   FaCog,
   FaSignOutAlt,
 } from 'react-icons/fa';
-import './App.css';
 
 const Sidebar = ({ setIsAuthenticated }) => {
   // `isMinimized` controls both desktop and mobile states.
