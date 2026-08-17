@@ -22,6 +22,7 @@
     ),
     linear-gradient(135deg, #f8f5ec 0%, #eef4e9 48%, #f7f1e2 100%);
   color: var(--work-ink);
+  overflow-x: hidden;
 }
 
 .work-page,

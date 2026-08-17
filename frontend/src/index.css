@@ -13,9 +13,24 @@ body {
   font-family: Inter, 'Segoe UI', Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+#root,
+.App {
+  min-height: 100vh;
+  overflow-x: hidden;
 }
 
 img {
+  max-width: 100%;
+  display: block;
+}
+
+svg,
+video,
+canvas {
+  display: block;
   max-width: 100%;
 }
 
