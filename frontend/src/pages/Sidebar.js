@@ -1,20 +1,29 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  FaChevronLeft,
-  FaChevronRight,
-  FaTachometerAlt,
-  FaCogs,
-  FaUserCircle,
-  FaCog,
+  FaBars,
+  FaCalendarAlt,
+  FaChartBar,
+  FaPlusCircle,
+  FaRegUserCircle,
   FaSignOutAlt,
+  FaSlidersH,
+  FaTachometerAlt,
+  FaUsers,
 } from 'react-icons/fa';
+import './App.css';
 
 const Sidebar = ({ setIsAuthenticated }) => {
-  // `isMinimized` controls both desktop and mobile states.
-  // true = collapsed (icons only), false = expanded (icons + labels)
-  const [isMinimized, setIsMinimized] = useState(true);
+  const [isMinimized, setIsMinimized] = useState(() => {
+    if (typeof window === 'undefined') return false;
+
+    const savedPreference = localStorage.getItem('sidebarMinimized');
+    return savedPreference === null
+      ? window.innerWidth <= 768
+      : savedPreference === 'true';
+  });
   const navigate = useNavigate();
+  const location = useLocation();
   const role = localStorage.getItem('role') || 'admin';
   const subUserRole = localStorage.getItem('subUserRole') || '';
   const permissions = JSON.parse(localStorage.getItem('permissions') || '[]');
@@ -24,7 +33,11 @@ const Sidebar = ({ setIsAuthenticated }) => {
       (subUserRole === 'admin' || permissions.includes('/manage')));
 
   const toggleSidebar = () => {
-    setIsMinimized((prev) => !prev);
+    setIsMinimized((prev) => {
+      const next = !prev;
+      localStorage.setItem('sidebarMinimized', String(next));
+      return next;
+    });
   };
 
   const handleNavigation = (path) => {
@@ -45,59 +58,73 @@ const Sidebar = ({ setIsAuthenticated }) => {
   const sidebarClasses = ['sidebar', isMinimized ? 'minimized' : '']
     .filter(Boolean)
     .join(' ');
+  const navItems = [
+    { label: 'Dashboard', path: '/dashboard', icon: <FaTachometerAlt /> },
+    canManage && {
+      label: 'Manage',
+      path: '/manage',
+      icon: <FaCalendarAlt />,
+    },
+    canManage && {
+      label: 'Create Event',
+      path: '/create-event',
+      icon: <FaPlusCircle />,
+    },
+    canManage && { label: 'Voters', path: '/voters', icon: <FaUsers /> },
+    canManage && {
+      label: 'Results',
+      path: '/results',
+      icon: <FaChartBar />,
+    },
+    role === 'admin' && {
+      label: 'Settings',
+      path: '/settings',
+      icon: <FaSlidersH />,
+    },
+    role === 'admin' && {
+      label: 'Profile',
+      path: '/profile',
+      icon: <FaRegUserCircle />,
+    },
+  ].filter(Boolean);
 
   return (
     <div className={sidebarClasses}>
-      <button
-        className='minimize-btn'
-        onClick={toggleSidebar}
-        aria-label={isMinimized ? 'Expand sidebar' : 'Collapse sidebar'}
-      >
-        {isMinimized ? <FaChevronRight /> : <FaChevronLeft />}
-      </button>
-      <ul>
-        <li>
-          <button onClick={() => handleNavigation('/dashboard')}>
-            <FaTachometerAlt size={22} />
-            {!isMinimized && 'Dashboard'}
-          </button>
-        </li>
-        {canManage && (
-          <li>
-            <button onClick={() => handleNavigation('/manage')}>
-              <FaCogs size={22} />
-              {!isMinimized && 'Manage'}
+      <div className='sidebar-header'>
+        <div className='sidebar-brand'>
+          <img src='/logo512.png' alt='Private Voting' />
+          {!isMinimized && (
+            <span>
+              <strong>Private</strong>
+              <strong>Voting</strong>
+            </span>
+          )}
+        </div>
+        <button
+          className='minimize-btn'
+          onClick={toggleSidebar}
+          aria-label={isMinimized ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          <FaBars />
+        </button>
+      </div>
+      <ul className='sidebar-nav'>
+        {navItems.map((item) => (
+          <li key={item.label}>
+            <button
+              className={location.pathname === item.path ? 'active' : ''}
+              onClick={() => handleNavigation(item.path)}
+              title={item.label}
+            >
+              {item.icon}
+              {!isMinimized && <span>{item.label}</span>}
             </button>
           </li>
-        )}
-        {role === 'admin' && (
-          <li>
-            <button onClick={() => handleNavigation('/profile')}>
-              <FaUserCircle size={22} />
-              {!isMinimized && 'Profile'}
-            </button>
-          </li>
-        )}
-        {role === 'admin' && (
-          <li>
-            <button onClick={() => handleNavigation('/settings')}>
-              <FaCog size={22} />
-              {!isMinimized && 'Settings'}
-            </button>
-          </li>
-        )}
-        {/* Uncomment to enable Bids menu
+        ))}
         <li>
-          <button onClick={() => handleNavigation('/bids')}>
-            <FaGavel size={22} />
-            {!isMinimized && 'Bids'}
-          </button>
-        </li>
-        */}
-        <li>
-          <button onClick={handleLogout}>
-            <FaSignOutAlt size={22} />
-            {!isMinimized && 'Log Out'}
+          <button onClick={handleLogout} title='Logout'>
+            <FaSignOutAlt />
+            {!isMinimized && <span>Logout</span>}
           </button>
         </li>
       </ul>

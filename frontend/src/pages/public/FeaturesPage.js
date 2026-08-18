@@ -9,6 +9,7 @@ import {
 } from 'react-icons/fi';
 import Seo from '../../components/site/Seo';
 import PublicLayout from '../../components/site/PublicLayout';
+import featuresImage from '../../images/Features.png';
 import {
   Breadcrumbs,
   CardGrid,
@@ -46,8 +47,8 @@ const FeaturesPage = () => (
     <PageHero
       title='Everything you need to run a secure election'
       description='From access control to reporting, the platform covers the core workflows required by modern voting teams.'
-      image='/images/features.png'
-      imageAlt='PrivateVoting feature showcase placeholder'
+      image={featuresImage}
+      imageAlt='PrivateVoting feature showcase'
     />
 
     <section className='site-section'>

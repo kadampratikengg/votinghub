@@ -1,16 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import './Workspace.css';
 import Sidebar from './Sidebar';
+import './Workspace.css';
 import Popup from '../components/Popup';
-import Footer from '../components/Footer';
 import { useNavigate } from 'react-router-dom';
 import {
   FiCalendar,
+  FiChevronRight,
+  FiClock,
   FiExternalLink,
   FiList,
+  FiLock,
+  FiPieChart,
   FiRefreshCw,
+  FiShield,
   FiTrash2,
   FiTrendingUp,
+  FiUserPlus,
 } from 'react-icons/fi';
 
 const Dashboard = ({ setIsAuthenticated }) => {
@@ -112,7 +117,15 @@ const Dashboard = ({ setIsAuthenticated }) => {
     }
   };
 
-  const renderEvents = (events, sectionTitle) => {
+  const formatEventDate = (date) => {
+    if (!date) return 'Scheduled date';
+    const value = String(date);
+    const parsed = new Date(value.includes('T') ? value : `${value}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return date;
+    return parsed.toLocaleDateString('en-CA');
+  };
+
+  const renderEvents = (events, sectionTitle, emptyCopy) => {
     if (loading) {
       return (
         <div className='work-empty'>
@@ -126,7 +139,9 @@ const Dashboard = ({ setIsAuthenticated }) => {
     if (events.length === 0) {
       return (
         <div className='work-empty'>
-          No {sectionTitle.toLowerCase()} available.
+          <FiExternalLink />
+          <strong>{emptyCopy || `No ${sectionTitle.toLowerCase()} available.`}</strong>
+          <span>All events will appear here when scheduled.</span>
         </div>
       );
     }
@@ -135,24 +150,36 @@ const Dashboard = ({ setIsAuthenticated }) => {
         <div className='work-event-card__top'>
           <div>
             <span className='work-pill'>
-              <FiCalendar /> {event.date}
+              <FiCalendar /> {formatEventDate(event.date)}
             </span>
             <h3>{event.name}</h3>
           </div>
+          <span className='work-status-pill'>Active</span>
+          <button
+            className='work-event-arrow'
+            onClick={() => canManage && handleViewResults(event.id)}
+            aria-label={`Open ${event.name}`}
+          >
+            <FiChevronRight />
+          </button>
         </div>
-        <p>{event.description}</p>
+        {event.description && <p>{event.description}</p>}
         <div className='work-event-meta'>
-          <span>Start {event.startTime}</span>
-          <span>Stop {event.stopTime}</span>
+          <span>
+            <FiClock /> Created on: {formatEventDate(event.createdAt || event.date)}
+          </span>
+          <span>{event.startTime || 'Start time'} - {event.stopTime || 'End time'}</span>
         </div>
-        <a
-          className='work-link'
-          href={event.link}
-          target='_blank'
-          rel='noopener noreferrer'
-        >
-          <FiExternalLink /> Open voting link
-        </a>
+        {event.link && (
+          <a
+            className='work-link'
+            href={event.link}
+            target='_blank'
+            rel='noopener noreferrer'
+          >
+            <FiExternalLink /> Open voting link
+          </a>
+        )}
         <div className='work-actions'>
           {canManage && (
             <button
@@ -177,43 +204,80 @@ const Dashboard = ({ setIsAuthenticated }) => {
 
   const today = new Date().toISOString().split('T')[0];
   const todayEvents = activeEvents.filter((event) => event.date === today);
+ 
+  const featureHighlights = [
+    {
+      icon: <FiLock />,
+      title: 'Secure & Encrypted',
+      copy: 'End-to-end encryption ensures complete vote security.',
+    },
+    {
+      icon: <FiUserPlus />,
+      title: 'Anonymous Voting',
+      copy: 'Voter identity remains private and anonymous.',
+    },
+    {
+      icon: <FiShield />,
+      title: 'Tamper Proof',
+      copy: 'Blockchain technology ensures transparent and tamper-proof results.',
+    },
+    {
+      icon: <FiPieChart />,
+      title: 'Real-time Results',
+      copy: 'Get instant results and detailed analytics.',
+    },
+  ];
 
   return (
     <div className='work-shell'>
       <Sidebar setIsAuthenticated={setIsAuthenticated} />
       <main className='work-page'>
+        <header className='work-topbar'>
+          
+        </header>
+
         <section className='work-hero'>
           <div>
-            <span className='work-kicker'>
-              <FiList /> Voting Dashboard
-            </span>
+            <span className='work-kicker'>Secure Digital Voting Platform</span>
             <h1>Monitor voting activity in one place.</h1>
+            <span className='work-hero-rule' />
             <p>
               Track today&apos;s voting events, review all configured voting
               sessions, and open result views quickly.
             </p>
           </div>
-          <div className='work-hero-stat'>
-            <strong>{activeEvents.length}</strong>
-            <span>Total voting events</span>
+          <div className='work-hero-art' aria-hidden='true'>
+            <div className='work-vote-badge'>
+              <span>VOTE</span>
+              <FiTrendingUp />
+            </div>
           </div>
         </section>
 
         <section className='work-stats-grid'>
           <div className='work-stat-card'>
-            <FiCalendar />
-            <span>Today</span>
-            <strong>{todayEvents.length}</strong>
+            <span className='work-stat-card__icon'><FiCalendar /></span>
+            <div>
+              <span>Today</span>
+              <strong>{todayEvents.length}</strong>
+              <p>Voting events today</p>
+            </div>
           </div>
           <div className='work-stat-card'>
-            <FiList />
-            <span>All Voting</span>
-            <strong>{activeEvents.length}</strong>
+            <span className='work-stat-card__icon'><FiList /></span>
+            <div>
+              <span>All Voting</span>
+              <strong>{activeEvents.length}</strong>
+              <p>Total voting events</p>
+            </div>
           </div>
           <div className='work-stat-card'>
-            <FiTrendingUp />
-            <span>Status</span>
-            <strong>{loading ? 'Syncing' : 'Ready'}</strong>
+            <span className='work-stat-card__icon'><FiShield /></span>
+            <div>
+              <span>Status</span>
+              <strong>{loading ? 'Syncing' : 'Ready'}</strong>
+              <p>System is ready to vote</p>
+            </div>
           </div>
         </section>
 
@@ -224,7 +288,11 @@ const Dashboard = ({ setIsAuthenticated }) => {
               <h2>Today&apos;s Voting</h2>
             </div>
             <div className='work-card-list'>
-              {renderEvents(todayEvents, 'voting today')}
+              {renderEvents(
+                todayEvents,
+                'voting today',
+                'No voting events scheduled for today.',
+              )}
             </div>
           </div>
 
@@ -238,6 +306,19 @@ const Dashboard = ({ setIsAuthenticated }) => {
             </div>
           </div>
         </section>
+
+        <section className='work-feature-strip'>
+          {featureHighlights.map((item) => (
+            <article key={item.title} className='work-feature'>
+              <span>{item.icon}</span>
+              <div>
+                <h3>{item.title}</h3>
+                <p>{item.copy}</p>
+              </div>
+            </article>
+          ))}
+        </section>
+
         <Popup
           title='Delete Voting Event'
           visible={showDeletePopup}
@@ -253,7 +334,9 @@ const Dashboard = ({ setIsAuthenticated }) => {
             style={{ width: '100%', minHeight: 80 }}
           />
         </Popup>
-        <Footer />
+        <p className='work-copyright'>
+          &copy; {new Date().getFullYear()} Private Voting. All rights reserved.
+        </p>
       </main>
     </div>
   );

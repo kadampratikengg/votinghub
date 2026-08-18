@@ -19,6 +19,12 @@ const Manage = lazy(() => import('./pages/manage'));
 const Bids = lazy(() => import('./pages/bids'));
 const Settings = lazy(() => import('./pages/settings'));
 const Profile = lazy(() => import('./pages/profile'));
+
+const CreateEvent = lazy(() => import('./pages/CreateEvent'));
+const Voters = lazy(() => import('./pages/Voters'));
+const Sessions = lazy(() => import('./pages/Sessions'));
+const Results = lazy(() => import('./pages/Results'));
+
 const Voting = lazy(() => import('./pages/Voting'));
 const Start = lazy(() => import('./pages/start'));
 const Result = lazy(() => import('./pages/result'));
@@ -289,6 +295,10 @@ const AppRoutes = ({ setIsAuthenticated, handleLogin }) => {
             </ProtectedRoute>
           }
         />
+        <Route path='/create-event' element={<ProtectedRoute allowedRoles={['admin', 'subuser']} requiredPermissions={['/manage']}><CreateEvent setIsAuthenticated={setIsAuthenticated} /></ProtectedRoute>} />
+        <Route path='/voters' element={<ProtectedRoute allowedRoles={['admin', 'subuser']} requiredPermissions={['/manage']}><Voters setIsAuthenticated={setIsAuthenticated} /></ProtectedRoute>} />
+        <Route path='/sessions' element={<ProtectedRoute allowedRoles={['admin', 'subuser']} requiredPermissions={['/manage']}><Sessions setIsAuthenticated={setIsAuthenticated} /></ProtectedRoute>} />
+        <Route path='/results' element={<ProtectedRoute allowedRoles={['admin', 'subuser']} requiredPermissions={['/manage']}><Results setIsAuthenticated={setIsAuthenticated} /></ProtectedRoute>} />
         <Route
           path='/bids'
           element={

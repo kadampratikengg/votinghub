@@ -15,6 +15,7 @@ import {
 import { Link } from 'react-router-dom';
 import Seo from '../../components/site/Seo';
 import PublicLayout from '../../components/site/PublicLayout';
+import heroImage from '../../images/hero.png';
 import {
   Callout,
   CardGrid,
@@ -225,7 +226,7 @@ const HomePage = () => {
 
           <div className='site-page-hero__panel'>
             <img
-              src='/images/hero.png'
+              src={heroImage}
               alt='PrivateVoting secure digital voting platform preview'
               className='site-placeholder__image'
               width={1200}
@@ -268,23 +269,7 @@ const HomePage = () => {
             description='Security is layered across voter verification, role control, secure recording, and audit logging.'
           />
           <StatsGrid stats={controlStats} />
-          <div className='site-chip-list site-chip-list--hero' style={{ marginTop: 20 }}>
-            {[
-              'SSL Encryption',
-              'JWT Security',
-              'Secure API',
-              'Encrypted Database',
-              'Anonymous Ballots',
-              'IP Restriction',
-              'Role Permissions',
-              'Audit Logs',
-              'Tamper Resistant Process',
-            ].map((chip) => (
-              <span key={chip} className='site-chip'>
-                {chip}
-              </span>
-            ))}
-          </div>
+          
         </div>
       </section>
 

@@ -1,6 +1,7 @@
 import { FiDatabase, FiLock, FiShield, FiUserCheck, FiXOctagon } from 'react-icons/fi';
 import Seo from '../../components/site/Seo';
 import PublicLayout from '../../components/site/PublicLayout';
+import securityImage from '../../images/Security.png';
 import {
   Breadcrumbs,
   CardGrid,
@@ -38,8 +39,8 @@ const SecurityPage = () => (
     <PageHero
       title='Security controls for private, auditable voting'
       description='The platform applies layered protection around identity, ballots, transport, storage, and access control.'
-      image='/images/security.png'
-      imageAlt='PrivateVoting security illustration placeholder'
+      image={securityImage}
+      imageAlt='PrivateVoting security illustration'
     />
 
     <section className='site-section'>

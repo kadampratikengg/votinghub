@@ -1,5 +1,6 @@
 import Seo from '../../components/site/Seo';
 import PublicLayout from '../../components/site/PublicLayout';
+import faqImage from '../../images/FAQ.png';
 import {
   Breadcrumbs,
   FaqAccordion,
@@ -45,8 +46,8 @@ const FaqPage = () => (
     <PageHero
       title='Answers to common platform questions'
       description='A quick overview of how the product handles security, verification, reporting and day-to-day use.'
-      image='/images/hero.png'
-      imageAlt='PrivateVoting FAQ placeholder'
+      image={faqImage}
+      imageAlt='PrivateVoting FAQ illustration'
     />
 
     <section className='site-section'>
