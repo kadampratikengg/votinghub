@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import './Workspace.css';
-import Footer from '../components/Footer';
+import Footer from '../../components/Footer';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import {
@@ -16,7 +16,7 @@ import {
   FiUsers,
   FiX,
 } from 'react-icons/fi';
-import { resolveStoredAssetUrl } from '../utils/imageUrl';
+import { resolveStoredAssetUrl } from '../../utils/imageUrl';
 
 const Settings = ({ setIsAuthenticated }) => {
   const [subUserEmail, setSubUserEmail] = useState('');

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 // import Navbar from './Navbar';
-import Sidebar from './Sidebar';
+import Sidebar from './user/Sidebar';
 
 const Bids = ({ setIsAuthenticated }) => {
   const [showContactForm, setShowContactForm] = useState(false);

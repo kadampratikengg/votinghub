@@ -19,7 +19,7 @@ import './result.css';
 import {
   resolveStoredImageUrl,
   resolveStoredAssetUrl,
-} from '../utils/imageUrl';
+} from '../../utils/imageUrl';
 
 const getCandidateImage = (images, index) =>
   images?.find(

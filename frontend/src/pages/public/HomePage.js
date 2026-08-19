@@ -157,9 +157,9 @@ const HomePage = () => {
       url: 'https://www.privatevoting.in/',
       logo: 'https://www.privatevoting.in/logo192.png',
       sameAs: [
-        'https://www.linkedin.com',
+        'https://www.instagram.com/privatevoting?igsh=MWliNmdpajhqZmhndg%3D%3D&igsi=MWliNmdpajhqZmhndg%3D%3D&utm_source=qr',
         'https://www.facebook.com/share/1LThatW4Gk/?mibextid=wwXIfr',
-        'https://x.com',
+        'https://x.com/PrivateVoting?s=20',
         'https://www.youtube.com/@PrivateVoting',
       ],
     },

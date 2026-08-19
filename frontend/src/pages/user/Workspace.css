@@ -952,8 +952,6 @@
 @media (max-width: 780px) {
   .work-shell > .sidebar + .work-page,
   .work-shell > .sidebar.minimized + .work-page {
-    margin-left: 0;
-    width: 100%;
     padding: 22px 14px 34px;
   }
 
@@ -962,10 +960,18 @@
     border-radius: 24px;
   }
 
-  .work-topbar { margin-bottom: 14px; }
-  .work-admin-menu > span:last-of-type { display: none; }
-  .work-hero-art { display: none; }
-  .work-feature-strip { grid-template-columns: 1fr; }
+  .work-topbar {
+    margin-bottom: 14px;
+  }
+  .work-admin-menu > span:last-of-type {
+    display: none;
+  }
+  .work-hero-art {
+    display: none;
+  }
+  .work-feature-strip {
+    grid-template-columns: 1fr;
+  }
 
   .work-hero,
   .work-panel__header--row,

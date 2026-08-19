@@ -14,20 +14,20 @@ const CreateAccountPage = lazy(() => import('./components/create-account'));
 const ForgotPasswordPage = lazy(() => import('./components/forgot-password'));
 const ResetPasswordPage = lazy(() => import('./components/reset-password'));
 const PlansPage = lazy(() => import('./components/PlansPage'));
-const Dashboard = lazy(() => import('./pages/dashboard'));
-const Manage = lazy(() => import('./pages/manage'));
+const Dashboard = lazy(() => import('./pages/user/dashboard'));
+const Manage = lazy(() => import('./pages/user/manage'));
 const Bids = lazy(() => import('./pages/bids'));
-const Settings = lazy(() => import('./pages/settings'));
-const Profile = lazy(() => import('./pages/profile'));
+const Settings = lazy(() => import('./pages/user/settings'));
+const Profile = lazy(() => import('./pages/user/profile'));
 
-const CreateEvent = lazy(() => import('./pages/CreateEvent'));
-const Voters = lazy(() => import('./pages/Voters'));
-const Sessions = lazy(() => import('./pages/Sessions'));
-const Results = lazy(() => import('./pages/Results'));
+const CreateEvent = lazy(() => import('./pages/user/CreateEvent'));
+const Voters = lazy(() => import('./pages/user/Voters'));
+const Sessions = lazy(() => import('./pages/user/Sessions'));
+const Results = lazy(() => import('./pages/user/Results'));
 
-const Voting = lazy(() => import('./pages/Voting'));
-const Start = lazy(() => import('./pages/start'));
-const Result = lazy(() => import('./pages/result'));
+const Voting = lazy(() => import('./pages/user/Voting'));
+const Start = lazy(() => import('./pages/user/start'));
+const Result = lazy(() => import('./pages/user/result'));
 const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 

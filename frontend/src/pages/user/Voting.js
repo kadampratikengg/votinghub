@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { FiCalendar, FiClock, FiImage, FiPlay, FiUsers } from 'react-icons/fi';
 import './Voting.css';
-import { resolveStoredAssetUrl, resolveStoredImageUrl } from '../utils/imageUrl';
-import { buildClientIpHeaders } from '../utils/clientIp';
+import { resolveStoredAssetUrl, resolveStoredImageUrl } from '../../utils/imageUrl';
+import { buildClientIpHeaders } from '../../utils/clientIp';
 
 const hiddenCandidateKeys = new Set([
   'candidateImage',

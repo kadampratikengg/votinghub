@@ -399,6 +399,30 @@
   border-radius: 4px;
 }
 
+/* Mobile / Responsive adjustments to avoid sidebar overlap */
+@media (max-width: 780px) {
+  .sidebar {
+    --sidebar-width: 70px;
+    width: var(--sidebar-width);
+    padding: 16px 8px;
+  }
+
+  .sidebar.minimized {
+    width: var(--sidebar-width);
+  }
+
+  .work-page,
+  .content {
+    margin-left: 70px;
+    width: calc(100% - 70px);
+    transition: margin-left 0.2s ease, width 0.2s ease;
+  }
+
+  .sidebar-mobile-toggle {
+    display: flex;
+  }
+}
+
 .form-control:disabled {
   background: #e0e0e0;
   cursor: not-allowed;

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
-import Popup from '../components/Popup';
-import Footer from '../components/Footer';
+import Popup from '../../components/Popup';
+import Footer from '../../components/Footer';
 import {
   FaUsers,
 } from 'react-icons/fa';

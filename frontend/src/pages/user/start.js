@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import './start.css';
-import { resolveStoredImageUrl } from '../utils/imageUrl';
-import { buildClientIpHeaders } from '../utils/clientIp';
+import { resolveStoredImageUrl } from '../../utils/imageUrl';
+import { buildClientIpHeaders } from '../../utils/clientIp';
 
 const getCandidateImage = (images, index) =>
   images?.find(

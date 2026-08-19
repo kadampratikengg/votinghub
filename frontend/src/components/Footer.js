@@ -1,4 +1,4 @@
-import { FiFacebook, FiLinkedin, FiX, FiYoutube } from 'react-icons/fi';
+import { FiFacebook, FiInstagram, FiX, FiYoutube } from 'react-icons/fi';
 import BrandMark from './site/BrandMark';
 import '../styles/public.css';
 import './Footer.css';
@@ -17,13 +17,13 @@ const Footer = () => {
               beyond.
             </p>
             <div className='site-footer__social' aria-label='Social links'>
-              <a href='https://www.linkedin.com' target='_blank' rel='noreferrer' aria-label='LinkedIn'>
-                <FiLinkedin />
+              <a href='https://www.instagram.com/privatevoting?igsh=MWliNmdpajhqZmhndg%3D%3D&igsi=MWliNmdpajhqZmhndg%3D%3D&utm_source=qr' target='_blank' rel='noreferrer' aria-label='Instagram'>
+                <FiInstagram />
               </a>
               <a href='https://www.facebook.com/share/1LThatW4Gk/?mibextid=wwXIfr' target='_blank' rel='noreferrer' aria-label='Facebook'>
                 <FiFacebook />
               </a>
-              <a href='https://x.com' target='_blank' rel='noreferrer' aria-label='X'>
+              <a href='https://x.com/PrivateVoting?s=20' target='_blank' rel='noreferrer' aria-label='X'>
                 <FiX />
               </a>
               <a href='https://www.youtube.com/@PrivateVoting' target='_blank' rel='noreferrer' aria-label='YouTube'>

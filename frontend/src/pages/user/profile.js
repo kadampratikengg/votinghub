@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import Sidebar from './Sidebar';
-import Footer from '../components/Footer';
+import Footer from '../../components/Footer';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -21,13 +21,13 @@ import {
   FiUser,
 } from 'react-icons/fi';
 import './Profile.css';
-import { resolveStoredAssetUrl } from '../utils/imageUrl';
-import { getSubscriptionStatusInfo } from '../utils/subscriptionStatus';
+import { resolveStoredAssetUrl } from '../../utils/imageUrl';
+import { getSubscriptionStatusInfo } from '../../utils/subscriptionStatus';
 import {
   finalizeCashfreePayment,
   finalizeRazorpayPayment,
   getPendingPaymentSession,
-} from '../components/razorpay';
+} from '../../components/razorpay';
 
 const Profile = ({ setIsAuthenticated }) => {
   const [userData, setUserData] = useState({

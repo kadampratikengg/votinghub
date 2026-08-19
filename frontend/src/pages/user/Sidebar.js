@@ -11,7 +11,7 @@ import {
   FaTachometerAlt,
   FaUsers,
 } from 'react-icons/fa';
-import './App.css';
+import '../App.css';
 
 const Sidebar = ({ setIsAuthenticated }) => {
   const [isMinimized, setIsMinimized] = useState(() => {

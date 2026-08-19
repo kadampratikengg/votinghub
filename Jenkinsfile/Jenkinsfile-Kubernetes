@@ -1,0 +1,249 @@
+pipeline {
+    agent any
+
+    environment {
+        GIT_URL = 'https://github.com/kadampratikengg/votinghub.git'
+        GIT_BRANCH = 'main'
+
+        BACKEND_IMAGE = 'kadampratikpassport/backend-app'
+        FRONTEND_IMAGE = 'kadampratikpassport/frontend-app'
+
+        IMAGE_TAG = "${BUILD_NUMBER}"
+
+        NAMESPACE = 'default'
+
+        BACKEND_DEPLOYMENT = 'backend-deployment'
+        FRONTEND_DEPLOYMENT = 'frontend-deployment'
+
+        BACKEND_CONTAINER = 'backend'
+        FRONTEND_CONTAINER = 'frontend'
+
+        K8S_DIR = 'k8s'
+        DOCKERHUB_CREDS_ID = ''
+    }
+
+    stages {
+
+        stage('Checkout Source') {
+            steps {
+                git branch: "${GIT_BRANCH}",
+                    credentialsId: 'git',
+                    url: "${GIT_URL}"
+            }
+        }
+
+        stage('Create Environment Files') {
+            steps {
+                withCredentials([
+                    file(credentialsId: 'frontend-env', variable: 'FRONTEND_ENV'),
+                    file(credentialsId: 'backend-env', variable: 'BACKEND_ENV')
+                ]) {
+
+                    bat '''
+                    copy /Y "%FRONTEND_ENV%" frontend\\.env
+                    copy /Y "%BACKEND_ENV%" backend\\.env
+
+                    if not exist frontend\\.env exit /b 1
+                    if not exist backend\\.env exit /b 1
+                    '''
+                }
+            }
+        }
+
+        stage('Docker Login') {
+            steps {
+                script {
+                    if (!env.DOCKERHUB_CREDS_ID?.trim()) {
+                        echo 'DOCKERHUB_CREDS_ID is not configured. Skipping Docker login.'
+                    } else {
+                        withCredentials([
+                            usernamePassword(
+                                credentialsId: env.DOCKERHUB_CREDS_ID,
+                                usernameVariable: 'DOCKER_USER',
+                                passwordVariable: 'DOCKER_PASS'
+                            )
+                        ]) {
+
+                            bat '''
+                            echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin
+                            '''
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Build Backend Image') {
+            steps {
+
+                bat '''
+                docker build ^
+                -t %BACKEND_IMAGE%:%IMAGE_TAG% ^
+                backend
+                '''
+            }
+        }
+
+        stage('Build Frontend Image') {
+            steps {
+
+                bat '''
+                docker build ^
+                -t %FRONTEND_IMAGE%:%IMAGE_TAG% ^
+                frontend
+                '''
+            }
+        }
+
+        stage('Push Images') {
+            steps {
+
+                bat '''
+                docker push %BACKEND_IMAGE%:%IMAGE_TAG%
+                docker push %FRONTEND_IMAGE%:%IMAGE_TAG%
+                '''
+            }
+        }
+	        stage('Deploy to Kubernetes') {
+            steps {
+                withCredentials([
+                    file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')
+                ]) {
+
+                    bat '''
+                    set KUBECONFIG=%KUBECONFIG_FILE%
+
+                    echo ========================================
+                    echo Applying Kubernetes manifests...
+                    echo ========================================
+
+                    kubectl apply -f %K8S_DIR%\\backend-config.yaml
+                    kubectl apply -f %K8S_DIR%\\backend-deployment.yaml
+                    kubectl apply -f %K8S_DIR%\\frontend-deployment.yaml
+
+                    echo ========================================
+                    echo Updating Backend Image
+                    echo ========================================
+
+                    kubectl set image deployment/%BACKEND_DEPLOYMENT% ^
+                    %BACKEND_CONTAINER%=%BACKEND_IMAGE%:%IMAGE_TAG% ^
+                    -n %NAMESPACE%
+
+                    echo ========================================
+                    echo Updating Frontend Image
+                    echo ========================================
+
+                    kubectl set image deployment/%FRONTEND_DEPLOYMENT% ^
+                    %FRONTEND_CONTAINER%=%FRONTEND_IMAGE%:%IMAGE_TAG% ^
+                    -n %NAMESPACE%
+                    '''
+                }
+            }
+        }
+
+        stage('Rollout Status') {
+            steps {
+                withCredentials([
+                    file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')
+                ]) {
+
+                    bat '''
+                    set KUBECONFIG=%KUBECONFIG_FILE%
+
+                    echo Waiting for Backend rollout...
+                    kubectl rollout status deployment/%BACKEND_DEPLOYMENT% -n %NAMESPACE% --timeout=300s
+
+                    echo Waiting for Frontend rollout...
+                    kubectl rollout status deployment/%FRONTEND_DEPLOYMENT% -n %NAMESPACE% --timeout=300s
+                    '''
+                }
+            }
+        }
+
+        stage('Health Check') {
+            steps {
+                withCredentials([
+                    file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')
+                ]) {
+
+                    bat '''
+                    set KUBECONFIG=%KUBECONFIG_FILE%
+
+                    echo ========================================
+                    echo Pods
+                    echo ========================================
+                    kubectl get pods -n %NAMESPACE%
+
+                    echo ========================================
+                    echo Deployments
+                    echo ========================================
+                    kubectl get deployments -n %NAMESPACE%
+
+                    echo ========================================
+                    echo Services
+                    echo ========================================
+                    kubectl get svc -n %NAMESPACE%
+                    '''
+                }
+            }
+        }
+
+    }
+
+    post {
+
+        success {
+            echo '======================================='
+            echo ' Kubernetes Deployment Successful'
+            echo '======================================='
+        }
+
+        failure {
+            echo '======================================='
+            echo ' Deployment Failed'
+            echo '======================================='
+        }
+
+        always {
+
+            script {
+
+                if (!env.DOCKERHUB_CREDS_ID?.trim()) {
+                    echo 'DOCKERHUB_CREDS_ID is not configured. Skipping Docker logout.'
+                } else {
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: env.DOCKERHUB_CREDS_ID,
+                            usernameVariable: 'DOCKER_USER',
+                            passwordVariable: 'DOCKER_PASS'
+                        )
+                    ]) {
+
+                        bat '''
+                        docker logout
+                        '''
+                    }
+                }
+
+                withCredentials([
+                    file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')
+                ]) {
+
+                    bat '''
+                    set KUBECONFIG=%KUBECONFIG_FILE%
+
+                    echo ========================================
+                    echo Final Cluster Status
+                    echo ========================================
+
+                    kubectl get pods -n %NAMESPACE%
+
+                    kubectl get deployments -n %NAMESPACE%
+
+                    kubectl get svc -n %NAMESPACE%
+                    '''
+                }
+            }
+        }
+    }
+}

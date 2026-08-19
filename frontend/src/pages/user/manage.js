@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { v4 as uuidv4 } from 'uuid';
 import Sidebar from './Sidebar';
-import Popup from '../components/Popup';
-import Footer from '../components/Footer';
+import Popup from '../../components/Popup';
+import Footer from '../../components/Footer';
 import {
   FiCalendar,
   FiCheckSquare,

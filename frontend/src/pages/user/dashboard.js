@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import './Workspace.css';
-import Popup from '../components/Popup';
+import Popup from '../../components/Popup';
 import { useNavigate } from 'react-router-dom';
 import {
   FiCalendar,
