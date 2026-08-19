@@ -154,7 +154,7 @@ const Dashboard = ({ setIsAuthenticated }) => {
             </span>
             <h3>{event.name}</h3>
           </div>
-          <span className='work-status-pill'>Active</span>
+         
           <button
             className='work-event-arrow'
             onClick={() => canManage && handleViewResults(event.id)}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { v4 as uuidv4 } from 'uuid';
@@ -6,16 +6,10 @@ import Sidebar from './Sidebar';
 import Popup from '../components/Popup';
 import Footer from '../components/Footer';
 import {
-  FiCalendar,
-  FiCheckSquare,
-  FiCreditCard,
   FiDownload,
-  FiEdit3,
   FiExternalLink,
   FiImage,
   FiPlus,
-  FiTrash2,
-  FiTrendingUp,
   FiUploadCloud,
 } from 'react-icons/fi';
 import './Workspace.css';
@@ -36,8 +30,6 @@ const CreateEvent = ({ setIsAuthenticated, name }) => {
   const [generatedLink, setGeneratedLink] = useState('');
   const [eventCreated, setEventCreated] = useState(false);
   const [candidateImages, setCandidateImages] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [candidateSelectionError, setCandidateSelectionError] = useState('');
   const [availableCredits, setAvailableCredits] = useState(0);
   const [subscriptionMessage, setSubscriptionMessage] = useState('');
@@ -199,7 +191,7 @@ const CreateEvent = ({ setIsAuthenticated, name }) => {
     return fileData.findIndex((r) => JSON.stringify(r) === JSON.stringify(row));
   };
 
-  const fetchUserSubscription = async () => {
+  const fetchUserSubscription = useCallback(async () => {
     try {
       const response = await fetch(`${apiUrl}/api/users`, {
         method: 'GET',
@@ -216,12 +208,12 @@ const CreateEvent = ({ setIsAuthenticated, name }) => {
       console.error('Error fetching subscription:', err);
       setSubscriptionMessage('Unable to load subscription details.');
     }
-  };
+  }, [apiUrl]);
 
   useEffect(() => {
     fetchUserSubscription();
     setEventDate(getTodayDate());
-  }, [apiUrl]);
+  }, [fetchUserSubscription]);
 
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
@@ -502,6 +494,11 @@ const CreateEvent = ({ setIsAuthenticated, name }) => {
                 Start a new voting configuration, then upload Excel data and
                 select candidates.
               </p>
+              {subscriptionMessage && (
+                <div className='work-empty work-empty--info' style={{ marginTop: 8 }}>
+                  {subscriptionMessage}
+                </div>
+              )}
             </div>
 
             {!showEventForm ? (
