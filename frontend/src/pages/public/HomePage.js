@@ -24,7 +24,7 @@ import {
 } from '../../components/site/ContentBlocks';
 
 const heroImage =
-  'https://res.cloudinary.com/dcmtnkas/image/upload/v1787200598/hero.png';
+  'https://res.cloudinary.com/dcmtnkas/image/upload/f_auto,q_auto,w_800/v1787200598/hero.png';
 
 const featureItems = [
   {
@@ -229,12 +229,17 @@ const HomePage = () => {
           <div className='site-page-hero__panel'>
             <img
               src={heroImage}
+              srcSet='
+                https://res.cloudinary.com/dcmtnkas/image/upload/f_auto,q_auto,w_500/v1787200598/hero.png 500w,
+                https://res.cloudinary.com/dcmtnkas/image/upload/f_auto,q_auto,w_800/v1787200598/hero.png 800w,
+                https://res.cloudinary.com/dcmtnkas/image/upload/f_auto,q_auto,w_1100/v1787200598/hero.png 1100w
+              '
+              sizes='(max-width: 920px) 100vw, 588px'
               alt='PrivateVoting secure digital voting platform preview'
               className='site-placeholder__image'
-              width={1200}
-              height={820}
+              width={588}
+              height={392}
               loading='eager'
-              fetchPriority='high'
               decoding='async'
             />
           </div>

@@ -192,10 +192,9 @@ export const PageHero = ({ title, description, image, imageAlt }) => (
             className='site-placeholder__image'
             src={image}
             alt={imageAlt}
-            width={1200}
-            height={820}
+            width={588}
+            height={392}
             loading='eager'
-            fetchPriority='high'
             decoding='async'
           />
         ) : (
