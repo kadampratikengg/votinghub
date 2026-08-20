@@ -9,6 +9,7 @@ const User = require('../models/User');
 const SubUser = require('../models/SubUser');
 const { authenticateToken } = require('../middleware/auth');
 const {
+  activatePendingFreeCredits,
   getActiveRemainingCredits,
   normalizeSubscriptionForExpiry,
 } = require('../utils/subscription');
@@ -1148,6 +1149,8 @@ router.post(
       const user = await User.findById(req.user.userId);
       if (!user) return res.status(404).json({ message: 'User not found' });
 
+      await activatePendingFreeCredits(user);
+
       const subscriptionExpired = normalizeSubscriptionForExpiry(
         user.subscription,
         new Date(),
@@ -1479,6 +1482,8 @@ router.put(
         if (!creditUser) {
           return res.status(404).json({ message: 'User not found' });
         }
+
+        await activatePendingFreeCredits(creditUser);
 
         const subscriptionExpired = normalizeSubscriptionForExpiry(
           creditUser.subscription,

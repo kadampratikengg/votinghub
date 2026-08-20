@@ -703,10 +703,10 @@ const CreateEvent = ({ setIsAuthenticated, name }) => {
                   <div className='work-table-wrap work-table-wrap--builder'>
                     <div className='work-panel__header'>
                       <span className='work-kicker'>Candidates</span>
-                      <h2>
+                      <h3>
                         Selected Candidates
                         {eventName ? ` for ${eventName}` : ''}
-                      </h2>
+                      </h3>
                     </div>
                     <div style={{ margin: '8px 0 12px' }}>
                       <input

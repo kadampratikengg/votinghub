@@ -92,7 +92,7 @@ const Sidebar = ({ setIsAuthenticated }) => {
     <div className={sidebarClasses}>
       <div className='sidebar-header'>
         <div className='sidebar-brand'>
-          <img src='/logo512.png' alt='Private Voting' />
+          <img src='/logo-sm.png' alt='Private Voting' />
           {!isMinimized && (
             <span>
               <strong>Private</strong>

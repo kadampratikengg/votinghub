@@ -1,16 +1,29 @@
-# PrivateVoting
+# PrivateVoting | Private Online Voting Platform
 
-PrivateVoting is a secure online voting platform for organizations, housing societies, educational institutions, corporates, NGOs, and government projects.
+PrivateVoting is a secure, auditable Private Online Voting platform providing Free Voting, School Voting, College Voting, and Live Voting for schools, educational institutions, housing societies, clubs, non-profits, and enterprises.
 
-## Primary features
-- Secure elections and anonymous ballots
-- Role-based access control and voter verification
-- Real-time election monitoring and audit-ready reporting
-- Support for organizations, societies, schools, colleges, businesses, NGOs, and public projects
+## Priority Keywords & Focus
+- **Core Topics**: Private Voting, Online Voting, Voting, School Voting, Free Voting, College Voting, Collage Voting, Live Voting, Private, Free Online Voting, Live Online Voting, Digital Voting, School Online Voting, College Online Voting, Student Council Voting.
 
-## Key pages
-- https://www.privatevoting.in/
-- https://www.privatevoting.in/features
-- https://www.privatevoting.in/security
-- https://www.privatevoting.in/pricing
-- https://www.privatevoting.in/contact
+
+## Target Personas & Use Cases
+- **Schools & Educational Institutions**: School Principals, Academic Coordinators, Teachers, and Faculty Election Officers conducting Student Council, Head Boy/Head Girl, House Captain, and Class Representative elections.
+- **Housing Societies & Communities**: Society Chairmen, Secretaries, Resident Welfare Associations (RWAs), and Cooperative Housing Societies (CHS) managing Annual General Meetings (AGMs) and Management Committee elections.
+- **Organizations & Enterprises**: Organization Administrators, Higher Authorities, Board of Directors, NGO Trustees, Trade Union Leaders, and Corporate Committees needing verified, tamper-proof voting.
+
+## Primary Capabilities
+- Anonymous ballots and encrypted vote tallying
+- Voter verification (ID, email, roll number, flat/unit number, or custom credentials)
+- Role-based sub-user delegation for polling officers, teachers, and committee members
+- Real-time election monitoring and live turn-out tracking
+- Automated result generation with downloadable PDF and Excel audit reports
+- IP-restriction and buffer time control for managed voting windows
+
+## Key Pages
+- Homepage: https://www.privatevoting.in/
+- Features: https://www.privatevoting.in/features
+- Security & Compliance: https://www.privatevoting.in/security
+- Pricing & Plans: https://www.privatevoting.in/planspage
+- FAQ: https://www.privatevoting.in/faq
+- Contact & Demo: https://www.privatevoting.in/contact
+

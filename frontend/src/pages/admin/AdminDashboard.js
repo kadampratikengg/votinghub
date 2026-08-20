@@ -75,15 +75,20 @@ const getEndDateFromStartAndDays = (startValue, daysValue) => {
 const getUserId = (user) => String(user?.id || user?._id || '');
 
 const getRemainingCredits = (user) => {
-  const total = Number(user?.subscription?.votingCredits || 0);
-  const used = Number(user?.subscription?.usedVotingCredits || 0);
-  return Math.max(0, total - used);
+  if (!user?.subscription?.isValid) return 0;
+  return Math.max(0, Number(user?.subscription?.votingCredits || 0));
 };
 
 const getUsedCredits = (user) => Number(user?.subscription?.usedVotingCredits || 0);
 
 const getUserStatus = (user) => {
   if (user?.subscription?.isValid) return 'Active';
+  if (!user?.subscription?.isValid && user?.subscription?.activationDate) {
+    const actDate = new Date(user.subscription.activationDate);
+    if (!Number.isNaN(actDate.getTime()) && new Date() < actDate) {
+      return 'Pending Trial';
+    }
+  }
   if (Number(user?.subscription?.votingCredits || 0) > 0) return 'Expired';
   return 'Inactive';
 };

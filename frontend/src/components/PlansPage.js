@@ -81,8 +81,9 @@ const PlansPage = () => {
   return (
     <PublicLayout>
       <Seo
-        title='Pricing | PrivateVoting'
-        description='Compare PrivateVoting voting credit plans and choose the right package for your organization.'
+        title='Pricing & Plans | Affordable Online Voting for Schools, Societies & Organizations'
+        description='Transparent pay-per-event pricing for school elections, housing society AGM voting, and organization ballots. Free trial voting credits included.'
+        keywords='online voting pricing, school election software cost, housing society voting plan, affordable online voting platform, pay per event voting credits'
         canonicalPath='/pricing'
       />
       <div className='plans-page'>

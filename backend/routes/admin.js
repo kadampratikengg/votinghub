@@ -6,9 +6,11 @@ const User = require('../models/User');
 const EventHistory = require('../models/EventHistory');
 const { authenticateToken } = require('../middleware/auth');
 const {
+  activatePendingFreeCredits,
   createSubscriptionHistoryRecord,
   getActiveRemainingCredits,
   normalizeSubscriptionForExpiry,
+  runPendingFreeCreditActivationSweep,
 } = require('../utils/subscription');
 
 const router = express.Router();
@@ -118,6 +120,10 @@ router.get(
   requireCompanyAdmin,
   async (req, res) => {
     try {
+      await runPendingFreeCreditActivationSweep().catch((err) => {
+        console.error('Error running pending free credit sweep in admin:', err);
+      });
+
       const users = await User.find({})
         .select('-password')
         .sort({ email: 1 })

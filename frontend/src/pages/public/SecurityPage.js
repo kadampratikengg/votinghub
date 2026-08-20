@@ -14,8 +14,9 @@ const securityImage =
 const SecurityPage = () => (
   <PublicLayout>
     <Seo
-      title='Security | PrivateVoting'
-      description='PrivateVoting uses SSL encryption, JWT security, encrypted data handling and role permissions to protect voting workflows.'
+      title='Security | Secure Online Voting & Data Protection for Institutions'
+      description='Learn about PrivateVoting security features: anonymous ballots, encrypted vote records, IP restrictions, voter verification, and tamper-proof audit trails for schools, societies, and organizations.'
+      keywords='secure online voting, encrypted election platform, anonymous voting security, voter verification system, election audit trail, data privacy in online elections'
       canonicalPath='/security'
       schema={[
         {

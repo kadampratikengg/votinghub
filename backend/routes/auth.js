@@ -819,6 +819,9 @@ router.post('/create-account', upload.none(), async (req, res) => {
 
     const savedUser = await newUser.save();
 
+    await activatePendingFreeCredits(savedUser);
+    await normalizeUserSubscriptionForExpiry(savedUser);
+
     const token = jwt.sign(
       { userId: savedUser._id, role: savedUser.role || 'admin' },
       process.env.JWT_SECRET,
@@ -831,6 +834,10 @@ router.post('/create-account', upload.none(), async (req, res) => {
       message: 'Account created successfully',
       token,
       userId: savedUser._id,
+      subscription: savedUser.subscription || null,
+      isValidSubscription:
+        savedUser.subscription?.isValid &&
+        (savedUser.subscription?.votingCredits || 0) > 0,
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error during account creation' });

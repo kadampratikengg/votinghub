@@ -14,8 +14,9 @@ const ContactPage = () => {
   return (
     <PublicLayout>
       <Seo
-        title='Contact | PrivateVoting'
-        description='Contact PrivateVoting for demos, onboarding help, rollout planning, and product questions.'
+        title='Contact Us | Book Online Voting Demo for Schools, Societies & Organizations'
+        description='Contact PrivateVoting to schedule an online election demo, discuss school council voting, housing society AGM elections, or custom enterprise requirements.'
+        keywords='contact online voting, book school election demo, housing society election consultation, online voting customer support'
         canonicalPath='/contact'
       />
       <div className='static-page'>

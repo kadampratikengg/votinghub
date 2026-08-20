@@ -13,8 +13,9 @@ import {
 const AboutUsPage = () => (
   <PublicLayout>
     <Seo
-      title='About Us | PrivateVoting'
-      description='Learn how PrivateVoting helps organizations run secure, transparent, and scalable online elections.'
+      title='About Us | PrivateVoting - Trusted Digital Election Platform'
+      description='Discover how PrivateVoting empowers school principals, teachers, housing society chairmen, and organization admins to conduct transparent, tamper-proof online elections.'
+      keywords='about PrivateVoting, digital voting company India, election platform for schools, housing society voting system, organization voting software'
       canonicalPath='/about-us'
       schema={[
         {

@@ -10,9 +10,13 @@ const ensureAbsoluteUrl = (pathname = '/') => {
   return `${origin}${cleanPath}`;
 };
 
+const DEFAULT_KEYWORDS =
+  'Private Voting, Online Voting, Voting, School Voting, Free Voting, College Voting, Collage Voting, Live Voting, Private, Free Online Voting, Live Online Voting, Digital Voting, School Online Voting, College Online Voting, Student Council Voting, Housing Society Voting, Society Chairman Voting, Organization Voting, Secure Online Voting Platform';
+
 const Seo = ({
   title,
   description,
+  keywords = DEFAULT_KEYWORDS,
   canonicalPath = '/',
   type = 'website',
   image = '/images/hero.png',
@@ -27,6 +31,7 @@ const Seo = ({
     <Helmet>
       <title>{title}</title>
       <meta name='description' content={description} />
+      {keywords && <meta name='keywords' content={keywords} />}
       <link rel='canonical' href={canonicalUrl} />
       <meta name='robots' content={robots} />
       <meta property='og:type' content={type} />

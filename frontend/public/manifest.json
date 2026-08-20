@@ -1,6 +1,7 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "PrivateVoting",
+  "name": "PrivateVoting - Secure Online Voting Platform",
+  "description": "Secure digital voting platform for school principals, teachers, housing society chairmen, and organization admins.",
   "icons": [
     {
       "src": "favicon.ico",

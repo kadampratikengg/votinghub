@@ -578,11 +578,7 @@ const Profile = ({ setIsAuthenticated }) => {
 
   const currentSubscription = userData.subscription || {};
   const availableCredits = currentSubscription.isValid
-    ? Math.max(
-        0,
-        Number(currentSubscription.votingCredits || 0) -
-          Number(currentSubscription.usedVotingCredits || 0),
-      )
+    ? Math.max(0, Number(currentSubscription.votingCredits || 0))
     : 0;
   const pendingActivationMessage =
     !currentSubscription.isValid && currentSubscription.activationDate

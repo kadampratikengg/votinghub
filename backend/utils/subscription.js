@@ -70,6 +70,8 @@ const createSubscriptionHistoryRecord = (subscription, now = new Date()) => {
   };
 };
 
+const User = require('../models/User');
+
 const activatePendingFreeCredits = async (user) => {
   if (
     !user?.subscription ||
@@ -81,7 +83,7 @@ const activatePendingFreeCredits = async (user) => {
 
   const now = new Date();
   const activationDate = new Date(user.subscription.activationDate);
-  if (now < activationDate) {
+  if (Number.isNaN(activationDate.getTime()) || now < activationDate) {
     return false;
   }
 
@@ -89,17 +91,65 @@ const activatePendingFreeCredits = async (user) => {
   const endDate = new Date(startDate);
   endDate.setDate(endDate.getDate() + FREE_CREDIT_VALIDITY_DAYS);
 
-  user.subscription = {
-    ...user.subscription,
-    startDate,
-    endDate,
-    isValid: true,
-    votingCredits: FREE_CREDIT_AMOUNT,
-    usedVotingCredits: 0,
-  };
+  if (user.subscription) {
+    user.subscription.startDate = startDate;
+    user.subscription.endDate = endDate;
+    user.subscription.isValid = true;
+    user.subscription.votingCredits = FREE_CREDIT_AMOUNT;
+    user.subscription.usedVotingCredits = 0;
+    user.subscription.paymentStatus = 'active';
+  }
 
-  await user.save();
+  const userId = user._id || user.id;
+  if (userId) {
+    await User.findByIdAndUpdate(userId, {
+      $set: {
+        'subscription.startDate': startDate,
+        'subscription.endDate': endDate,
+        'subscription.isValid': true,
+        'subscription.votingCredits': FREE_CREDIT_AMOUNT,
+        'subscription.usedVotingCredits': 0,
+        'subscription.paymentStatus': 'active',
+      },
+    });
+  } else if (typeof user.save === 'function') {
+    if (typeof user.markModified === 'function') {
+      user.markModified('subscription');
+    }
+    await user.save({ validateModifiedOnly: true });
+  }
+
   return true;
+};
+
+const runPendingFreeCreditActivationSweep = async () => {
+  const mongoose = require('mongoose');
+  if (mongoose.connection.readyState !== 1) {
+    return 0;
+  }
+
+  const now = new Date();
+  const pendingUsers = await User.find({
+    'subscription.activationDate': { $exists: true, $lte: now },
+    'subscription.isValid': false,
+  }).select('_id subscription');
+
+  let activatedCount = 0;
+  for (const user of pendingUsers) {
+    try {
+      if (await activatePendingFreeCredits(user)) {
+        activatedCount += 1;
+      }
+    } catch (err) {
+      console.error(`Failed to activate free credits for user ${user._id}:`, err);
+    }
+  }
+
+  if (activatedCount > 0) {
+    console.log(`✅ Activated ${activatedCount} pending free credit account(s)`);
+  }
+
+  return activatedCount;
 };
 
 module.exports = {
@@ -112,4 +162,6 @@ module.exports = {
   isSubscriptionExpired,
   normalizeSubscriptionForExpiry,
   normalizeUserSubscriptionForExpiry,
+  runPendingFreeCreditActivationSweep,
 };
+

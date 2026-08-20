@@ -20,12 +20,22 @@ export const getSubscriptionStatusInfo = (
     .toLowerCase();
   const hasEndDate = Boolean(subscription.endDate);
   const expired = isSameDayOrBeforeToday(subscription.endDate);
-  const isPending = status === 'pending';
-  const isInactive =
-    status === 'inactive' ||
-    status === 'failed' ||
-    subscription.isValid === false;
 
+  if (!subscription.isValid && subscription.activationDate) {
+    const actDate = new Date(subscription.activationDate);
+    if (!Number.isNaN(actDate.getTime()) && new Date() < actDate) {
+      return { label: 'Pending Trial', tone: 'pending' };
+    }
+  }
+
+  if (subscription.isValid) {
+    if (current && hasEndDate) {
+      return { label: 'Active until', tone: 'active' };
+    }
+    return { label: 'Active', tone: 'active' };
+  }
+
+  const isPending = status === 'pending';
   if (isPending) {
     return { label: 'Pending', tone: 'pending' };
   }
@@ -34,14 +44,15 @@ export const getSubscriptionStatusInfo = (
     return { label: 'Expired', tone: 'expired' };
   }
 
+  const isInactive =
+    status === 'inactive' ||
+    status === 'failed' ||
+    subscription.isValid === false;
+
   if (isInactive) {
     return { label: 'Inactive', tone: 'inactive' };
   }
 
-  if (current && hasEndDate) {
-    return { label: 'Active until', tone: 'active' };
-  }
-
-  return { label: 'Active', tone: 'active' };
+  return { label: 'Inactive', tone: 'inactive' };
 };
 

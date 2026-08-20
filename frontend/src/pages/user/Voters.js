@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Popup from '../../components/Popup';
@@ -8,8 +8,10 @@ import {
 } from 'react-icons/fa';
 import {
   FiCalendar,
+  FiClock,
   FiEdit3,
   FiExternalLink,
+  FiRefreshCw,
   FiTrash2,
   FiTrendingUp,
 } from 'react-icons/fi';
@@ -19,6 +21,7 @@ const Voters = ({ setIsAuthenticated, name }) => {
   const [activeEvents, setActiveEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [popup, setPopup] = useState({
     visible: false,
     title: '',
@@ -52,7 +55,7 @@ const Voters = ({ setIsAuthenticated, name }) => {
           throw new Error('Failed to fetch events');
         }
         const events = await response.json();
-        const sortedEvents = events.sort((a, b) => {
+        const sortedEvents = (Array.isArray(events) ? events : []).sort((a, b) => {
           const dateA = new Date(`${a.date}T${a.startTime}`);
           const dateB = new Date(`${b.date}T${b.startTime}`);
           return dateB - dateA;
@@ -73,8 +76,6 @@ const Voters = ({ setIsAuthenticated, name }) => {
     return () => clearInterval(interval);
   }, [apiUrl]);
 
-
-
   const handleDeleteEvent = (eventId) => {
     setDeleteTargetId(eventId);
     setDeleteReason('');
@@ -94,8 +95,8 @@ const Voters = ({ setIsAuthenticated, name }) => {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to delete event');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete event');
       }
 
       setActiveEvents((prev) => prev.filter((event) => event.id !== eventId));
@@ -127,8 +128,27 @@ const Voters = ({ setIsAuthenticated, name }) => {
   };
 
   const handleViewResults = (eventId) => {
-    navigate('/results', { state: { eventId } });
+    navigate(`/results/${eventId}`);
   };
+
+  const formatEventDate = (date) => {
+    if (!date) return 'Scheduled date';
+    const value = String(date);
+    const parsed = new Date(value.includes('T') ? value : `${value}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return date;
+    return parsed.toLocaleDateString('en-CA');
+  };
+
+  const filteredEvents = useMemo(() => {
+    if (!searchQuery.trim()) return activeEvents;
+    const query = searchQuery.toLowerCase().trim();
+    return activeEvents.filter(
+      (event) =>
+        (event.name && event.name.toLowerCase().includes(query)) ||
+        (event.description && event.description.toLowerCase().includes(query)) ||
+        (event.date && String(event.date).toLowerCase().includes(query)),
+    );
+  }, [activeEvents, searchQuery]);
 
   return (
     <div className='work-shell'>
@@ -146,39 +166,74 @@ const Voters = ({ setIsAuthenticated, name }) => {
           </div>
         </section>
 
-        <section className='work-manage-grid'>
-          <div className='work-panel'>
-            <div className='work-panel__header work-panel__header--row'>
-              <div>
-                <span className='work-kicker'>Configured</span>
-                <h2>Voting Events</h2>
-              </div>
+        <section className='work-panel'>
+          <div className='work-panel__header work-panel__header--row'>
+            <div>
+              <span className='work-kicker'>Configured</span>
+              <h2>Voting Events</h2>
             </div>
+            {activeEvents.length > 0 && (
+              <div className='work-search-bar'>
+                <input
+                  type='text'
+                  className='work-search-input'
+                  placeholder='Search by event name or date...'
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
 
-            <div className='work-card-list'>
-              {loading ? (
-                <div className='work-empty'>Loading voting events...</div>
-              ) : error ? (
-                <div className='work-empty work-empty--error'>{error}</div>
-              ) : activeEvents.length === 0 ? (
-                <div className='work-empty'>
-                  No voting events yet. Create one to get started.
-                </div>
-              ) : (
-                activeEvents.map((event) => (
-                  <article key={event.id} className='work-event-card'>
+          {loading ? (
+            <div className='work-empty'>
+              <FiRefreshCw /> Loading voting events...
+            </div>
+          ) : error ? (
+            <div className='work-empty work-empty--error'>{error}</div>
+          ) : filteredEvents.length === 0 ? (
+            <div className='work-empty'>
+              <FiExternalLink />
+              <strong>
+                {searchQuery
+                  ? 'No voting events match your search.'
+                  : 'No voting events yet. Create one to get started.'}
+              </strong>
+              <span>
+                {searchQuery
+                  ? 'Try searching with a different keyword.'
+                  : 'All voting events will appear here when configured.'}
+              </span>
+            </div>
+          ) : (
+            <div className='work-results-grid'>
+              {filteredEvents.map((event) => (
+                <article
+                  key={event.id}
+                  className='work-event-card'
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <div>
                     <div className='work-event-card__top'>
                       <div>
                         <span className='work-pill'>
-                          <FiCalendar /> {event.date}
+                          <FiCalendar /> {formatEventDate(event.date)}
                         </span>
                         <h3>{event.name}</h3>
                       </div>
                     </div>
-                    <p>{event.description}</p>
+                    {event.description && <p>{event.description}</p>}
                     <div className='work-event-meta'>
-                      <span>Start {event.startTime}</span>
-                      <span>Stop {event.stopTime}</span>
+                      <span>
+                        <FiClock /> Created: {formatEventDate(event.createdAt || event.date)}
+                      </span>
+                      <span>
+                        {event.startTime || 'Start time'} - {event.stopTime || 'End time'}
+                      </span>
                     </div>
                     <div className='work-event-status'>
                       <strong>
@@ -203,39 +258,45 @@ const Voters = ({ setIsAuthenticated, name }) => {
                         </span>
                       )}
                     </div>
-                    <a
-                      className='work-link'
-                      href={event.link}
-                      target='_blank'
-                      rel='noopener noreferrer'
+                    {event.link && (
+                      <a
+                        className='work-link'
+                        href={event.link}
+                        target='_blank'
+                        rel='noopener noreferrer'
+                      >
+                        <FiExternalLink /> Open voting link
+                      </a>
+                    )}
+                  </div>
+
+                  <div className='work-actions' style={{ marginTop: '16px' }}>
+                    <button
+                      type='button'
+                      className='work-button work-button--danger'
+                      onClick={() => handleDeleteEvent(event.id)}
                     >
-                      <FiExternalLink /> Open voting link
-                    </a>
-                    <div className='work-actions'>
-                      <button
-                        className='work-button work-button--danger'
-                        onClick={() => handleDeleteEvent(event.id)}
-                      >
-                        <FiTrash2 /> Delete
-                      </button>
-                      <button
-                        className='work-button work-button--accent'
-                        onClick={() => handleEditEvent(event.id, event)}
-                      >
-                        <FiEdit3 /> Edit
-                      </button>
-                      <button
-                        className='work-button work-button--primary'
-                        onClick={() => handleViewResults(event.id)}
-                      >
-                        <FiTrendingUp /> Results
-                      </button>
-                    </div>
-                  </article>
-                ))
-              )}
+                      <FiTrash2 /> Delete
+                    </button>
+                    <button
+                      type='button'
+                      className='work-button work-button--accent'
+                      onClick={() => handleEditEvent(event.id, event)}
+                    >
+                      <FiEdit3 /> Edit
+                    </button>
+                    <button
+                      type='button'
+                      className='work-button work-button--primary'
+                      onClick={() => handleViewResults(event.id)}
+                    >
+                      <FiTrendingUp /> Results
+                    </button>
+                  </div>
+                </article>
+              ))}
             </div>
-          </div>
+          )}
         </section>
 
         <Popup

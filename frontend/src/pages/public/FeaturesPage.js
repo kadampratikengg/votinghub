@@ -22,8 +22,9 @@ const featuresImage =
 const FeaturesPage = () => (
   <PublicLayout>
     <Seo
-      title='Features | PrivateVoting'
-      description='Explore the features of PrivateVoting including anonymous ballots, election scheduling, audit logs, dashboards and reporting.'
+      title='Features | Private Online Voting, School Voting & Live Voting Features'
+      description='Explore election features for Private Voting, School Voting, College Voting, and Live Voting: anonymous ballots, voter verification, audit logs, and real-time results.'
+      keywords='Private Voting, Online Voting, School Voting, Free Voting, College Voting, Live Voting, Private, Digital Voting, School Online Voting, College Online Voting, Student Council Voting, Verified Voter Management, Election Audit Trail'
       canonicalPath='/features'
       schema={[
         {

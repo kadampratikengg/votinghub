@@ -183,19 +183,36 @@ const HomePage = () => {
       name: 'PrivateVoting',
       applicationCategory: 'BusinessApplication',
       operatingSystem: 'Web',
+      description:
+        'Secure online voting platform for school organizations, principals, coordinators, teachers, housing society chairmen, and organization admins.',
       offers: {
         '@type': 'Offer',
         price: '0',
         priceCurrency: 'INR',
       },
+      audience: [
+        {
+          '@type': 'Audience',
+          audienceType: 'School Principals, Coordinators, Teachers & Educational Institutions',
+        },
+        {
+          '@type': 'Audience',
+          audienceType: 'Housing Society Chairmen, Secretaries & Resident Welfare Associations (RWA)',
+        },
+        {
+          '@type': 'Audience',
+          audienceType: 'Organization Administrators, Board Members & Higher Authorities',
+        },
+      ],
     },
   ];
 
   return (
     <PublicLayout>
       <Seo
-        title='PrivateVoting | Secure Online Voting Platform'
-        description='PrivateVoting provides secure online voting software for organizations, housing societies, educational institutions and enterprises with anonymous ballots, real-time counting and secure election management.'
+        title='Private Voting | Online Voting, School Voting, Free Voting & Live Voting Platform'
+        description='Private Voting & Online Voting platform. Free Voting, School Voting, College Voting, and Live Voting for schools, colleges, societies, and organizations with verified voters and real-time results.'
+        keywords='Private Voting, Online Voting, Voting, School Voting, Free Voting, College Voting, Collage Voting, Live Voting, Private, Free Online Voting, Live Online Voting, Digital Voting, School Online Voting, College Online Voting, Student Council Voting, Housing Society Voting, Society Chairman Voting, Organization Voting, Secure Online Voting Platform, Online Voting Software'
         canonicalPath='/'
         schema={schema}
       />
@@ -204,13 +221,14 @@ const HomePage = () => {
         <div className='site-container site-page-hero__grid'>
           <div>
             <span className='site-kicker'>
-              <FiShield /> Secure digital elections
+              <FiShield /> Private Voting & Live Online Voting
             </span>
-            <h1>Secure Digital Voting Platform</h1>
+            <h1>Private Online Voting Platform for Schools, Colleges & Organizations</h1>
             <p>
-              Conduct secure, anonymous and transparent online elections for
-              organizations, societies, educational institutions, businesses
-              and enterprises.
+              Experience secure Private Voting, School Voting, College Voting,
+              and Live Voting. Built for School Principals, Coordinators,
+              Teachers, Society Chairmen, and Organization Admins with free trial
+              credits and real-time results.
             </p>
 
             <div className='site-page-hero__actions'>

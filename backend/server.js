@@ -29,6 +29,7 @@ const {
 } = require('./utils/nodemailer');
 const {
   activatePendingFreeCredits,
+  runPendingFreeCreditActivationSweep,
 } = require('./utils/subscription');
 const User = require('./models/User');
 
@@ -98,29 +99,6 @@ app.use(multerErrorHandler);
 // Connect to MongoDB
 connectDB();
 
-const runPendingFreeCreditActivationSweep = async () => {
-  if (mongoose.connection.readyState !== 1) {
-    return;
-  }
-
-  const now = new Date();
-  const pendingUsers = await User.find({
-    'subscription.activationDate': { $exists: true, $lte: now },
-    'subscription.isValid': false,
-  }).select('_id subscription');
-
-  let activatedCount = 0;
-  for (const user of pendingUsers) {
-    if (await activatePendingFreeCredits(user)) {
-      activatedCount += 1;
-    }
-  }
-
-  if (activatedCount > 0) {
-    console.log(`✅ Activated ${activatedCount} pending free credit account(s)`);
-  }
-};
-
 let pendingFreeCreditSweepStarted = false;
 const startPendingFreeCreditSweep = () => {
   if (pendingFreeCreditSweepStarted) return;
@@ -133,7 +111,7 @@ const startPendingFreeCreditSweep = () => {
   };
 
   sweep();
-  setInterval(sweep, 60 * 60 * 1000);
+  setInterval(sweep, 5 * 60 * 1000);
 };
 
 mongoose.connection.once('connected', startPendingFreeCreditSweep);
