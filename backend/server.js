@@ -451,7 +451,14 @@ app.use('/', profileRoutes);
 app.use('/', subUserRoutes);
 
 // Serve uploaded files
-app.use('/Uploads', express.static('Uploads'));
+app.use(
+  '/Uploads',
+  express.static('Uploads', {
+    maxAge: '7d',
+    etag: true,
+    immutable: false,
+  }),
+);
 
 // Handle 404 errors with JSON response
 app.use((req, res, next) => {

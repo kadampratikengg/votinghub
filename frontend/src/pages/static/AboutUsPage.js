@@ -51,7 +51,7 @@ const AboutUsPage = () => (
     <PageHero
       title='A secure voting platform designed for trust'
       description='PrivateVoting was built to help organizations run elections without sacrificing security, clarity, or the confidence of participants.'
-      image='/images/about.png'
+      image='https://res.cloudinary.com/dcmtnkas/image/upload/v1787200598/Features.png'
       imageAlt='PrivateVoting team and mission placeholder'
     />
 

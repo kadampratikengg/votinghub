@@ -1,12 +1,14 @@
 import Seo from '../../components/site/Seo';
 import PublicLayout from '../../components/site/PublicLayout';
-import faqImage from '../../images/FAQ.png';
 import {
   Breadcrumbs,
   FaqAccordion,
   PageHero,
   SectionHeading,
 } from '../../components/site/ContentBlocks';
+
+const faqImage =
+  'https://res.cloudinary.com/dcmtnkas/image/upload/v1787200598/FAQ.png';
 
 const items = [
   { question: 'What is PrivateVoting?', answer: 'A secure online voting platform for organizations, societies, schools, colleges, NGOs and enterprises.' },

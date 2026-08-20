@@ -15,7 +15,6 @@ import {
 import { Link } from 'react-router-dom';
 import Seo from '../../components/site/Seo';
 import PublicLayout from '../../components/site/PublicLayout';
-import heroImage from '../../images/hero.png';
 import {
   Callout,
   CardGrid,
@@ -23,6 +22,9 @@ import {
   SectionHeading,
   StatsGrid,
 } from '../../components/site/ContentBlocks';
+
+const heroImage =
+  'https://res.cloudinary.com/dcmtnkas/image/upload/v1787200598/hero.png';
 
 const featureItems = [
   {

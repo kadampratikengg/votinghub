@@ -9,13 +9,15 @@ import {
 } from 'react-icons/fi';
 import Seo from '../../components/site/Seo';
 import PublicLayout from '../../components/site/PublicLayout';
-import featuresImage from '../../images/Features.png';
 import {
   Breadcrumbs,
   CardGrid,
   PageHero,
   SectionHeading,
 } from '../../components/site/ContentBlocks';
+
+const featuresImage =
+  'https://res.cloudinary.com/dcmtnkas/image/upload/v1787200598/Features.png';
 
 const FeaturesPage = () => (
   <PublicLayout>

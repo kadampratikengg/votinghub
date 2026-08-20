@@ -1,13 +1,15 @@
 import { FiDatabase, FiLock, FiShield, FiUserCheck, FiXOctagon } from 'react-icons/fi';
 import Seo from '../../components/site/Seo';
 import PublicLayout from '../../components/site/PublicLayout';
-import securityImage from '../../images/Security.png';
 import {
   Breadcrumbs,
   CardGrid,
   PageHero,
   SectionHeading,
 } from '../../components/site/ContentBlocks';
+
+const securityImage =
+  'https://res.cloudinary.com/dcmtnkas/image/upload/v1787200599/Security.png';
 
 const SecurityPage = () => (
   <PublicLayout>

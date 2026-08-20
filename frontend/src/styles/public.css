@@ -302,8 +302,11 @@ select {
   padding: 12px;
   border-radius: 28px;
   border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 16px 40px rgba(18, 33, 24, 0.18);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 16px 40px rgba(18, 33, 24, 0.22);
+  overflow: hidden;
+  max-width: 100%;
 }
 
 .site-page-hero__actions {
@@ -311,16 +314,6 @@ select {
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 14px;
-}
-
-.site-page-hero__panel {
-  padding: 12px;
-  border-radius: 28px;
-  border: 1px solid rgba(19, 67, 44, 0.1);
-  background:
-    linear-gradient(135deg, rgba(31, 122, 77, 0.1), rgba(255, 255, 255, 0.9)),
-    var(--pv-surface-strong);
-  box-shadow: var(--pv-shadow);
 }
 
 .site-placeholder {
@@ -340,11 +333,12 @@ select {
 
 .site-placeholder__image {
   width: 100%;
+  max-width: 100%;
   height: auto;
   display: block;
-  border-radius: 22px;
+  border-radius: 20px;
   object-fit: cover;
-  box-shadow: 0 20px 48px rgba(22, 32, 25, 0.16);
+  box-shadow: 0 16px 40px rgba(22, 32, 25, 0.18);
 }
 
 .site-trustbar {
