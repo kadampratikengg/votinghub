@@ -534,13 +534,18 @@ const Profile = ({ setIsAuthenticated }) => {
   };
 
   const handleLogoDelete = async () => {
-    const currentLogo = userData.logo;
+    const rawLogo = userData.logo || userData.logoPreview;
+    const currentLogo =
+      typeof rawLogo === 'object' && rawLogo !== null
+        ? rawLogo.url || rawLogo.key || rawLogo.public_id || ''
+        : String(rawLogo || '').trim();
+
     if (!currentLogo || updatingLogo) return;
 
     try {
       setUpdatingLogo(true);
       const token = localStorage.getItem('token');
-      await fetch(
+      const response = await fetch(
         `${apiUrl}/api/uploadcare/delete/${encodeURIComponent(currentLogo)}`,
         {
           method: 'DELETE',
@@ -548,14 +553,18 @@ const Profile = ({ setIsAuthenticated }) => {
             Authorization: `Bearer ${token}`,
           },
         },
-      ).then(async (response) => {
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || 'Failed to delete logo');
-        }
-      });
+      );
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.warn('Storage deletion warning:', errorData.message || errorData);
+      }
 
       await persistLogo('', '');
+      setUserData((prev) => ({
+        ...prev,
+        logo: '',
+        logoPreview: '',
+      }));
       toast.success('Logo deleted successfully');
     } catch (err) {
       toast.error(err.message || 'Failed to delete logo');
@@ -838,7 +847,7 @@ const Profile = ({ setIsAuthenticated }) => {
                         const logoPreview = result.proxyUrl
                           ? `${apiUrl}${result.proxyUrl}`
                           : result.url;
-                        await persistLogo(result.key, logoPreview);
+                        await persistLogo(result.url || result.key, logoPreview);
                         toast.success('Logo uploaded successfully');
                       } catch (err) {
                         toast.error(err.message || 'Logo upload failed');

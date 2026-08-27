@@ -1,62 +1,32 @@
-// routes/uploadcare.js (repurposed for S3 object deletion)
+// routes/uploadcare.js (Unified file & image deletion route for Cloudinary and S3)
 const express = require('express');
-const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
+const { deleteFile } = require('../utils/storage');
 
-// Delete an uploaded object from S3. Accepts either an object key or a full URL.
-router.delete('/delete/:keyOrUrl', authenticateToken, async (req, res) => {
+// Delete an uploaded object from Cloudinary or S3. Accepts key, public_id, or full URL.
+router.delete('/delete/:keyOrUrl(*)', authenticateToken, async (req, res) => {
   const { keyOrUrl } = req.params;
 
-  if (!process.env.AWS_BUCKET_NAME) {
-    console.error('❌ AWS_BUCKET_NAME not configured');
-    return res.status(500).json({ message: 'S3 credentials not configured' });
+  if (!keyOrUrl) {
+    return res.status(400).json({ message: 'Missing key or URL parameter' });
   }
 
-  const extractKey = (val) => {
-    if (!val) return val;
-    if (val.startsWith('http')) {
-      try {
-        const parsed = new URL(val);
-        const proxyPrefix = '/api/upload/s3/object/';
-        if (parsed.pathname.startsWith(proxyPrefix)) {
-          return decodeURIComponent(parsed.pathname.slice(proxyPrefix.length));
-        }
-        return parsed.pathname.replace(/^\/+/, '');
-      } catch (error) {
-        return val;
-      }
-    }
-    return val;
-  };
-
-  const key = extractKey(decodeURIComponent(keyOrUrl));
+  const decodedKeyOrUrl = decodeURIComponent(keyOrUrl);
 
   try {
-    const s3 = new S3Client({
-      region: process.env.AWS_REGION,
-      credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-      },
+    const result = await deleteFile(decodedKeyOrUrl);
+    console.log(`🗑️ Deletion result for "${decodedKeyOrUrl}":`, result);
+    return res.status(200).json({
+      message: 'Image/file deletion processed successfully',
+      result,
     });
-
-    await s3.send(
-      new DeleteObjectCommand({
-        Bucket: process.env.AWS_BUCKET_NAME,
-        Key: key,
-      }),
-    );
-    console.log(`🗑️ Deleted image from S3: ${key}`);
-    res.status(200).json({ message: 'Image deleted successfully' });
   } catch (error) {
-    console.error('❌ Error deleting object from S3:', error.message || error);
-    res
-      .status(500)
-      .json({
-        message: 'Failed to delete object from S3',
-        error: error.message,
-      });
+    console.error('❌ Error deleting file/image:', error?.message || error);
+    return res.status(500).json({
+      message: 'Failed to delete file/image',
+      error: error?.message || String(error),
+    });
   }
 });
 

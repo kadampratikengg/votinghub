@@ -1,6 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { deleteFile } = require('../utils/storage');
 const { authenticateToken } = require('../middleware/auth');
 const User = require('../models/User');
 const SubUser = require('../models/SubUser');
@@ -126,31 +126,13 @@ router.put(
       if (
         profilePic !== undefined &&
         previousProfilePic &&
-        previousProfilePic !== subUser.profilePic &&
-        process.env.AWS_BUCKET_NAME
+        previousProfilePic !== subUser.profilePic
       ) {
-        const s3 = new S3Client({
-          region: process.env.AWS_REGION,
-          credentials: {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-          },
-        });
-
         try {
-          const key = extractKey(previousProfilePic);
-          await s3.send(
-            new DeleteObjectCommand({
-              Bucket: process.env.AWS_BUCKET_NAME,
-              Key: key,
-            }),
-          );
-          console.log(`Deleted previous sub-user image from S3: ${key}`);
+          await deleteFile(previousProfilePic);
+          console.log(`Deleted previous sub-user image: ${previousProfilePic}`);
         } catch (err) {
-          console.error(
-            'Error deleting previous sub-user image from S3:',
-            err.message || err,
-          );
+          console.error('Error deleting previous sub-user image:', err.message || err);
         }
       }
 
@@ -186,29 +168,12 @@ router.delete(
           .json({ message: 'Sub-user not found or not authorized' });
       }
 
-      if (subUser.profilePic && process.env.AWS_BUCKET_NAME) {
-        const s3 = new S3Client({
-          region: process.env.AWS_REGION,
-          credentials: {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-          },
-        });
-
+      if (subUser.profilePic) {
         try {
-          const key = extractKey(subUser.profilePic);
-          await s3.send(
-            new DeleteObjectCommand({
-              Bucket: process.env.AWS_BUCKET_NAME,
-              Key: key,
-            }),
-          );
-          console.log(`Deleted sub-user image from S3: ${key}`);
+          await deleteFile(subUser.profilePic);
+          console.log(`Deleted sub-user image: ${subUser.profilePic}`);
         } catch (err) {
-          console.error(
-            'Error deleting sub-user image from S3:',
-            err.message || err,
-          );
+          console.error('Error deleting sub-user image:', err.message || err);
         }
       }
 

@@ -453,6 +453,20 @@ app.listen(PORT, () => {
 
   // Log presence of important environment variables (do NOT print secret values)
   console.info('🔒 Env check:', {
+    CLOUDINARY_CONFIGURED: !!(
+      process.env.CLOUDINARY_URL ||
+      (process.env.CLOUDINARY_CLOUD_NAME &&
+        process.env.CLOUDINARY_API_KEY &&
+        process.env.CLOUDINARY_API_SECRET)
+    ),
+    S3_CONFIGURED: !!(
+      process.env.AWS_ACCESS_KEY_ID &&
+      process.env.AWS_SECRET_ACCESS_KEY &&
+      process.env.AWS_BUCKET_NAME &&
+      process.env.AWS_REGION
+    ),
+    STORAGE_PROVIDER_PREFERENCE:
+      process.env.STORAGE_PROVIDER_PREFERENCE || 'cloudinary,s3',
     GOOGLE_CLIENT_ID: !!process.env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: !!process.env.GOOGLE_CLIENT_SECRET,
     JWT_SECRET: !!process.env.JWT_SECRET,

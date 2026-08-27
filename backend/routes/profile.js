@@ -1,5 +1,5 @@
 const express = require('express');
-const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { deleteFile } = require('../utils/storage');
 const { authenticateToken } = require('../middleware/auth');
 const User = require('../models/User');
 const {
@@ -214,34 +214,12 @@ router.put('/api/users', authenticateToken, async (req, res) => {
     user.ipRestrictionEnabled = nextIpRestrictionEnabled;
     user.allowedIp = nextAllowedIp;
 
-    if (
-      logo !== undefined &&
-      previousLogo &&
-      previousLogo !== user.logo &&
-      process.env.AWS_BUCKET_NAME
-    ) {
-      const s3 = new S3Client({
-        region: process.env.AWS_REGION,
-        credentials: {
-          accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-        },
-      });
-
+    if (logo !== undefined && previousLogo && previousLogo !== user.logo) {
       try {
-        const key = extractS3Key(previousLogo);
-        await s3.send(
-          new DeleteObjectCommand({
-            Bucket: process.env.AWS_BUCKET_NAME,
-            Key: key,
-          }),
-        );
-        console.log(`Deleted previous organization logo from S3: ${key}`);
+        await deleteFile(previousLogo);
+        console.log(`Deleted previous organization logo: ${previousLogo}`);
       } catch (err) {
-        console.error(
-          'Error deleting previous organization logo from S3:',
-          err.message || err,
-        );
+        console.error('Error deleting previous organization logo:', err.message || err);
       }
     }
 

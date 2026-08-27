@@ -251,7 +251,7 @@ const Settings = ({ setIsAuthenticated }) => {
 
   const handleClearSubUserImage = async () => {
     const currentImage =
-      subUserProfilePic?.key || subUserProfilePic?.uuid || '';
+      subUserProfilePic?.url || subUserProfilePic?.key || subUserProfilePic?.uuid || '';
     if (!currentImage) {
       setSubUserProfilePic(null);
       return;
@@ -320,7 +320,11 @@ const Settings = ({ setIsAuthenticated }) => {
       if (!token) throw new Error('No authentication token found');
       let profilePicUrl = '';
       if (subUserProfilePic) {
-        profilePicUrl = subUserProfilePic.key || subUserProfilePic.uuid || '';
+        profilePicUrl =
+          subUserProfilePic.url ||
+          subUserProfilePic.key ||
+          subUserProfilePic.uuid ||
+          '';
       }
 
       const response = await fetch(
@@ -406,7 +410,11 @@ const Settings = ({ setIsAuthenticated }) => {
       if (!token) throw new Error('No authentication token found');
       let profilePicUrl = '';
       if (subUserProfilePic) {
-        profilePicUrl = subUserProfilePic.key || subUserProfilePic.uuid || '';
+        profilePicUrl =
+          subUserProfilePic.url ||
+          subUserProfilePic.key ||
+          subUserProfilePic.uuid ||
+          '';
       }
 
       const permissions = [];
@@ -914,10 +922,10 @@ const Settings = ({ setIsAuthenticated }) => {
                             'sub-user-images',
                           );
                           setSubUserProfilePic({
-                            key: res.key,
-                            url: res.proxyUrl
-                              ? `${apiUrl}${res.proxyUrl}`
-                              : res.url,
+                            key: res.key || res.public_id,
+                            public_id: res.public_id || res.key,
+                            url: res.url || res.secure_url || (res.proxyUrl ? `${apiUrl}${res.proxyUrl}` : ''),
+                            provider: res.provider,
                           });
                           toast.success('Profile image uploaded');
                         } catch (err) {

@@ -12,6 +12,7 @@ import {
   FiPlus,
   FiUploadCloud,
 } from 'react-icons/fi';
+import { resolveStoredImageUrl } from '../../utils/imageUrl';
 import './Workspace.css';
 
 const CreateEvent = ({ setIsAuthenticated, name }) => {
@@ -101,8 +102,10 @@ const CreateEvent = ({ setIsAuthenticated, name }) => {
           ...row,
           candidateImage: image
             ? {
-                key: image.key || image.uuid || '',
+                key: image.key || image.public_id || image.uuid || '',
                 url: image.url || image.cdnUrl || '',
+                public_id: image.public_id || image.key || '',
+                provider: image.provider || '',
               }
             : null,
           candidateRowIndex: rowIndex,
@@ -121,15 +124,17 @@ const CreateEvent = ({ setIsAuthenticated, name }) => {
           const image = normalized.candidateImages[rowIndex];
           if (
             !image ||
-            (!image.key && !image.uuid && !image.url && !image.cdnUrl)
+            (!image.key && !image.public_id && !image.uuid && !image.url && !image.cdnUrl)
           )
             return null;
           return {
             candidateIndex: rowIndex,
             fileRowIndex: rowIndex,
             selectedIndex,
-            key: image.key || image.uuid || null,
+            key: image.key || image.public_id || image.uuid || null,
             url: image.url || image.cdnUrl || null,
+            public_id: image.public_id || image.key || null,
+            provider: image.provider || null,
           };
         })
         .filter(Boolean),
@@ -157,8 +162,10 @@ const CreateEvent = ({ setIsAuthenticated, name }) => {
             ...row,
             candidateImage: image
               ? {
-                  key: image.key || image.uuid || '',
+                  key: image.key || image.public_id || image.uuid || '',
                   url: image.url || image.cdnUrl || '',
+                  public_id: image.public_id || image.key || '',
+                  provider: image.provider || '',
                 }
               : null,
             candidateRowIndex: rowIndex,
@@ -271,14 +278,19 @@ const CreateEvent = ({ setIsAuthenticated, name }) => {
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
-      if (!res.ok) throw new Error('Upload failed');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || errorData.error || 'Upload failed');
+      }
       const result = await res.json();
       setCandidateImages((prevImages) => {
         const nextImages = {
           ...prevImages,
           [index]: {
-            key: result.key,
-            url: result.proxyUrl ? `${apiUrl}${result.proxyUrl}` : result.url,
+            key: result.key || result.public_id,
+            public_id: result.public_id || result.key,
+            url: result.url || result.secure_url || (result.proxyUrl ? `${apiUrl}${result.proxyUrl}` : ''),
+            provider: result.provider,
           },
         };
         syncActiveBallot({ candidateImages: nextImages });
@@ -292,10 +304,10 @@ const CreateEvent = ({ setIsAuthenticated, name }) => {
 
   const handleClearImage = async (index) => {
     const image = candidateImages[index];
-    if (image && (image.key || image.uuid)) {
+    if (image && (image.key || image.public_id || image.url || image.uuid)) {
       try {
         const token = localStorage.getItem('token');
-        const keyOrUrl = image.key || image.uuid;
+        const keyOrUrl = image.key || image.public_id || image.url || image.uuid;
         const response = await fetch(
           `${apiUrl}/api/uploadcare/delete/${encodeURIComponent(keyOrUrl)}`,
           {
@@ -305,7 +317,7 @@ const CreateEvent = ({ setIsAuthenticated, name }) => {
         );
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || 'Failed to delete image');
+          console.warn('Image deletion warning:', errorData.message);
         }
       } catch (error) {
         console.error('Error deleting image:', error);
@@ -782,13 +794,13 @@ const CreateEvent = ({ setIsAuthenticated, name }) => {
                                     <div className='work-image-preview'>
                                       <img
                                         src={
-                                          candidateImages[fileIndex].url
-                                            ? candidateImages[fileIndex].url
-                                            : s3BucketUrl &&
-                                                candidateImages[fileIndex].uuid
-                                              ? `${s3BucketUrl}/${candidateImages[fileIndex].uuid}`
-                                              : candidateImages[fileIndex]
-                                                  .cdnUrl
+                                          resolveStoredImageUrl(
+                                            candidateImages[fileIndex],
+                                            s3BucketUrl,
+                                            apiUrl,
+                                          ) ||
+                                          candidateImages[fileIndex].url ||
+                                          ''
                                         }
                                         alt={`Candidate ${fileIndex}`}
                                       />

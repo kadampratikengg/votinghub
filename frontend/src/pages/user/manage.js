@@ -19,6 +19,7 @@ import {
   FiTrendingUp,
   FiUploadCloud,
 } from 'react-icons/fi';
+import { resolveStoredImageUrl } from '../../utils/imageUrl';
 const Dashboard = ({ setIsAuthenticated, name }) => {
   const [fileData, setFileData] = useState([]);
   const [candidateSearch, setCandidateSearch] = useState('');
@@ -322,8 +323,10 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
       const token = localStorage.getItem('token');
       const res = await uploadFileToS3(file, token, 'voting-candidate-images');
       const nextImage = {
-        key: res.key,
-        url: res.proxyUrl ? `${apiUrl}${res.proxyUrl}` : res.url,
+        key: res.key || res.public_id,
+        public_id: res.public_id || res.key,
+        url: res.url || res.secure_url || (res.proxyUrl ? `${apiUrl}${res.proxyUrl}` : ''),
+        provider: res.provider,
       };
       setCandidateImages((prevImages) => {
         const nextImages = {
@@ -341,10 +344,10 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
 
   const handleClearImage = async (index) => {
     const image = candidateImages[index];
-    if (image && (image.key || image.uuid)) {
+    if (image && (image.key || image.public_id || image.url || image.uuid)) {
       try {
         const token = localStorage.getItem('token');
-        const keyOrUrl = image.key || image.uuid;
+        const keyOrUrl = image.key || image.public_id || image.url || image.uuid;
         const response = await fetch(
           `${apiUrl}/api/uploadcare/delete/${encodeURIComponent(keyOrUrl)}`,
           {
@@ -356,7 +359,7 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
         );
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || 'Failed to delete image');
+          console.warn('Image delete warning:', errorData.message);
         }
         setCandidateImages((prevImages) => {
           const newImages = { ...prevImages };
@@ -1526,13 +1529,13 @@ const Dashboard = ({ setIsAuthenticated, name }) => {
                                     <div className='work-image-preview'>
                                       <img
                                         src={
-                                          candidateImages[fileIndex].url
-                                            ? candidateImages[fileIndex].url
-                                            : s3BucketUrl &&
-                                                candidateImages[fileIndex].uuid
-                                              ? `${s3BucketUrl}/${candidateImages[fileIndex].uuid}`
-                                              : candidateImages[fileIndex]
-                                                  .cdnUrl
+                                          resolveStoredImageUrl(
+                                            candidateImages[fileIndex],
+                                            s3BucketUrl,
+                                            apiUrl,
+                                          ) ||
+                                          candidateImages[fileIndex].url ||
+                                          ''
                                         }
                                         alt={`Candidate ${fileIndex}`}
                                       />

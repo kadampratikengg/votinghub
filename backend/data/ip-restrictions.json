@@ -3,5 +3,10 @@
     "ipRestrictionEnabled": true,
     "allowedIp": "175.100.138.135",
     "updatedAt": "2026-06-15T14:21:43.512Z"
+  },
+  "6a5a0b5b429ec35d0514cb90": {
+    "ipRestrictionEnabled": false,
+    "allowedIp": "",
+    "updatedAt": "2026-08-27T10:05:26.990Z"
   }
 }

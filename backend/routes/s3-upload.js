@@ -1,58 +1,31 @@
 const express = require('express');
 const multer = require('multer');
 const {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
-} = require('@aws-sdk/client-s3');
-// Allow uploads without authentication for initial account creation.
-// For profile/sub-user uploads from the UI we still include Authorization header.
+  uploadFile,
+  deleteFile,
+  getStorageStatus,
+  extractS3Key,
+  getS3Client,
+  isS3Configured,
+} = require('../utils/storage');
+const { GetObjectCommand } = require('@aws-sdk/client-s3');
 
 const router = express.Router();
-const upload = multer();
+const upload = multer({
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB max
+});
+
 const allowedFolders = new Set([
   'organization-images',
   'sub-user-images',
   'voting-candidate-images',
 ]);
 
-// Upload file to S3 and return public URL and object key
-router.post('/api/upload/s3', upload.single('file'), async (req, res) => {
+const handleUploadRequest = async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
-
-    // Validate AWS configuration early so client gets a clear error
-    const {
-      AWS_REGION,
-      AWS_ACCESS_KEY_ID,
-      AWS_SECRET_ACCESS_KEY,
-      AWS_BUCKET_NAME,
-    } = process.env;
-    if (
-      !AWS_REGION ||
-      !AWS_ACCESS_KEY_ID ||
-      !AWS_SECRET_ACCESS_KEY ||
-      !AWS_BUCKET_NAME
-    ) {
-      console.error('❌ Missing AWS S3 configuration:', {
-        AWS_REGION,
-        AWS_BUCKET_NAME,
-        hasKey: !!AWS_ACCESS_KEY_ID,
-      });
-      return res
-        .status(500)
-        .json({
-          message: 'Server S3 configuration missing. Check AWS env vars.',
-        });
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded' });
     }
-
-    const s3Client = new S3Client({
-      region: AWS_REGION,
-      credentials: {
-        accessKeyId: AWS_ACCESS_KEY_ID,
-        secretAccessKey: AWS_SECRET_ACCESS_KEY,
-      },
-    });
 
     const requestedFolder =
       typeof req.body.folder === 'string' ? req.body.folder.trim() : '';
@@ -60,80 +33,71 @@ router.post('/api/upload/s3', upload.single('file'), async (req, res) => {
       ? requestedFolder
       : 'misc';
 
-    // sanitize key to avoid problematic characters
-    const safeName = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const key = `${folder}/${Date.now()}_${safeName}`;
-
-    const putCommand = new PutObjectCommand({
-      Bucket: process.env.AWS_BUCKET_NAME,
-      Key: key,
-      Body: req.file.buffer,
-      ContentType: req.file.mimetype,
+    const result = await uploadFile({
+      buffer: req.file.buffer,
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      folder,
     });
 
-    const result = await s3Client.send(putCommand);
-    // Success — construct public URL (best-effort)
-    const url = `https://${AWS_BUCKET_NAME}.s3.${AWS_REGION}.amazonaws.com/${key}`;
-    const proxyUrl = `/api/upload/s3/object/${encodeURIComponent(key)}`;
-    res.status(200).json({ url, key, proxyUrl, result });
+    return res.status(200).json({
+      url: result.url,
+      secure_url: result.secure_url || result.url,
+      key: result.key,
+      public_id: result.public_id || result.key,
+      proxyUrl: result.proxyUrl,
+      provider: result.provider,
+      size: result.size,
+      adjusted: result.adjusted,
+      result: result.result,
+    });
   } catch (error) {
-    console.error(
-      '❌ S3 upload failed:',
-      error && error.stack ? error.stack : error,
-    );
-    // If AWS SDK returned a structured error, include code for easier debugging
+    console.error('❌ Upload failed on all storage providers:', error);
     const code = error?.name || error?.Code || null;
-    res
-      .status(500)
-      .json({
-        message: 'S3 upload failed',
-        error: error?.message || String(error),
-        code,
-      });
+    return res.status(500).json({
+      message: 'File upload failed across storage providers',
+      error: error?.message || String(error),
+      code,
+      providerErrors: error?.providerErrors || [],
+    });
   }
+};
+
+// Primary upload endpoints (supports both /api/upload/s3 and /api/upload)
+router.post('/api/upload/s3', upload.single('file'), handleUploadRequest);
+router.post('/api/upload', upload.single('file'), handleUploadRequest);
+
+// Storage status probe endpoint
+router.get('/api/upload/status', (req, res) => {
+  res.status(200).json(getStorageStatus());
 });
 
-router.get('/api/upload/s3/object/:key(*)', async (req, res) => {
+// Proxy endpoint to retrieve stored objects (S3 proxy or Cloudinary redirect)
+const handleObjectFetch = async (req, res) => {
   try {
-    const {
-      AWS_REGION,
-      AWS_ACCESS_KEY_ID,
-      AWS_SECRET_ACCESS_KEY,
-      AWS_BUCKET_NAME,
-    } = process.env;
-    if (
-      !AWS_REGION ||
-      !AWS_ACCESS_KEY_ID ||
-      !AWS_SECRET_ACCESS_KEY ||
-      !AWS_BUCKET_NAME
-    ) {
-      return res
-        .status(500)
-        .json({ message: 'Server S3 configuration missing. Check AWS env vars.' });
-    }
-
     const rawKey = decodeURIComponent(req.params.key || '');
     if (!rawKey) {
       return res.status(400).json({ message: 'Object key is required' });
     }
 
-    let key = rawKey;
-    if (/^https?:\/\//i.test(rawKey)) {
-      const parsed = new URL(rawKey);
-      key = parsed.pathname.replace(/^\/+/, '');
+    // If Cloudinary URL was passed to the proxy, redirect directly to Cloudinary CDN
+    if (rawKey.includes('cloudinary.com') || rawKey.includes('res.cloudinary')) {
+      const targetUrl = /^https?:\/\//i.test(rawKey) ? rawKey : `https://${rawKey}`;
+      return res.redirect(302, targetUrl);
     }
 
-    const s3Client = new S3Client({
-      region: AWS_REGION,
-      credentials: {
-        accessKeyId: AWS_ACCESS_KEY_ID,
-        secretAccessKey: AWS_SECRET_ACCESS_KEY,
-      },
-    });
+    if (!isS3Configured()) {
+      return res.status(500).json({
+        message: 'AWS S3 is not configured for object proxying',
+      });
+    }
+
+    const key = extractS3Key(rawKey);
+    const s3Client = getS3Client();
 
     const response = await s3Client.send(
       new GetObjectCommand({
-        Bucket: AWS_BUCKET_NAME,
+        Bucket: process.env.AWS_BUCKET_NAME,
         Key: key,
       }),
     );
@@ -144,9 +108,12 @@ router.get('/api/upload/s3/object/:key(*)', async (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=3600');
     response.Body.pipe(res);
   } catch (error) {
-    console.error('Error fetching S3 object:', error && error.stack ? error.stack : error);
-    res.status(404).json({ message: 'Failed to fetch image' });
+    console.error('Error fetching stored object:', error && error.stack ? error.stack : error);
+    res.status(404).json({ message: 'Failed to fetch image or file' });
   }
-});
+};
+
+router.get('/api/upload/s3/object/:key(*)', handleObjectFetch);
+router.get('/api/upload/object/:key(*)', handleObjectFetch);
 
 module.exports = router;

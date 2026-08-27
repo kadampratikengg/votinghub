@@ -1,6 +1,6 @@
 const express = require('express');
 const axios = require('axios');
-const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { deleteFile, deleteMultipleFiles } = require('../utils/storage');
 const multer = require('multer');
 const Event = require('../models/Event');
 const EventHistory = require('../models/EventHistory');
@@ -50,6 +50,48 @@ const parseForwardedHeaderIp = (value) => {
 };
 
 const isMongoObjectId = (value) => /^[a-f\d]{24}$/i.test(String(value || ''));
+
+const collectEventCandidateImages = (event) => {
+  if (!event) return [];
+  const keys = new Set();
+
+  const addImage = (img) => {
+    if (!img) return;
+    if (typeof img === 'string') {
+      keys.add(img);
+      return;
+    }
+    const val = img.key || img.public_id || img.s3Key || img.url || img.uuid;
+    if (val && typeof val === 'string') keys.add(val);
+  };
+
+  if (Array.isArray(event.candidateImages)) {
+    event.candidateImages.forEach(addImage);
+  }
+
+  if (Array.isArray(event.selectedData)) {
+    event.selectedData.forEach((row) => {
+      if (row?.candidateImage) addImage(row.candidateImage);
+      if (row?.__candidateImage) addImage(row.__candidateImage);
+    });
+  }
+
+  if (Array.isArray(event.ballots)) {
+    event.ballots.forEach((ballot) => {
+      if (Array.isArray(ballot.candidateImages)) {
+        ballot.candidateImages.forEach(addImage);
+      }
+      if (Array.isArray(ballot.selectedData)) {
+        ballot.selectedData.forEach((row) => {
+          if (row?.candidateImage) addImage(row.candidateImage);
+          if (row?.__candidateImage) addImage(row.__candidateImage);
+        });
+      }
+    });
+  }
+
+  return [...keys];
+};
 
 const getRequestIp = (req) => {
   // Check a list of common headers that may contain the client's IP when
@@ -1507,67 +1549,28 @@ router.put(
         }
       }
 
-      // Identify images to delete (supports S3 keys or legacy UUID fields)
-      const existingImageKeys = new Set(
-        existingEvent.candidateImages
-          .map((img) => img.key || img.s3Key || img.url || img.uuid)
-          .filter(Boolean),
-      );
+      // Identify images to delete (supports Cloudinary, S3, and legacy UUID fields)
+      const existingImageKeys = new Set(collectEventCandidateImages(existingEvent));
+      const nextCandidateImages = [
+        ...parsedCandidateImages,
+        ...(ballotPayloads || []).flatMap((b) => b.candidateImages || []),
+      ];
       const newImageKeys = new Set(
-        parsedCandidateImages
-          .map((img) => img.key || img.s3Key || img.url || img.uuid)
+        nextCandidateImages
+          .map((img) => img.key || img.public_id || img.s3Key || img.url || img.uuid)
           .filter(Boolean),
       );
       const imagesToDelete = [...existingImageKeys].filter(
         (k) => !newImageKeys.has(k),
       );
 
-      // Delete images from S3 when configured
-      if (imagesToDelete.length > 0 && process.env.AWS_BUCKET_NAME) {
-        const s3 = new S3Client({
-          region: process.env.AWS_REGION,
-          credentials: {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-          },
-        });
-
-        const extractKey = (val) => {
-          // If URL, try to extract key after bucket domain
-          try {
-            if (val.startsWith('http')) {
-              const parts = val.split('/');
-              return parts.slice(3).join('/');
-            }
-            return val;
-          } catch (e) {
-            return val;
-          }
-        };
-
+      if (imagesToDelete.length > 0) {
         try {
-          await Promise.all(
-            imagesToDelete.map(async (val) => {
-              const key = extractKey(val);
-              await s3.send(
-                new DeleteObjectCommand({
-                  Bucket: process.env.AWS_BUCKET_NAME,
-                  Key: key,
-                }),
-              );
-              console.log(`🗑️ Deleted image from S3: ${key}`);
-            }),
-          );
-        } catch (err) {
-          console.error(
-            '❌ Error deleting images from S3:',
-            err.message || err,
-          );
+          await deleteMultipleFiles(imagesToDelete);
+          console.log(`🗑️ Deleted ${imagesToDelete.length} removed candidate images`);
+        } catch (delErr) {
+          console.error('❌ Error deleting removed candidate images:', delErr);
         }
-      } else if (imagesToDelete.length > 0) {
-        console.warn(
-          '⚠️ AWS_BUCKET_NAME not configured — skipping image deletions',
-        );
       }
 
       const event = await Event.findOneAndUpdate(
@@ -1809,51 +1812,14 @@ router.delete(
       const resultDate = getResultDate(event);
       const actor = await resolveActor(req.user);
 
-      // Delete images from S3 when configured
-      if (event.candidateImages && event.candidateImages.length > 0) {
-        const values = event.candidateImages
-          .map((img) => img.key || img.s3Key || img.url || img.uuid)
-          .filter(Boolean);
-        if (values.length > 0 && process.env.AWS_BUCKET_NAME) {
-          const s3 = new S3Client({
-            region: process.env.AWS_REGION,
-            credentials: {
-              accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-              secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-            },
-          });
-
-          const extractKey = (val) => {
-            if (val && val.startsWith('http')) {
-              const parts = val.split('/');
-              return parts.slice(3).join('/');
-            }
-            return val;
-          };
-
-          try {
-            await Promise.all(
-              values.map(async (val) => {
-                const key = extractKey(val);
-                await s3.send(
-                  new DeleteObjectCommand({
-                    Bucket: process.env.AWS_BUCKET_NAME,
-                    Key: key,
-                  }),
-                );
-                console.log(`🗑️ Deleted image from S3: ${key}`);
-              }),
-            );
-          } catch (err) {
-            console.error(
-              '❌ Error deleting images from S3:',
-              err.message || err,
-            );
-          }
-        } else if (values.length > 0) {
-          console.warn(
-            '⚠️ AWS_BUCKET_NAME not configured — skipping image deletions',
-          );
+      // Delete all candidate images from Cloudinary / S3
+      const allCandidateImages = collectEventCandidateImages(event);
+      if (allCandidateImages.length > 0) {
+        try {
+          await deleteMultipleFiles(allCandidateImages);
+          console.log(`🗑️ Deleted ${allCandidateImages.length} candidate images for deleted event ${event.id}`);
+        } catch (delErr) {
+          console.error('❌ Error deleting event candidate images:', delErr);
         }
       }
 
