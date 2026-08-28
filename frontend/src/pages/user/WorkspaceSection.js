@@ -1,6 +1,5 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import '../App.css';
 import './Workspace.css';
 import Sidebar from './Sidebar';
 
