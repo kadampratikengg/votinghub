@@ -1,7 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import Sidebar from './Sidebar';
+import '../App.css';
 import './Workspace.css';
+import Sidebar from './Sidebar';
 
 const WorkspaceSection = ({
   setIsAuthenticated,

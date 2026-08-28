@@ -1,0 +1,30 @@
+# PrivateVoting | Comprehensive Platform Overview
+
+> PrivateVoting is a secure, auditable, and multi-tenant Private Online Voting platform providing School Voting, College Voting, Housing Society Voting, and Organization Elections with real-time auditability and anonymous digital ballots.
+
+## Overview
+
+PrivateVoting facilitates modern digital elections for educational institutions, residential societies, non-profit organizations, and corporations. The platform ensures end-to-end election integrity, privacy of individual ballots, and instant tallying.
+
+## Core Features & Workflow
+
+- **Election Setup & Multi-Ballot Events**: Configure complex election posts in a single event.
+- **Candidate Management**: Upload spreadsheets with candidate rosters, attach candidate portraits, and customize candidate ordering.
+- **Voter Verification & Access Control**: Support for email verification, student ID/roll numbers, apartment numbers, and unique verification tokens.
+- **Dual Storage Architecture**: Resilient cloud asset storage powered by Cloudinary and AWS S3 with automatic failover and optimized image compression (50KB-100KB).
+- **Sub-User & Polling Officer Delegation**: Granular permission scoping allowing staff, teachers, or committee members to manage polling booths without accessing administrative controls.
+- **Live Auditing & Reports**: Instant count tabulation upon poll closure, downloadable certified PDF result certificates, and Excel voter turnout logs.
+- **Security & Restriction**: Optional IP-range restriction, strict voting time windows with buffer-time safeguards, and tamper-evident ballots.
+
+## Primary Links & Resources
+
+- [Home](https://www.privatevoting.in/): Official overview and starting point.
+- [Features](https://www.privatevoting.in/features): Detailed feature capabilities and operational workflow.
+- [Security & Privacy](https://www.privatevoting.in/security): Technical security measures and data protection.
+- [Pricing & Plans](https://www.privatevoting.in/pricing): Voting credit tiers, free trial access, and pricing.
+- [FAQ](https://www.privatevoting.in/faq): Answers to common election administration questions.
+- [Contact Support & Book Demo](https://www.privatevoting.in/contact): Consultation and platform demo booking.
+- [About Us](https://www.privatevoting.in/about-us): Background, company details, and election governance vision.
+- [Privacy Policy](https://www.privatevoting.in/privacy-policy): Compliance and voter anonymity safeguards.
+- [Terms of Service](https://www.privatevoting.in/terms-of-service): Terms of service and administrator guidelines.
+- [Cookie Policy](https://www.privatevoting.in/cookie-policy): Session cookies and technical storage notice.

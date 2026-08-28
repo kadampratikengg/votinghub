@@ -253,30 +253,38 @@ const LoginPage = ({ onLogin }) => {
         </div>
 
         <form onSubmit={handleSubmit} className='auth-form'>
-          <label className='auth-field'>
+          <label className='auth-field' htmlFor='login-email'>
             <span>
               <FiMail /> Email
             </span>
             <input
+              id='login-email'
+              name='email'
               type='email'
+              autoComplete='email'
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder='name@example.com'
               required
+              aria-required='true'
             />
           </label>
           {emailError && <p className='auth-error'>{emailError}</p>}
 
-          <label className='auth-field'>
+          <label className='auth-field' htmlFor='login-password'>
             <span>
               <FiLock /> Password
             </span>
             <input
+              id='login-password'
+              name='password'
               type='password'
+              autoComplete='current-password'
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder='Enter password'
               required
+              aria-required='true'
             />
           </label>
 
@@ -302,8 +310,9 @@ const LoginPage = ({ onLogin }) => {
             className='auth-google__btn'
             onClick={handleGoogleFallbackClick}
             disabled={loading}
+            aria-label='Sign in with Google'
           >
-            <span className='auth-google__icon' aria-hidden>
+            <span className='auth-google__icon' aria-hidden='true'>
               <svg
                 width='18'
                 height='18'

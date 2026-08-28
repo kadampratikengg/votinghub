@@ -428,13 +428,13 @@ app.use('/api/uploadcare', uploadcareRoutes); // keep route path for backward-co
 app.use('/', profileRoutes);
 app.use('/', subUserRoutes);
 
-// Serve uploaded files
+// Serve uploaded files with efficient long-term caching
 app.use(
   '/Uploads',
   express.static('Uploads', {
-    maxAge: '7d',
+    maxAge: '1y',
     etag: true,
-    immutable: false,
+    immutable: true,
   }),
 );
 

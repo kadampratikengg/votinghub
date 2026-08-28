@@ -1,4 +1,33 @@
 # https://www.robotstxt.org/robotstxt.html
 User-agent: *
-Disallow:
+Allow: /
+Disallow: /dashboard
+Disallow: /manage
+Disallow: /profile
+Disallow: /settings
+Disallow: /voters
+Disallow: /create-event
+Disallow: /workspace
+Disallow: /api/
+
+# Explicit search engine crawler permissions
+User-agent: Googlebot
+Allow: /
+Disallow: /dashboard
+Disallow: /manage
+Disallow: /profile
+Disallow: /settings
+Disallow: /voters
+Disallow: /create-event
+Disallow: /workspace
+Disallow: /api/
+
+User-agent: Googlebot-Image
+Allow: /
+Allow: /*.png$
+Allow: /*.jpg$
+Allow: /*.jpeg$
+Allow: /*.webp$
+Allow: /*.svg$
+
 Sitemap: https://www.privatevoting.in/sitemap.xml

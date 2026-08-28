@@ -159,8 +159,10 @@ const AppRoutes = ({ setIsAuthenticated, handleLogin }) => {
             }}
           >
             <img
-              src='/logo512.png'
+              src='/logo-sm.png'
               alt='PrivateVoting logo'
+              width='96'
+              height='96'
               style={{
                 width: '96px',
                 height: '96px',

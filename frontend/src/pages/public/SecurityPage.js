@@ -9,7 +9,7 @@ import {
 } from '../../components/site/ContentBlocks';
 
 const securityImage =
-  'https://res.cloudinary.com/dcmtnkas/image/upload/v1787200599/Security.png';
+  'https://res.cloudinary.com/dcmtnkas/image/upload/f_auto,q_auto,w_800/v1787200599/Security.png';
 
 const SecurityPage = () => (
   <PublicLayout>

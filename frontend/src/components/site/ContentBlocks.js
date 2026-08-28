@@ -178,29 +178,48 @@ export const Callout = ({ title, description, primary, secondary }) => (
   </section>
 );
 
-export const PageHero = ({ title, description, image, imageAlt }) => (
-  <section className='site-page-hero'>
-    <div className='site-container site-page-hero__grid'>
-      <div>
-        <span className='site-kicker'>PrivateVoting</span>
-        <h1>{title}</h1>
-        <p>{description}</p>
+export const PageHero = ({ title, description, image, imageAlt }) => {
+  const isCloudinary = image && image.includes('res.cloudinary.com');
+  const baseCloudinary = isCloudinary
+    ? image.replace(/\/upload\/(?:[a-z0-9_:,]+\/)?/, '/upload/f_auto,q_auto:good,')
+    : image;
+
+  const srcSet = isCloudinary
+    ? `
+        ${baseCloudinary.replace('/upload/f_auto,q_auto:good,', '/upload/f_auto,q_auto:good,w_320/')} 320w,
+        ${baseCloudinary.replace('/upload/f_auto,q_auto:good,', '/upload/f_auto,q_auto:good,w_480/')} 480w,
+        ${baseCloudinary.replace('/upload/f_auto,q_auto:good,', '/upload/f_auto,q_auto:good,w_600/')} 600w,
+        ${baseCloudinary.replace('/upload/f_auto,q_auto:good,', '/upload/f_auto,q_auto:good,w_900/')} 900w,
+        ${baseCloudinary.replace('/upload/f_auto,q_auto:good,', '/upload/f_auto,q_auto:good,w_1200/')} 1200w
+      `
+    : undefined;
+
+  return (
+    <section className='site-page-hero'>
+      <div className='site-container site-page-hero__grid'>
+        <div>
+          <span className='site-kicker'>PrivateVoting</span>
+          <h1>{title}</h1>
+          <p>{description}</p>
+        </div>
+        <div className='site-page-hero__panel'>
+          {image ? (
+            <img
+              className='site-placeholder__image'
+              src={baseCloudinary}
+              srcSet={srcSet}
+              sizes='(max-width: 640px) calc(100vw - 32px), (max-width: 920px) 45vw, 588px'
+              alt={imageAlt}
+              width={588}
+              height={392}
+              loading='eager'
+              decoding='async'
+            />
+          ) : (
+            <div className='site-placeholder'>{imageAlt}</div>
+          )}
+        </div>
       </div>
-      <div className='site-page-hero__panel'>
-        {image ? (
-          <img
-            className='site-placeholder__image'
-            src={image}
-            alt={imageAlt}
-            width={588}
-            height={392}
-            loading='eager'
-            decoding='async'
-          />
-        ) : (
-          <div className='site-placeholder'>{imageAlt}</div>
-        )}
-      </div>
-    </div>
-  </section>
-);
+    </section>
+  );
+};

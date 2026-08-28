@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { FiFacebook, FiInstagram, FiX, FiYoutube } from 'react-icons/fi';
 import BrandMark from './site/BrandMark';
 import '../styles/public.css';
@@ -16,17 +17,37 @@ const Footer = () => {
               governance, and organizational decision-making across India and
               beyond.
             </p>
-            <div className='site-footer__social' aria-label='Social links'>
-              <a href='https://www.instagram.com/privatevoting?igsh=MWliNmdpajhqZmhndg%3D%3D&igsi=MWliNmdpajhqZmhndg%3D%3D&utm_source=qr' target='_blank' rel='noreferrer' aria-label='Instagram'>
+            <div className='site-footer__social' aria-label='Social media links'>
+              <a
+                href='https://www.instagram.com/privatevoting?igsh=MWliNmdpajhqZmhndg%3D%3D&igsi=MWliNmdpajhqZmhndg%3D%3D&utm_source=qr'
+                target='_blank'
+                rel='noopener noreferrer'
+                aria-label='Follow PrivateVoting on Instagram'
+              >
                 <FiInstagram />
               </a>
-              <a href='https://www.facebook.com/share/1LThatW4Gk/?mibextid=wwXIfr' target='_blank' rel='noreferrer' aria-label='Facebook'>
+              <a
+                href='https://www.facebook.com/share/1LThatW4Gk/?mibextid=wwXIfr'
+                target='_blank'
+                rel='noopener noreferrer'
+                aria-label='Follow PrivateVoting on Facebook'
+              >
                 <FiFacebook />
               </a>
-              <a href='https://x.com/PrivateVoting?s=20' target='_blank' rel='noreferrer' aria-label='X'>
+              <a
+                href='https://x.com/PrivateVoting?s=20'
+                target='_blank'
+                rel='noopener noreferrer'
+                aria-label='Follow PrivateVoting on X'
+              >
                 <FiX />
               </a>
-              <a href='https://www.youtube.com/@PrivateVoting' target='_blank' rel='noreferrer' aria-label='YouTube'>
+              <a
+                href='https://www.youtube.com/@PrivateVoting'
+                target='_blank'
+                rel='noopener noreferrer'
+                aria-label='Subscribe to PrivateVoting on YouTube'
+              >
                 <FiYoutube />
               </a>
             </div>
@@ -36,13 +57,13 @@ const Footer = () => {
             <h3 className='site-footer__heading'>About</h3>
             <ul className='site-footer__links'>
               <li>
-                <a href='/about-us'>About Us</a>
+                <Link to='/about-us'>About Us</Link>
               </li>
               <li>
-                <a href='/features'>Features</a>
+                <Link to='/features'>Features</Link>
               </li>
               <li>
-                <a href='/pricing'>Pricing</a>
+                <Link to='/pricing'>Pricing</Link>
               </li>
             </ul>
           </div>
@@ -51,10 +72,10 @@ const Footer = () => {
             <h3 className='site-footer__heading'>Explore</h3>
             <ul className='site-footer__links'>
               <li>
-                <a href='/contact'>Contact</a>
+                <Link to='/contact'>Contact</Link>
               </li>
               <li>
-                <a href='/faq'>FAQ</a>
+                <Link to='/faq'>FAQ</Link>
               </li>
             </ul>
           </div>
@@ -63,13 +84,13 @@ const Footer = () => {
             <h3 className='site-footer__heading'>Legal</h3>
             <ul className='site-footer__links'>
               <li>
-                <a href='/privacy-policy'>Privacy Policy</a>
+                <Link to='/privacy-policy'>Privacy Policy</Link>
               </li>
               <li>
-                <a href='/terms-of-service'>Terms of Service</a>
+                <Link to='/terms-of-service'>Terms of Service</Link>
               </li>
               <li>
-                <a href='/cookie-policy'>Cookie Policy</a>
+                <Link to='/cookie-policy'>Cookie Policy</Link>
               </li>
             </ul>
           </div>

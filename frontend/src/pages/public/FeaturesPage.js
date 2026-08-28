@@ -17,7 +17,7 @@ import {
 } from '../../components/site/ContentBlocks';
 
 const featuresImage =
-  'https://res.cloudinary.com/dcmtnkas/image/upload/v1787200598/Features.png';
+  'https://res.cloudinary.com/dcmtnkas/image/upload/f_auto,q_auto,w_800/v1787200598/Features.png';
 
 const FeaturesPage = () => (
   <PublicLayout>

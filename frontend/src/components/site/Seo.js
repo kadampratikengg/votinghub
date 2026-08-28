@@ -28,12 +28,16 @@ const Seo = ({
   const robots = noIndex ? 'noindex,nofollow' : 'index,follow,max-image-preview:large';
 
   return (
-    <Helmet>
+    <Helmet htmlAttributes={{ lang: 'en' }}>
       <title>{title}</title>
       <meta name='description' content={description} />
       {keywords && <meta name='keywords' content={keywords} />}
       <link rel='canonical' href={canonicalUrl} />
+      <link rel='alternate' hrefLang='x-default' href={canonicalUrl} />
+      <link rel='alternate' hrefLang='en' href={canonicalUrl} />
       <meta name='robots' content={robots} />
+      <meta property='og:site_name' content='PrivateVoting' />
+      <meta property='og:locale' content='en_US' />
       <meta property='og:type' content={type} />
       <meta property='og:title' content={title} />
       <meta property='og:description' content={description} />
@@ -43,9 +47,9 @@ const Seo = ({
       <meta name='twitter:title' content={title} />
       <meta name='twitter:description' content={description} />
       <meta name='twitter:image' content={fullImageUrl} />
-      {schema.map((entry) => (
+      {schema.map((entry, index) => (
         <script
-          key={entry['@id'] || entry['@type']}
+          key={entry['@id'] || entry['@type'] || `schema-${index}`}
           type='application/ld+json'
         >
           {JSON.stringify(entry)}

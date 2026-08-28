@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/logo192.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#1f7a4d" />
     <meta
       name="description"
       content="Private Voting & Online Voting Platform. Free Voting, School Voting, College Voting, and Live Voting for schools, colleges, housing societies, and organizations with secure digital ballots."
@@ -14,8 +14,10 @@
       content="Private Voting, Online Voting, Voting, School Voting, Free Voting, College Voting, Collage Voting, Live Voting, Private, Free Online Voting, Live Online Voting, Digital Voting, School Online Voting, College Online Voting, Student Council Voting, Housing Society Voting, Society Chairman Voting, Organization Voting, Secure Online Voting Platform, Online Voting Software"
     />
     <meta name="author" content="PrivateVoting" />
-    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="PrivateVoting" />
+    <meta property="og:locale" content="en_US" />
     <meta property="og:url" content="https://www.privatevoting.in/" />
     <meta property="og:title" content="Private Voting | Online Voting, School Voting & Free Live Voting Platform" />
     <meta property="og:description" content="Private Voting & Online Voting Platform. Free Voting, School Voting, College Voting, and Live Voting for schools, colleges, housing societies, and organizations." />
@@ -27,47 +29,70 @@
     <link rel="canonical" href="https://www.privatevoting.in/" />
     <link rel="preconnect" href="https://res.cloudinary.com" crossorigin />
     <link rel="dns-prefetch" href="https://res.cloudinary.com" />
+    <link rel="dns-prefetch" href="https://accounts.google.com" />
+    <link rel="dns-prefetch" href="https://static.cloudflareinsights.com" />
     <link
       rel="preload"
       as="image"
-      href="https://res.cloudinary.com/dcmtnkas/image/upload/f_auto,q_auto,w_800/v1787200598/hero.png"
+      href="https://res.cloudinary.com/dcmtnkas/image/upload/f_auto,q_auto:good,w_600/v1787200598/hero.png"
       imagesrcset="
-        https://res.cloudinary.com/dcmtnkas/image/upload/f_auto,q_auto,w_500/v1787200598/hero.png 500w,
-        https://res.cloudinary.com/dcmtnkas/image/upload/f_auto,q_auto,w_800/v1787200598/hero.png 800w,
-        https://res.cloudinary.com/dcmtnkas/image/upload/f_auto,q_auto,w_1100/v1787200598/hero.png 1100w
+        https://res.cloudinary.com/dcmtnkas/image/upload/f_auto,q_auto:good,w_320/v1787200598/hero.png 320w,
+        https://res.cloudinary.com/dcmtnkas/image/upload/f_auto,q_auto:good,w_480/v1787200598/hero.png 480w,
+        https://res.cloudinary.com/dcmtnkas/image/upload/f_auto,q_auto:good,w_600/v1787200598/hero.png 600w,
+        https://res.cloudinary.com/dcmtnkas/image/upload/f_auto,q_auto:good,w_900/v1787200598/hero.png 900w,
+        https://res.cloudinary.com/dcmtnkas/image/upload/f_auto,q_auto:good,w_1200/v1787200598/hero.png 1200w
       "
-      imagesizes="(max-width: 920px) 100vw, 588px"
+      imagesizes="(max-width: 640px) calc(100vw - 32px), (max-width: 920px) 45vw, 588px"
       fetchpriority="high"
     />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo-sm.png" />
-    <!--
-      manifest.json provides metadata used when your web app is installed on a
-      user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
-    -->
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <!--
-      Notice the use of %PUBLIC_URL% in the tags above.
-      It will be replaced with the URL of the `public` folder during the build.
-      Only files inside the `public` folder can be referenced from the HTML.
-
-      Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
-      work correctly both with client-side routing and a non-root public URL.
-      Learn how to configure a non-root public URL by running `npm run build`.
-    -->
     <title>PrivateVoting | Secure Online Voting Platform</title>
+
+    <!-- Critical CSS for instant First Contentful Paint (FCP) -->
+    <style>
+      *,*::before,*::after{box-sizing:border-box}
+      html,body,#root{min-height:100%}
+      body{margin:0;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;background:#fbf8f0;color:#162019}
+    </style>
+
+    <!-- Schema.org Organization and WebSite Structured Data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://www.privatevoting.in/#organization",
+            "name": "PrivateVoting",
+            "url": "https://www.privatevoting.in",
+            "logo": {
+              "@type": "ImageObject",
+              "url": "https://www.privatevoting.in/logo-sm.png"
+            },
+            "contactPoint": {
+              "@type": "ContactPoint",
+              "telephone": "+919404360234",
+              "contactType": "customer service",
+              "email": "info@privatevoting.in",
+              "areaServed": "IN"
+            }
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://www.privatevoting.in/#website",
+            "url": "https://www.privatevoting.in",
+            "name": "PrivateVoting",
+            "publisher": {
+              "@id": "https://www.privatevoting.in/#organization"
+            }
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
-    <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
-
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
-
-      To begin the development, run `npm start` or `yarn start`.
-      To create a production bundle, use `npm run build` or `yarn build`.
-    -->
   </body>
 </html>

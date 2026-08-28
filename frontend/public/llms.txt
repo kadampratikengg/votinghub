@@ -1,29 +1,26 @@
-# PrivateVoting | Private Online Voting Platform
+# PrivateVoting
 
-PrivateVoting is a secure, auditable Private Online Voting platform providing Free Voting, School Voting, College Voting, and Live Voting for schools, educational institutions, housing societies, clubs, non-profits, and enterprises.
+> PrivateVoting is a secure, auditable Private Online Voting platform providing Free Voting, School Voting, College Voting, and Live Voting for schools, educational institutions, housing societies, non-profits, and enterprises across India and worldwide.
 
-## Priority Keywords & Focus
-- **Core Topics**: Private Voting, Online Voting, Voting, School Voting, Free Voting, College Voting, Collage Voting, Live Voting, Private, Free Online Voting, Live Online Voting, Digital Voting, School Online Voting, College Online Voting, Student Council Voting.
+## Core Pages
 
+- [Home](https://www.privatevoting.in/): Official homepage for Private Voting, School Voting, College Voting, and Live Online Voting.
+- [Features](https://www.privatevoting.in/features): Election setup, candidate management, voter verification, live monitoring, and automated result generation.
+- [Pricing](https://www.privatevoting.in/pricing): Flexible pricing tiers, free trial voting credits, and institutional packages.
+- [Security](https://www.privatevoting.in/security): End-to-end ballot confidentiality, encrypted counting, IP restrictions, and audit logs.
+- [FAQ](https://www.privatevoting.in/faq): Frequently asked questions about voter authentication, multi-ballot elections, and result certification.
+- [Contact & Demo](https://www.privatevoting.in/contact): Contact support, book an election demo, or plan an organization rollout.
+- [About Us](https://www.privatevoting.in/about-us): About PrivateVoting, election governance standards, and company information.
 
-## Target Personas & Use Cases
-- **Schools & Educational Institutions**: School Principals, Academic Coordinators, Teachers, and Faculty Election Officers conducting Student Council, Head Boy/Head Girl, House Captain, and Class Representative elections.
-- **Housing Societies & Communities**: Society Chairmen, Secretaries, Resident Welfare Associations (RWAs), and Cooperative Housing Societies (CHS) managing Annual General Meetings (AGMs) and Management Committee elections.
-- **Organizations & Enterprises**: Organization Administrators, Higher Authorities, Board of Directors, NGO Trustees, Trade Union Leaders, and Corporate Committees needing verified, tamper-proof voting.
+## Use Cases
 
-## Primary Capabilities
-- Anonymous ballots and encrypted vote tallying
-- Voter verification (ID, email, roll number, flat/unit number, or custom credentials)
-- Role-based sub-user delegation for polling officers, teachers, and committee members
-- Real-time election monitoring and live turn-out tracking
-- Automated result generation with downloadable PDF and Excel audit reports
-- IP-restriction and buffer time control for managed voting windows
+- [School & College Elections](https://www.privatevoting.in/features): Digital voting for School Principals, Coordinators, Head Boy/Head Girl, and student council elections.
+- [Housing Societies & RWAs](https://www.privatevoting.in/features): Controlled elections for Society Chairmen, Secretaries, and AGM committee votes.
+- [Corporate & Organization Voting](https://www.privatevoting.in/features): Board of Directors, committee resolutions, and member elections.
 
-## Key Pages
-- Homepage: https://www.privatevoting.in/
-- Features: https://www.privatevoting.in/features
-- Security & Compliance: https://www.privatevoting.in/security
-- Pricing & Plans: https://www.privatevoting.in/planspage
-- FAQ: https://www.privatevoting.in/faq
-- Contact & Demo: https://www.privatevoting.in/contact
+## Legal & Compliance
+
+- [Privacy Policy](https://www.privatevoting.in/privacy-policy): Voter privacy, ballot anonymization, and data security policies.
+- [Terms of Service](https://www.privatevoting.in/terms-of-service): Terms and acceptable use policies for election administrators.
+- [Cookie Policy](https://www.privatevoting.in/cookie-policy): Session handling and cookie management policies.
 

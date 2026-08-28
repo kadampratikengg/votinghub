@@ -205,40 +205,52 @@ const CreateAccountPage = () => {
           <div className='auth-form-section'>
             <h3>Voting Account Access</h3>
             <div className='auth-form-grid'>
-              <label className='auth-field'>
+              <label className='auth-field' htmlFor='ca-email'>
                 <span>
                   <FiMail /> Email
                 </span>
                 <input
+                  id='ca-email'
+                  name='email'
                   type='email'
+                  autoComplete='email'
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder='name@example.com'
                   required
+                  aria-required='true'
                 />
               </label>
-              <label className='auth-field'>
+              <label className='auth-field' htmlFor='ca-password'>
                 <span>
                   <FiLock /> Password
                 </span>
                 <input
+                  id='ca-password'
+                  name='password'
                   type='password'
+                  autoComplete='new-password'
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder='Minimum 8 characters'
                   required
+                  aria-required='true'
                 />
               </label>
-              <label className='auth-field'>
+              <label className='auth-field' htmlFor='ca-confirm-password'>
                 <span>
                   <FiLock /> Confirm Password
                 </span>
                 <input
+                  id='ca-confirm-password'
+                  name='confirmPassword'
                   type='password'
+                  autoComplete='new-password'
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder='Repeat password'
                   required
+                  aria-required='true'
                 />
               </label>
             </div>
@@ -249,102 +261,120 @@ const CreateAccountPage = () => {
           <div className='auth-form-section'>
             <h3>Voting Organization Details</h3>
             <div className='auth-form-grid'>
-              <label className='auth-field'>
+              <label className='auth-field' htmlFor='ca-name'>
                 <span>
                   <FiUser /> Full Name
                 </span>
                 <input
+                  id='ca-name'
                   type='text'
                   name='name'
+                  autoComplete='name'
                   value={userData.name}
                   onChange={handleInputChange}
                   required
+                  aria-required='true'
                 />
               </label>
-              <label className='auth-field'>
+              <label className='auth-field' htmlFor='ca-organization'>
                 <span>
                   <FiBriefcase /> Organization
                 </span>
                 <input
+                  id='ca-organization'
                   type='text'
                   name='organization'
+                  autoComplete='organization'
                   value={userData.organization}
                   onChange={handleInputChange}
                 />
               </label>
-              <label className='auth-field'>
+              <label className='auth-field' htmlFor='ca-contact'>
                 <span>
                   <FiMail /> Contact Email
                 </span>
                 <input
+                  id='ca-contact'
                   type='email'
                   name='contact'
+                  autoComplete='email'
                   value={userData.contact}
                   onChange={handleInputChange}
                 />
               </label>
-              <label className='auth-field'>
+              <label className='auth-field' htmlFor='ca-phone'>
                 <span>
                   <FiPhone /> Phone Number
                 </span>
                 <input
+                  id='ca-phone'
                   type='tel'
                   name='phone'
+                  autoComplete='tel'
                   value={userData.phone}
                   onChange={handleInputChange}
                 />
               </label>
-              <label className='auth-field auth-field--full'>
+              <label className='auth-field auth-field--full' htmlFor='ca-address'>
                 <span>
                   <FiMapPin /> Address
                 </span>
                 <input
+                  id='ca-address'
                   type='text'
                   name='address'
+                  autoComplete='street-address'
                   value={userData.address}
                   onChange={handleInputChange}
                 />
               </label>
-              <label className='auth-field'>
+              <label className='auth-field' htmlFor='ca-pincode'>
                 <span>
                   <FiHash /> Pincode
                 </span>
                 <input
+                  id='ca-pincode'
                   type='text'
                   name='pincode'
+                  autoComplete='postal-code'
                   value={userData.pincode}
                   onChange={handlePincodeChange}
                   maxLength='6'
                   inputMode='numeric'
                 />
               </label>
-              <label className='auth-field'>
+              <label className='auth-field' htmlFor='ca-district'>
                 <span>
                   <FiMapPin /> District
                 </span>
                 <input
+                  id='ca-district'
                   type='text'
                   name='district'
+                  autoComplete='address-level2'
                   value={userData.district}
                   disabled
                 />
               </label>
-              <label className='auth-field'>
+              <label className='auth-field' htmlFor='ca-state'>
                 <span>
                   <FiMapPin /> State
                 </span>
                 <input
+                  id='ca-state'
                   type='text'
                   name='state'
+                  autoComplete='address-level1'
                   value={userData.state}
                   disabled
                 />
               </label>
-              <label className='auth-field'>
+              <label className='auth-field' htmlFor='ca-gst'>
                 <span>
                   <FiHash /> GST Number
                 </span>
                 <input
+                  id='ca-gst'
                   type='text'
                   name='gstNumber'
                   value={userData.gstNumber}

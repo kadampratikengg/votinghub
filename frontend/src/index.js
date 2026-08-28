@@ -1,13 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client'; // Import createRoot from react-dom/client
 import './index.css';
-import './pages/App.css';
 import App from './App';
-
-// Get the root element
-const rootElement = document.getElementById('root');
-
-// Note: external scripts should be added in `public/index.html`.
 
 // Defensive fetch wrapper: when the app requests a protected event endpoint
 // without an Authorization token, try the public event endpoint instead.
@@ -58,6 +52,9 @@ const rootElement = document.getElementById('root');
     }
   };
 })();
+
+// Get the root element
+const rootElement = document.getElementById('root');
 
 // Use createRoot to render the app
 const root = ReactDOM.createRoot(rootElement);

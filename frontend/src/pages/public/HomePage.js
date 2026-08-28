@@ -24,7 +24,7 @@ import {
 } from '../../components/site/ContentBlocks';
 
 const heroImage =
-  'https://res.cloudinary.com/dcmtnkas/image/upload/f_auto,q_auto,w_800/v1787200598/hero.png';
+  'https://res.cloudinary.com/dcmtnkas/image/upload/f_auto,q_auto:good,w_600/v1787200598/hero.png';
 
 const featureItems = [
   {
@@ -248,11 +248,13 @@ const HomePage = () => {
             <img
               src={heroImage}
               srcSet='
-                https://res.cloudinary.com/dcmtnkas/image/upload/f_auto,q_auto,w_500/v1787200598/hero.png 500w,
-                https://res.cloudinary.com/dcmtnkas/image/upload/f_auto,q_auto,w_800/v1787200598/hero.png 800w,
-                https://res.cloudinary.com/dcmtnkas/image/upload/f_auto,q_auto,w_1100/v1787200598/hero.png 1100w
+                https://res.cloudinary.com/dcmtnkas/image/upload/f_auto,q_auto:good,w_320/v1787200598/hero.png 320w,
+                https://res.cloudinary.com/dcmtnkas/image/upload/f_auto,q_auto:good,w_480/v1787200598/hero.png 480w,
+                https://res.cloudinary.com/dcmtnkas/image/upload/f_auto,q_auto:good,w_600/v1787200598/hero.png 600w,
+                https://res.cloudinary.com/dcmtnkas/image/upload/f_auto,q_auto:good,w_900/v1787200598/hero.png 900w,
+                https://res.cloudinary.com/dcmtnkas/image/upload/f_auto,q_auto:good,w_1200/v1787200598/hero.png 1200w
               '
-              sizes='(max-width: 920px) 100vw, 588px'
+              sizes='(max-width: 640px) calc(100vw - 32px), (max-width: 920px) 45vw, 588px'
               alt='PrivateVoting secure digital voting platform preview'
               className='site-placeholder__image'
               width={588}

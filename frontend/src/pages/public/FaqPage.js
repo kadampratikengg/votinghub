@@ -8,7 +8,7 @@ import {
 } from '../../components/site/ContentBlocks';
 
 const faqImage =
-  'https://res.cloudinary.com/dcmtnkas/image/upload/v1787200598/FAQ.png';
+  'https://res.cloudinary.com/dcmtnkas/image/upload/f_auto,q_auto,w_800/v1787200598/FAQ.png';
 
 const items = [
   { question: 'What is PrivateVoting?', answer: 'PrivateVoting is a secure, cloud-based digital voting platform for school organizations, principals, teachers, housing societies, clubs, non-profits, and enterprises.' },
