@@ -47,8 +47,11 @@ select {
 }
 
 .site-container {
-  width: min(1200px, calc(100% - 32px));
+  width: 100%;
+  max-width: 100%;
+  padding: 0 clamp(12px, 2.5vw, 40px);
   margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .site-nav {
@@ -990,10 +993,6 @@ select {
 }
 
 @media (max-width: 720px) {
-  .site-container {
-    width: min(100% - 24px, 1200px);
-  }
-
   .site-trustbar,
   .site-grid--features,
   .site-grid--cases,
@@ -1012,11 +1011,8 @@ select {
   }
 }
 
-@media (max-width: 480px) {
-  .site-container {
-    width: min(100% - 16px, 1200px);
-  }
 
+@media (max-width: 480px) {
   .site-nav__inner {
     gap: 12px;
   }

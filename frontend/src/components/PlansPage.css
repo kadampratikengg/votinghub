@@ -7,7 +7,7 @@
   --plans-lime: #d7f06e;
   --plans-amber: #f4b44f;
   min-height: 100vh;
-  padding: clamp(18px, 4vw, 52px);
+  padding: clamp(18px, 4vw, 52px) 0;
   background:
     radial-gradient(
       circle at 12% 10%,
@@ -21,10 +21,18 @@
     ),
     linear-gradient(135deg, #f8f5ec 0%, #eef4e9 48%, #f7f1e2 100%);
   color: var(--plans-ink);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .plans-page,
 .plans-page * {
+  box-sizing: border-box;
+}
+
+.plans-inner {
+  width: 100%;
+  padding: 0 clamp(12px, 2.5vw, 40px);
   box-sizing: border-box;
 }
 
@@ -34,6 +42,7 @@
   gap: 24px;
   align-items: flex-end;
   max-width: 1220px;
+  width: 100%;
   margin: 0 auto 22px;
   padding: clamp(24px, 4vw, 42px);
   border-radius: 34px;
@@ -121,6 +130,7 @@
 
 .plans-container {
   max-width: 1220px;
+  width: 100%;
   margin: 0 auto;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -523,7 +533,8 @@
 
 @media (max-width: 720px) {
   .plans-page {
-    padding: 12px;
+    padding-top: 12px;
+    padding-bottom: 12px;
   }
 
   .plans-hero,

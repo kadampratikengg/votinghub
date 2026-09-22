@@ -87,201 +87,201 @@ const PlansPage = () => {
         canonicalPath='/pricing'
       />
       <div className='plans-page'>
-      <section className='plans-hero'>
-        <div>
-          <span className='plans-kicker'>
-            <FiShield /> Voting Credit Plans
-          </span>
-          <h1>Pay per voting Post, not per month.</h1>
-          <p>
-            Buy voting credits as needed. One credit creates one voting Post
-            with government-standard workflow support.
-          </p>
-        </div>
-        <div className='plans-free-card'>
-          <FiZap />
-          <strong>Flexible Credits</strong>
-          <span>Buy credits as needed: 1 credit = 1 voting Post.</span>
-        </div>
-      </section>
-
-      <section className='plans-container'>
-        {plans.map((plan) => {
-          const pricedPlan = buildPricedPlan(plan);
-          const pricePerVoting = pricedPlan.amount / pricedPlan.credits;
-
-          return (
-            <article
-              key={plan.id}
-              className={`plan-card ${plan.featured ? 'plan-card--featured' : ''}`}
-            >
-              <div className='plan-card__badge'>
-                {plan.featured ? <FiStar /> : <FiTrendingDown />}
-                {plan.badge}
-              </div>
-
-              <h2>{plan.name}</h2>
-              <p className='plan-credits'>{plan.credits} Voting Credits</p>
-              <p className='plan-description'>{plan.description}</p>
-
-              <div className='plan-price-box'>
-                <span className='plan-mrp'>MRP {formatCurrency(plan.mrp)}</span>
-                <strong>{formatCurrency(pricedPlan.amount)}</strong>
-                <span className='plan-discount'>
-                  Save {formatCurrency(pricedPlan.discount)} (
-                  {pricedPlan.discountPercent}% OFF)
-                </span>
-              </div>
-
-              <div className='plan-breakdown'>
-                <div>
-                  <span>Best price after discount</span>
-                  <strong>{formatCurrency(pricedPlan.amount)}</strong>
-                </div>
-                <div>
-                  <span>GST 18%</span>
-                  <strong>{formatCurrency(pricedPlan.gst)}</strong>
-                </div>
-                <div className='plan-breakdown__total'>
-                  <span>Total payable</span>
-                  <strong>{formatCurrency(pricedPlan.total)}</strong>
-                </div>
-                <div>
-                  <span>Effective per voting Post</span>
-                  <strong>{formatCurrency(pricePerVoting)}</strong>
-                </div>
-              </div>
-
-              <ul className='plan-features'>
-                <li>
-                  <FiCheckCircle /> 1 credit = 1 voting Post
-                </li>
-                <li>
-                  <FiCheckCircle /> Credits valid for 365 days
-                </li>
-                <li>
-                  <FiCheckCircle /> Suitable for compliant voting workflows
-                </li>
-              </ul>
-
-              <button
-                type='button'
-                className='plan-card__button'
-                onClick={() => handlePlanSelect(plan)}
-                disabled={loading}
-              >
-                {loading ? 'Processing...' : 'Choose Payment Method'}
-              </button>
-            </article>
-          );
-        })}
-      </section>
-
-      {selectedPlan && (
-        <div className='gateway-modal__backdrop' role='dialog' aria-modal='true'>
-          <section className='gateway-modal'>
-            <div className='gateway-modal__header'>
-              <div>
-                <p className='gateway-modal__eyebrow'>Select Gateway</p>
-                <h3>{selectedPlan.name}</h3>
-              </div>
-              <button
-                type='button'
-                className='gateway-modal__close'
-                onClick={() => setSelectedPlan(null)}
-                aria-label='Close payment gateway modal'
-                disabled={loading}
-              >
-                <FiX />
-              </button>
+        <div className='plans-inner'>
+          <section className='plans-hero'>
+            <div>
+              <span className='plans-kicker'>
+                <FiShield /> Voting Credit Plans
+              </span>
+              <h1>Pay per voting Post, not per month.</h1>
+              <p>
+                Buy voting credits as needed. One credit creates one voting Post
+                with government-standard workflow support.
+              </p>
             </div>
-
-            <div className='gateway-modal__price'>
-              <span>Total payable</span>
-              <strong>{formatCurrency(buildPricedPlan(selectedPlan).total)}</strong>
+            <div className='plans-free-card'>
+              <FiZap />
+              <strong>Flexible Credits</strong>
+              <span>Buy credits as needed: 1 credit = 1 voting Post.</span>
             </div>
-            <div className='gateway-modal__temporary'>
-  
-  <h4>Online Payment is Temporarily Unavailable</h4>
-
-  <p>
-    We are currently upgrading our payment gateway. To complete your
-    subscription, please contact us on WhatsApp. We'll share a secure
-    payment link and activate your plan immediately.
-  </p>
-
-  {(() => {
-    const waNumber = process.env.REACT_APP_WA_NUMBER || '';
-    const sanitized = waNumber.replace(/[^0-9]/g, '');
-
-    if (!sanitized) {
-      return null;
-    }
-
-    const plan = buildPricedPlan(selectedPlan);
-
-    const message = encodeURIComponent(
-      `Hello,\n\nI want to purchase the "${selectedPlan.name}" plan.\nTotal Amount: ${formatCurrency(
-        plan.total
-      )}\n\nPlease share the payment details.`
-    );
-
-    const waUrl = `https://wa.me/${sanitized}?text=${message}`;
-
-    return (
-      <a
-        href={waUrl}
-        target='_blank'
-        rel='noopener noreferrer'
-        className='gateway-modal__whatsapp-button'
-      >
-        <FaWhatsapp size={22} />
-        Contact on WhatsApp
-      </a>
-    );
-  })()}
-
-  <p className='gateway-modal__note'>
-    Sorry for the inconvenience. Online payment will be available again soon.
-  </p>
-</div>
           </section>
-          
+
+          <section className='plans-container'>
+            {plans.map((plan) => {
+              const pricedPlan = buildPricedPlan(plan);
+              const pricePerVoting = pricedPlan.amount / pricedPlan.credits;
+
+              return (
+                <article
+                  key={plan.id}
+                  className={`plan-card ${plan.featured ? 'plan-card--featured' : ''}`}
+                >
+                  <div className='plan-card__badge'>
+                    {plan.featured ? <FiStar /> : <FiTrendingDown />}
+                    {plan.badge}
+                  </div>
+
+                  <h2>{plan.name}</h2>
+                  <p className='plan-credits'>{plan.credits} Voting Credits</p>
+                  <p className='plan-description'>{plan.description}</p>
+
+                  <div className='plan-price-box'>
+                    <span className='plan-mrp'>MRP {formatCurrency(plan.mrp)}</span>
+                    <strong>{formatCurrency(pricedPlan.amount)}</strong>
+                    <span className='plan-discount'>
+                      Save {formatCurrency(pricedPlan.discount)} (
+                      {pricedPlan.discountPercent}% OFF)
+                    </span>
+                  </div>
+
+                  <div className='plan-breakdown'>
+                    <div>
+                      <span>Best price after discount</span>
+                      <strong>{formatCurrency(pricedPlan.amount)}</strong>
+                    </div>
+                    <div>
+                      <span>GST 18%</span>
+                      <strong>{formatCurrency(pricedPlan.gst)}</strong>
+                    </div>
+                    <div className='plan-breakdown__total'>
+                      <span>Total payable</span>
+                      <strong>{formatCurrency(pricedPlan.total)}</strong>
+                    </div>
+                    <div>
+                      <span>Effective per voting Post</span>
+                      <strong>{formatCurrency(pricePerVoting)}</strong>
+                    </div>
+                  </div>
+
+                  <ul className='plan-features'>
+                    <li>
+                      <FiCheckCircle /> 1 credit = 1 voting Post
+                    </li>
+                    <li>
+                      <FiCheckCircle /> Credits valid for 365 days
+                    </li>
+                    <li>
+                      <FiCheckCircle /> Suitable for compliant voting workflows
+                    </li>
+                  </ul>
+
+                  <button
+                    type='button'
+                    className='plan-card__button'
+                    onClick={() => handlePlanSelect(plan)}
+                    disabled={loading}
+                  >
+                    {loading ? 'Processing...' : 'Choose Payment Method'}
+                  </button>
+                </article>
+              );
+            })}
+          </section>
+
+          {errorMessage && <p className='plans-error'>{errorMessage}</p>}
         </div>
 
-      )}
+        {selectedPlan && (
+          <div className='gateway-modal__backdrop' role='dialog' aria-modal='true'>
+            <section className='gateway-modal'>
+              <div className='gateway-modal__header'>
+                <div>
+                  <p className='gateway-modal__eyebrow'>Select Gateway</p>
+                  <h3>{selectedPlan.name}</h3>
+                </div>
+                <button
+                  type='button'
+                  className='gateway-modal__close'
+                  onClick={() => setSelectedPlan(null)}
+                  aria-label='Close payment gateway modal'
+                  disabled={loading}
+                >
+                  <FiX />
+                </button>
+              </div>
 
-      {errorMessage && <p className='plans-error'>{errorMessage}</p>}
+              <div className='gateway-modal__price'>
+                <span>Total payable</span>
+                <strong>{formatCurrency(buildPricedPlan(selectedPlan).total)}</strong>
+              </div>
+              <div className='gateway-modal__temporary'>
 
-      {loading && (
-        <div className='gateway-loading-overlay'>
-          <div className='gateway-loading-card'>
-            <div className='gateway-loading-spinner' />
-            <strong>Opening payment gateway</strong>
-            <p>Wait while the checkout page loads.</p>
+                <h4>Online Payment is Temporarily Unavailable</h4>
+
+                <p>
+                  We are currently upgrading our payment gateway. To complete your
+                  subscription, please contact us on WhatsApp. We'll share a secure
+                  payment link and activate your plan immediately.
+                </p>
+
+                {(() => {
+                  const waNumber = process.env.REACT_APP_WA_NUMBER || '';
+                  const sanitized = waNumber.replace(/[^0-9]/g, '');
+
+                  if (!sanitized) {
+                    return null;
+                  }
+
+                  const plan = buildPricedPlan(selectedPlan);
+
+                  const message = encodeURIComponent(
+                    `Hello,\n\nI want to purchase the "${selectedPlan.name}" plan.\nTotal Amount: ${formatCurrency(
+                      plan.total
+                    )}\n\nPlease share the payment details.`
+                  );
+
+                  const waUrl = `https://wa.me/${sanitized}?text=${message}`;
+
+                  return (
+                    <a
+                      href={waUrl}
+                      target='_blank'
+                      rel='noopener noreferrer'
+                      className='gateway-modal__whatsapp-button'
+                    >
+                      <FaWhatsapp size={22} />
+                      Contact on WhatsApp
+                    </a>
+                  );
+                })()}
+
+                <p className='gateway-modal__note'>
+                  Sorry for the inconvenience. Online payment will be available again soon.
+                </p>
+              </div>
+            </section>
           </div>
-        </div>
-      )}
+        )}
 
-      {(() => {
-        const waNumber = process.env.REACT_APP_WA_NUMBER || '';
-        const sanitized = waNumber.replace(/[^0-9]/g, '');
-        if (!sanitized) {
-          return null;
-        }
-        const waUrl = `https://wa.me/${sanitized}`;
-        return (
-          <a
-            href={waUrl}
-            target='_blank'
-            rel='noopener noreferrer'
-            aria-label='Contact on WhatsApp'
-            className='whatsapp-float-button'
-          >
-            <FaWhatsapp size={24} />
-          </a>
-        );
-      })()}
+        {loading && (
+          <div className='gateway-loading-overlay'>
+            <div className='gateway-loading-card'>
+              <div className='gateway-loading-spinner' />
+              <strong>Opening payment gateway</strong>
+              <p>Wait while the checkout page loads.</p>
+            </div>
+          </div>
+        )}
+
+        {(() => {
+          const waNumber = process.env.REACT_APP_WA_NUMBER || '';
+          const sanitized = waNumber.replace(/[^0-9]/g, '');
+          if (!sanitized) {
+            return null;
+          }
+          const waUrl = `https://wa.me/${sanitized}`;
+          return (
+            <a
+              href={waUrl}
+              target='_blank'
+              rel='noopener noreferrer'
+              aria-label='Contact on WhatsApp'
+              className='whatsapp-float-button'
+            >
+              <FaWhatsapp size={24} />
+            </a>
+          );
+        })()}
       </div>
     </PublicLayout>
   );

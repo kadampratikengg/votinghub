@@ -12,7 +12,7 @@
 
 .static-page__shell {
   width: 100%;
-  max-width: 1200px;
+  max-width: 100%;
   margin: 0 auto;
   min-height: calc(100svh - clamp(32px, 6vw, 112px));
   display: grid;
@@ -21,7 +21,7 @@
 
 .static-page__panel {
   position: relative;
-  width: min(100%, 960px);
+  width: 100%;
   padding: clamp(22px, 4vw, 44px);
   border: 1px solid rgba(255, 255, 255, 0.8);
   border-radius: clamp(20px, 3vw, 28px);
@@ -29,6 +29,7 @@
   box-shadow: 0 18px 48px rgba(37, 48, 35, 0.12);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  box-sizing: border-box;
 }
 
 .static-page__panel::before {
@@ -92,14 +93,14 @@
   margin: 14px 0 0;
   font-size: clamp(15px, 1.6vw, 16px);
   line-height: 1.75;
-  color: #5f665d;
+  color: #17211a;
 }
 
 .static-page__panel ul,
 .static-page__panel ol {
   padding-left: 24px;
   margin: 1rem 0;
-  color: #5f665d;
+  color: #17211a;
   line-height: 1.75;
 }
 
