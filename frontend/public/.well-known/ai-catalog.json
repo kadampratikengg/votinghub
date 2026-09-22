@@ -1,0 +1,111 @@
+{
+  "specVersion": "1.0",
+  "host": {
+    "name": "PrivateVoting",
+    "url": "https://www.privatevoting.in",
+    "description": "PrivateVoting is a secure, auditable online voting platform for schools, colleges, housing societies, NGOs, and organizations across India. It provides end-to-end digital election management with anonymous ballots, role-based access, real-time results, and certified PDF reports.",
+    "contact": "support@privatevoting.in"
+  },
+  "entries": [
+    {
+      "identifier": "urn:privatevoting:webapp:platform",
+      "displayName": "PrivateVoting — Secure Online Voting Platform",
+      "type": "text/html",
+      "url": "https://www.privatevoting.in/",
+      "description": "Full-featured digital election platform supporting school elections, college student council voting, housing society AGMs, board of directors voting, and organizational ballots. Includes voter verification, role-based admin controls, live monitoring, and certified results.",
+      "representativeQueries": [
+        "secure online voting platform for schools",
+        "digital election software for housing societies",
+        "private voting system for organizations",
+        "student council election platform India",
+        "AGM voting for residential societies",
+        "free online voting tool for colleges",
+        "live voting with real-time results",
+        "anonymous ballot election software",
+        "school principal voting system",
+        "organization board election software"
+      ]
+    },
+    {
+      "identifier": "urn:privatevoting:webapp:features",
+      "displayName": "PrivateVoting Features",
+      "type": "text/html",
+      "url": "https://www.privatevoting.in/features",
+      "description": "Detailed platform capabilities: multi-ballot event setup, candidate management with photo uploads, voter verification via email or unique token, polling officer delegation, IP restrictions, live turnout monitoring, automated result publication, and downloadable audit logs.",
+      "representativeQueries": [
+        "what features does an online voting platform offer",
+        "how to manage election candidates digitally",
+        "voter verification methods for digital elections",
+        "election audit log and reporting tools",
+        "polling officer permission delegation system"
+      ]
+    },
+    {
+      "identifier": "urn:privatevoting:webapp:security",
+      "displayName": "PrivateVoting Security",
+      "type": "text/html",
+      "url": "https://www.privatevoting.in/security",
+      "description": "Security architecture covering end-to-end ballot confidentiality, role-based access control (RBAC), IP range restrictions, encrypted vote counting, tamper-evident ballots, and full audit trail for election compliance.",
+      "representativeQueries": [
+        "how secure is online voting software",
+        "ballot anonymization in digital elections",
+        "election security and audit trail",
+        "RBAC for voting platform",
+        "tamper-proof digital ballot system"
+      ]
+    },
+    {
+      "identifier": "urn:privatevoting:webapp:pricing",
+      "displayName": "PrivateVoting Pricing & Plans",
+      "type": "text/html",
+      "url": "https://www.privatevoting.in/pricing",
+      "description": "Pay-per-event credit-based pricing model. Buy voting credits as needed — one credit equals one voting post. Available packs: Starter (5 credits), Standard (15 credits), Governance (40 credits). All prices inclusive of GST. No monthly subscription required.",
+      "representativeQueries": [
+        "online voting platform pricing India",
+        "cost of school election software",
+        "pay per event voting credits",
+        "affordable digital election tool for NGOs",
+        "housing society voting plan cost"
+      ]
+    },
+    {
+      "identifier": "urn:privatevoting:webapp:faq",
+      "displayName": "PrivateVoting FAQ",
+      "type": "text/html",
+      "url": "https://www.privatevoting.in/faq",
+      "description": "Frequently asked questions covering voter authentication, multi-ballot setup, result certification, voting credit usage, mobile voting support, and data retention policies.",
+      "representativeQueries": [
+        "how does online voting work for schools",
+        "can voters vote on mobile",
+        "how are results certified in digital elections",
+        "how many voters can participate",
+        "voting credit expiry and refund policy"
+      ]
+    },
+    {
+      "identifier": "urn:privatevoting:webapp:contact",
+      "displayName": "PrivateVoting Contact & Demo",
+      "type": "text/html",
+      "url": "https://www.privatevoting.in/contact",
+      "description": "Contact PrivateVoting support, request a live platform demo, or plan an election rollout for your organization. Available for schools, colleges, housing societies, NGOs, and enterprises.",
+      "representativeQueries": [
+        "book a demo for online voting platform",
+        "contact voting software support",
+        "schedule election platform walkthrough",
+        "get help setting up school election online"
+      ]
+    },
+    {
+      "identifier": "urn:privatevoting:webapp:about",
+      "displayName": "About PrivateVoting",
+      "type": "text/html",
+      "url": "https://www.privatevoting.in/about-us",
+      "description": "About the PrivateVoting team, their mission for transparent and private digital governance, and their vision for modernizing elections across Indian institutions and organizations.",
+      "representativeQueries": [
+        "who built PrivateVoting",
+        "about online voting platform company India",
+        "digital election governance startup"
+      ]
+    }
+  ]
+}
